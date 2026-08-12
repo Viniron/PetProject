@@ -1,0 +1,21 @@
+# Зависимости
+node_modules/
+
+# Сборка
+dist/
+build/
+
+# Секреты и переменные окружения
+.env
+.env.local
+
+# Логи
+*.log
+
+# Служебные файлы ОС и редактора
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+
+# Кэш
+.cache/
