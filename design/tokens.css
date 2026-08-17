@@ -1,0 +1,208 @@
+/* ==========================================================================
+   JARVIS — токены оформления
+   Утверждено owner на этапе 0: две темы.
+     светлая — вариант A (openai.com, белое, чёрный акцент)
+     тёмная  — вариант C (та же система на тёмной базе)
+
+   Правило: цвета и размеры берутся ТОЛЬКО отсюда. Значение, прописанное
+   в макете мимо переменной, — ошибка: стиль перестаёт быть системным.
+
+   Переключение темы:
+     <html data-theme="light">  — принудительно светлая
+     <html data-theme="dark">   — принудительно тёмная
+     без атрибута               — по настройке системы
+   ========================================================================== */
+
+/* --- Светлая тема: вариант A ---------------------------------------------
+   База по умолчанию. Определена на голом :root, поэтому существует всегда;
+   тёмная лишь переопределяет цвета поверх.                                  */
+:root {
+  /* Поверхности */
+  --bg:            #ffffff;   /* фон страницы */
+  --surface:       #ffffff;   /* карточки, капсула */
+  --surface-2:     #f7f7f8;   /* утопленные зоны: полосы, пустые состояния */
+
+  /* Границы — основной инструмент разделения. Теней в светлой теме нет */
+  --border:        #e5e5e5;
+  --border-strong: #d0d0d0;   /* акцентированная граница: пунктир давности */
+
+  /* Текст */
+  --text:          #0d0d0d;
+  --text-muted:    #6e6e80;   /* подписи, метаданные */
+  --text-faint:    #a0a0ab;   /* заголовки разделов, заблокированное */
+
+  /* Акцент. Единственный на экране — см. SPEC §8.2 */
+  --accent:        #0d0d0d;
+  --accent-text:   #ffffff;   /* текст на заливке акцентом */
+  --accent-soft:   #f0f0f0;   /* мягкая подложка: контекстная кнопка */
+
+  --shadow:        none;
+}
+
+/* --- Тёмная тема: вариант C ----------------------------------------------
+   Переопределяются только цвета. Геометрия и типографика общие.
+   Два блока с одинаковым телом: media — для системной настройки,
+   [data-theme] — чтобы явный выбор побеждал систему в обе стороны.          */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:            #171717;
+    --surface:       #212121;
+    --surface-2:     #2a2a2a;
+    --border:        #333333;
+    --border-strong: #454545;
+    --text:          #ececec;
+    --text-muted:    #9b9b9b;
+    --text-faint:    #6e6e6e;
+    --accent:        #ececec;
+    --accent-text:   #171717;
+    --accent-soft:   #2f2f2f;
+    --shadow:        none;
+  }
+}
+
+/* Селектор без :root — иначе тема применима только к <html>, и её нельзя
+   включить на фрагменте страницы. Это нужно и продукту (предпросмотр темы
+   в настройках), и макетам сравнения, где обе темы стоят рядом. */
+[data-theme="dark"] {
+  --bg:            #171717;
+  --surface:       #212121;
+  --surface-2:     #2a2a2a;
+  --border:        #333333;
+  --border-strong: #454545;
+  --text:          #ececec;
+  --text-muted:    #9b9b9b;
+  --text-faint:    #6e6e6e;
+  --accent:        #ececec;
+  --accent-text:   #171717;
+  --accent-soft:   #2f2f2f;
+  --shadow:        none;
+}
+
+/* Симметрично: светлая тема, включённая явно на фрагменте, обязана
+   победить системную тёмную настройку. */
+[data-theme="light"] {
+  --bg:            #ffffff;
+  --surface:       #ffffff;
+  --surface-2:     #f7f7f8;
+  --border:        #e5e5e5;
+  --border-strong: #d0d0d0;
+  --text:          #0d0d0d;
+  --text-muted:    #6e6e80;
+  --text-faint:    #a0a0ab;
+  --accent:        #0d0d0d;
+  --accent-text:   #ffffff;
+  --accent-soft:   #f0f0f0;
+  --shadow:        none;
+}
+
+/* --- Геометрия. Общая для тем -------------------------------------------- */
+:root {
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --radius-pill: 999px;   /* только для кнопок и круглых узлов змейки */
+
+  /* Шаг сетки — 4px. Магические числа в макетах брать отсюда */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+}
+
+/* --- Типографика ---------------------------------------------------------
+   Системный гротеск. Söhne (шрифт OpenAI) — проприетарный, не подключаем:
+   макеты обязаны открываться без сети. Segoe UI на Windows даёт близкий
+   рисунок.                                                                  */
+:root {
+  --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+  --fs-hero:  26px;   /* заголовок экрана */
+  --fs-h1:    21px;
+  --fs-h2:    15px;   /* заголовок карточки */
+  --fs-body:  14px;
+  --fs-sm:    13px;   /* метаданные */
+  --fs-xs:  11.5px;   /* подписи вкладок, заголовки разделов */
+
+  --lh-tight: 1.25;
+  --lh-body:  1.6;
+}
+
+/* --- База документа ------------------------------------------------------ */
+* { box-sizing: border-box; }
+
+html { color-scheme: light dark; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   Компоненты, общие для всех экранов.
+   Появляются здесь по мере утверждения этапов.
+   ========================================================================== */
+
+/* --- Пометка «данные вымышленные» ----------------------------------------
+   Обязательна на каждом макете, пока нет реального API. SPEC §10 запрещает
+   выдавать выдуманное за настоящее — пометка и есть исполнение запрета.     */
+.fiction-note {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+/* --- Полоса давности данных — SPEC §10 -----------------------------------
+   «Показать то, что есть, и явно подписать давность».                       */
+.stale-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 9px var(--space-3);
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.stale-bar::before { content: "◷"; }
+
+/* --- Кнопки -------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 15px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  font: 500 var(--fs-sm)/1.2 var(--font);
+  cursor: pointer;
+}
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* --- Карточка ------------------------------------------------------------ */
+.card {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}

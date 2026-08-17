@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 0 — две темы · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Каркас страницы сравнения. Продуктовые стили — в tokens.css.
+   Здесь только то, что нужно, чтобы показать две темы рядом. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 24px; max-width: 1360px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0; max-width: 64ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 16px; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+        padding: 0 32px 56px; max-width: 1360px; margin: 0 auto; }
+@media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 12px 16px; background: #fff;
+              border-bottom: 1px solid #d4d4d8; font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 14px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; }
+
+/* Тема применяется к обёртке: data-theme работает на любом предке */
+.screen { display: flex; gap: 18px; padding: 20px; min-height: 660px;
+          background: var(--bg); color: var(--text); }
+
+/* --- Капсула-таббар: вертикальная, слева — SPEC §8.1 ---------------------
+   Радиус подложки умеренный, не pill: на этапе 0 подпись «Календарь»
+   не помещалась в круг и вылезала за края.                                 */
+.rail { display: flex; flex-direction: column; gap: var(--space-1);
+        padding: var(--space-2); background: var(--surface);
+        border: 1px solid var(--border); border-radius: var(--radius-lg);
+        box-shadow: var(--shadow); align-self: flex-start; }
+.rail-item { width: 76px; padding: 10px 6px 8px; border-radius: var(--radius);
+             text-align: center; color: var(--text-muted); }
+.rail-item.is-active { background: var(--accent); color: var(--accent-text); }
+.rail-icon { font-size: 17px; line-height: 1; }
+.rail-text { margin-top: 5px; font-size: var(--fs-xs); }
+.rail-sep  { height: 1px; margin: var(--space-2) 10px; background: var(--border); }
+.rail-fab  { width: 76px; height: 44px; border-radius: var(--radius);
+             background: var(--accent-soft); color: var(--text);
+             display: grid; place-items: center; font-size: 18px; }
+
+.content { flex: 1; min-width: 0; }
+.h1  { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.015em; }
+.sub { font-size: var(--fs-sm); color: var(--text-muted); margin: 2px 0 var(--space-4); }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr);
+         gap: 10px; margin: var(--space-4) 0; }
+.stat { padding: var(--space-3); border-radius: var(--radius);
+        background: var(--surface); border: 1px solid var(--border);
+        box-shadow: var(--shadow); }
+.stat-num { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.stat-num i { font-style: normal; font-size: 13px; color: var(--text-muted); }
+.stat-cap { margin-top: 3px; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.card-top { display: flex; justify-content: space-between;
+            align-items: baseline; gap: 12px; margin-bottom: var(--space-3); }
+.card-title { font-size: var(--fs-h2); font-weight: 600; }
+.card-meta  { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.bar { height: 6px; border-radius: 999px; background: var(--surface-2);
+       border: 1px solid var(--border); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 38%; background: var(--accent); }
+.btn-row { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+
+/* --- Змейка — SPEC §8.2, offset_x(i) = A·sin(2πi/6), A ≈ 25% ------------- */
+.snake-head { margin: var(--space-5) 0 var(--space-3); font-size: var(--fs-xs);
+              text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); }
+.snake { position: relative; height: 250px; }
+.node { position: absolute; width: 46px; height: 46px; border-radius: var(--radius-pill);
+        display: grid; place-items: center; font-size: 15px;
+        border: 1px solid var(--border); background: var(--surface);
+        color: var(--text-muted); box-shadow: var(--shadow); }
+.node--done   { background: var(--surface-2); color: var(--text-faint); }
+.node--locked { background: var(--surface-2); color: var(--text-faint); opacity: .55; }
+.node--check  { border-radius: var(--radius); border-style: dashed;
+                border-color: var(--border-strong); }
+.node--active { width: 54px; height: 54px; font-size: 17px;
+                background: var(--accent); color: var(--accent-text);
+                border-color: var(--accent); }
+.node-tip { position: absolute; left: 50%; top: 60px; transform: translateX(-50%);
+            white-space: nowrap; font-size: 11px; color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 0 — две темы</h1>
+  <p>
+    Утверждено: светлая тема — вариант <b>A</b> (openai.com), тёмная — вариант <b>C</b>.
+    Обе живут в одном <code>tokens.css</code>: светлая на голом <code>:root</code>,
+    тёмная переопределяет только цвета. Геометрия, отступы и типографика общие —
+    поэтому темы не могут разъехаться.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Данные вымышленные — расписание, темы и минуты придуманы для показа вёрстки.</span></div>
+</div>
+
+<div class="grid">
+
+  <!-- ------------------------------ СВЕТЛАЯ ------------------------------ -->
+  <section class="pane">
+    <div class="pane-label"><b>Светлая — вариант A</b><span>data-theme="light"</span></div>
+    <div class="screen" data-theme="light">
+      <nav class="rail">
+        <div class="rail-item is-active"><div class="rail-icon">▦</div><div class="rail-text">Календарь</div></div>
+        <div class="rail-item"><div class="rail-icon">▤</div><div class="rail-text">Английский</div></div>
+        <div class="rail-item"><div class="rail-icon">▥</div><div class="rail-text">Матанализ</div></div>
+        <div class="rail-sep"></div>
+        <div class="rail-fab">＋</div>
+      </nav>
+      <div class="content">
+        <div class="h1">Английский</div>
+        <div class="sub">Вторник, 18 августа</div>
+        <div class="stale-bar">Расписание от 15 августа — портал не отвечает</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-num">28<i>/45</i></div><div class="stat-cap">минут сегодня</div></div>
+          <div class="stat"><div class="stat-num">38%</div><div class="stat-cap">курс пройден</div></div>
+          <div class="stat"><div class="stat-num">3</div><div class="stat-cap">дня отставания</div></div>
+        </div>
+        <div class="card">
+          <div class="card-top">
+            <div class="card-title">Present Perfect vs Past Simple</div>
+            <div class="card-meta">15 из 45 мин</div>
+          </div>
+          <div class="bar"><i></i></div>
+          <div class="btn-row">
+            <button class="btn">Продолжить занятие</button>
+            <button class="btn btn--ghost">Материалы</button>
+          </div>
+        </div>
+        <div class="snake-head">Unit 4 · Времена</div>
+        <div class="snake">
+          <div class="node node--done"   style="left:calc(50% - 23px);       top:0">✓</div>
+          <div class="node node--done"   style="left:calc(50% - 23px + 21%); top:56px">✓</div>
+          <div class="node node--active" style="left:calc(50% - 27px + 21%); top:112px">▶<div class="node-tip">Present Perfect</div></div>
+          <div class="node node--locked" style="left:calc(50% - 23px);       top:188px">▦</div>
+          <div class="node node--check node--locked" style="left:calc(50% - 23px - 21%); top:188px">◆</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------- ТЁМНАЯ ------------------------------ -->
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная — вариант C</b><span>data-theme="dark"</span></div>
+    <div class="screen" data-theme="dark">
+      <nav class="rail">
+        <div class="rail-item is-active"><div class="rail-icon">▦</div><div class="rail-text">Календарь</div></div>
+        <div class="rail-item"><div class="rail-icon">▤</div><div class="rail-text">Английский</div></div>
+        <div class="rail-item"><div class="rail-icon">▥</div><div class="rail-text">Матанализ</div></div>
+        <div class="rail-sep"></div>
+        <div class="rail-fab">＋</div>
+      </nav>
+      <div class="content">
+        <div class="h1">Английский</div>
+        <div class="sub">Вторник, 18 августа</div>
+        <div class="stale-bar">Расписание от 15 августа — портал не отвечает</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-num">28<i>/45</i></div><div class="stat-cap">минут сегодня</div></div>
+          <div class="stat"><div class="stat-num">38%</div><div class="stat-cap">курс пройден</div></div>
+          <div class="stat"><div class="stat-num">3</div><div class="stat-cap">дня отставания</div></div>
+        </div>
+        <div class="card">
+          <div class="card-top">
+            <div class="card-title">Present Perfect vs Past Simple</div>
+            <div class="card-meta">15 из 45 мин</div>
+          </div>
+          <div class="bar"><i></i></div>
+          <div class="btn-row">
+            <button class="btn">Продолжить занятие</button>
+            <button class="btn btn--ghost">Материалы</button>
+          </div>
+        </div>
+        <div class="snake-head">Unit 4 · Времена</div>
+        <div class="snake">
+          <div class="node node--done"   style="left:calc(50% - 23px);       top:0">✓</div>
+          <div class="node node--done"   style="left:calc(50% - 23px + 21%); top:56px">✓</div>
+          <div class="node node--active" style="left:calc(50% - 27px + 21%); top:112px">▶<div class="node-tip">Present Perfect</div></div>
+          <div class="node node--locked" style="left:calc(50% - 23px);       top:188px">▦</div>
+          <div class="node node--check node--locked" style="left:calc(50% - 23px - 21%); top:188px">◆</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

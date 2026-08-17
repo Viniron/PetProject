@@ -19,3 +19,7 @@ build/
 
 # Кэш
 .cache/
+
+# Снимки экрана и служебные файлы Playwright при проверке макетов
+tmp/
+.playwright-mcp/
