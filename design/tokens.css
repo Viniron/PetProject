@@ -544,3 +544,108 @@ body {
 .cal--day .cal-ev { padding: 2px 8px; line-height: 1.25; }
 .cal--day .cal-ev-time { display: flex; align-items: center; gap: var(--space-2); }
 .cal--day .cal-ev-time .cal-flag { margin-top: 0; }
+
+/* --- Захват события — SPEC §2, §8.4 --------------------------------------
+   Утверждено owner на этапе 3. Один экран, два состояния: создание
+   черновика из захвата (есть цитата исходника, нет «Удалить») и правка
+   существующего события (наоборот). Различаются данные, не форма. */
+
+/* Затемнение позади модалки. Сплошной чёрный с прозрачностью — сознательное
+   исключение из правила «цвета только из токена»: скрим не часть контента
+   экрана, а часть его обрамления, и обязан гасить фон одинаково в обеих
+   темах, а не быть частью палитры, которая между ними меняется. */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45);
+         display: flex; align-items: flex-start; justify-content: center;
+         padding: 56px var(--space-5); }
+
+.capture { width: 100%; max-width: 440px; background: var(--surface);
+           border: 1px solid var(--border); border-radius: var(--radius-lg);
+           box-shadow: var(--shadow); overflow: hidden; color: var(--text); }
+
+.capture-head { display: flex; align-items: flex-start; justify-content: space-between;
+                gap: var(--space-3); padding: var(--space-4) var(--space-4) var(--space-3);
+                border-bottom: 1px solid var(--border); }
+.capture-head h3 { margin: 0; font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.01em; }
+.capture-head p { margin: 3px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.capture-close { border: 0; background: none; color: var(--text-muted); font-size: 15px;
+                 line-height: 1; cursor: pointer; padding: 4px; }
+.capture-close:hover { color: var(--text); }
+
+.capture-body { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* Цитата исходника — то, что реально пришло на вход модели. Без неё
+   пользователь сверяет извлечённые поля с воздухом: доверять форме, не видя,
+   из чего она получена, — то же самое доверие вслепую, которое §10 запрещает
+   для любой другой деградации. Есть только у черновика, не у правки. */
+.source-quote { display: flex; gap: 7px; padding: var(--space-3);
+                border-radius: var(--radius); background: var(--surface-2);
+                border: 1px solid var(--border); font-size: var(--fs-sm);
+                color: var(--text-muted); line-height: 1.5; }
+.source-quote b { color: var(--text); font-weight: 600; }
+.source-quote::before { content: "“"; font-size: 22px; line-height: .9; color: var(--text-faint); }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .01em;
+                color: var(--text-muted); text-transform: uppercase; }
+.field-row { display: flex; gap: var(--space-3); }
+.field-row .field { flex: 1; min-width: 0; }
+
+.field-input { width: 100%; padding: 9px var(--space-3); border: 1px solid var(--border-strong);
+                border-radius: var(--radius); background: var(--bg); color: var(--text);
+                font: inherit; font-size: var(--fs-body); }
+.field-input::placeholder { color: var(--text-faint); }
+textarea.field-input { min-height: 76px; resize: vertical; font-family: inherit; }
+
+/* Поле, которое модель не смогла заполнить уверенно — SPEC §2 «низкая
+   уверенность или нет даты → спросить, не угадывать». Пунктир — тот же знак
+   «не факт», что у черновика в календаре и у полосы давности (§10): одно
+   правило пунктира на весь продукт, не отдельный цвет для отдельного смысла.
+   Уверенность оценивается по полю, а не по всей записи — соседнее поле может
+   остаться без пометки, если модель уверена именно в нём. */
+.field--warn .field-input { border-style: dashed; }
+.field-hint { display: flex; align-items: flex-start; gap: 6px; font-size: 12px;
+              color: var(--text-muted); line-height: 1.4; }
+.field-hint::before { content: "?"; flex: 0 0 auto; display: inline-flex; align-items: center;
+                       justify-content: center; width: 14px; height: 14px; margin-top: 1px;
+                       border: 1px solid var(--text-muted); border-radius: var(--radius-pill);
+                       font-size: 10px; line-height: 1; }
+
+.capture-foot { display: flex; align-items: center; justify-content: space-between;
+                 gap: var(--space-3); padding: var(--space-3) var(--space-4);
+                 border-top: 1px solid var(--border); }
+.capture-foot-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.capture-block-hint { font-size: 12px; color: var(--text-muted); text-align: right; }
+
+/* Кнопка недоступна, пока не заполнено обязательное поле — блокирует запись
+   «наугад» до того, как она случится, а не текстом ошибки постфактум. */
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* Зона фото. Пунктир здесь для другого — это ожидание файла, а не «не факт» —
+   но тот же приём (граница вместо заливки) держит зону лёгкой на любой теме. */
+.drop { display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 6px; padding: var(--space-6) var(--space-4); border-radius: var(--radius);
+        border: 1px dashed var(--border-strong); background: var(--surface-2);
+        color: var(--text-muted); font-size: var(--fs-sm); text-align: center; }
+.drop-icon { font-size: 22px; color: var(--text-faint); }
+
+/* Кнопка записи голоса. Показана в состоянии покоя: анимация самой записи —
+   деталь реализации, а не решение макета. */
+.rec-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+           width: 100%; padding: var(--space-3); border-radius: var(--radius-pill);
+           border: 1px solid var(--border-strong); background: var(--surface-2);
+           color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.rec-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); }
+
+/* Модификатор .seg--flat — правка по просьбе owner: при переключении
+   Текст/Фото/Голос фон не должен «прыгать» между кнопками, меняться должен
+   только текст. Базовый .seg (переключатель День/Неделя, этап 2) заливку
+   акцентом сохраняет как есть — расхождение сознательное и распространяется
+   только на применения с этим модификатором. Активный пункт держится не
+   заливкой, а весом и цветом текста; фон кнопки не меняется ни в одном
+   состоянии. */
+.seg--flat button { color: var(--text-muted); font-weight: 400; }
+.seg--flat button.is-active { background: none; color: var(--text); font-weight: 600; }
+.seg--flat:hover button { color: var(--text-faint); }
+.seg--flat:hover button.is-active { color: var(--text-muted); font-weight: 600; }
+.seg--flat:hover button:hover { color: var(--text); }
+.seg--flat:hover button.is-active:hover { color: var(--text); }

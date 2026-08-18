@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 3 — захват события · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета. Продуктовые стили — ниже, в блоке «захват».
+   Здесь только обрамление: заголовки, панели, подписи к состояниям. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 78ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 78ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+.pad { padding: var(--space-5); background: var(--bg); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Компоненты захвата (.scrim, .capture и дочерние, .source-quote, .field*,
+   .capture-foot*, .drop*, .rec-btn/.rec-dot, .seg--flat, .btn[disabled])
+   утверждены owner на этапе 3 и переехали в tokens.css — как компоненты
+   этапов 1, 2 и 2b до них. Здесь остаётся только то, что не компонент
+   продукта, а деталь именно этой страницы разбора. */
+
+/* В продукте .scrim — position: fixed на весь экран. В панели разбора это
+   разнесло бы затемнение по всему окну браузера вместо рамки макета —
+   контейнеризация здесь только ради показа. */
+.pane .scrim, .pad .scrim { position: absolute; border-radius: inherit; }
+
+/* Ghost-заглушка «текущего экрана» позади скрима. Не календарь этапа 2 —
+   его вёрстку здесь незачем повторять, она утверждена отдельно. Это просто
+   контур, доказывающий, что модалка стоит НАД чем-то, а не на пустом месте. */
+.ghost-screen { margin-top: var(--space-5); height: 420px; border-radius: var(--radius-lg);
+                border: 1px solid var(--border); background: var(--surface-2); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 3 — захват события</h1>
+  <p>
+    Кнопка контекстного действия на календаре («Event» в капсуле) открывает
+    захват: текст, фото, голос → модель извлекает структуру → черновик →
+    <b>подтверждение</b> → запись (<code>CLAUDE.md</code>, инвариант захвата;
+    <code>SPEC.md</code> §2, §8.4). Без подтверждения ничего не пишется, кроме
+    автонапоминаний о занятиях курсов — это отдельный, уже принятый механизм,
+    к захвату не относится.
+  </p>
+  <p>
+    <b>Рамка, зафиксированная до начала (см. <code>PROGRESS.md</code>):</b>
+    создание черновика и правка существующего события — один экран в двух
+    состояниях, а не два макета. Отличается только источник данных: у
+    черновика есть цитата исходника, у правки — нет. Смотреть здесь нужно
+    именно на это и на то, как форма ведёт себя, когда модель <b>не уверена</b>
+    или <b>не нашла дату</b>: спрашивает, а не подставляет.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Данные вымышленные — тексты захвата и событие «Стоматолог» (из этапа 2b) придуманы для показа вёрстки.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · Точка входа и ввод текста</h2>
+  <p>
+    Форма — не отдельная страница, а слой поверх текущего экрана: затемнение
+    гасит всё, что было под ним, капсула остаётся видна на своём месте.
+    Переключатель «Текст / Фото / Голос» — тот же компонент <code>.seg</code>,
+    что у переключателя «День/Неделя» на календаре (этап 2): одна деталь,
+    новое применение.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая</b><span>data-theme="light" · режим «Текст»</span></div>
+  <div class="app" data-theme="light" style="position: relative">
+    <nav class="rail">
+      <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">Calendar</div>
+      <div class="screen-sub">Wednesday, 14 October</div>
+      <div class="ghost-screen"></div>
+    </div>
+
+    <div class="scrim">
+      <div class="capture">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button class="is-active">Текст</button><button>Фото</button><button>Голос</button>
+          </div>
+          <div class="field">
+            <label class="field-label">Что вставили или написали</label>
+            <textarea class="field-input">встреча с куратором в четверг после физики, где-то на час</textarea>
+          </div>
+          <button class="btn" style="align-self: flex-start">Извлечь</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark"><b>Кнопки подтверждения на этом шаге нет.</b> Структура ещё
+    не извлечена — подтверждать нечего. Кнопка «Извлечь» запускает модель
+    (Haiku 4.5 / GPT-5.6 Luna, извлечение событий — <code>SPEC.md</code> §5.1),
+    результат — черновик из раздела 3.</p>
+  <p class="mark">Пример нарочно неформальный и с относительной привязкой
+    («после физики») — то, как реально пишут заметку себе. Разрешение
+    относительного времени в конкретное — задача модели на шаге извлечения,
+    здесь показан только вход.</p>
+</div></div>
+
+<div class="wrap" style="margin-top: 20px"><div class="pane">
+  <div class="pane-label"><b>Тёмная</b><span>data-theme="dark" · режим «Текст»</span></div>
+  <div class="app" data-theme="dark" style="position: relative">
+    <nav class="rail">
+      <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">Calendar</div>
+      <div class="screen-sub">Wednesday, 14 October</div>
+      <div class="ghost-screen"></div>
+    </div>
+
+    <div class="scrim">
+      <div class="capture">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button class="is-active">Текст</button><button>Фото</button><button>Голос</button>
+          </div>
+          <div class="field">
+            <label class="field-label">Что вставили или написали</label>
+            <textarea class="field-input">встреча с куратором в четверг после физики, где-то на час</textarea>
+          </div>
+          <button class="btn" style="align-self: flex-start">Извлечь</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark">Скрим одинаковый в обеих темах намеренно — он часть
+    обрамления, а не контента, и его задача («погасить всё, кроме модалки»)
+    не должна зависеть от темы.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Фото и голос — то же место панели</h2>
+  <p>
+    Переключение режима меняет только область под <code>.seg</code>; шапка
+    и место модалки не двигаются. Ниже — обе альтернативы к тексту из раздела 1,
+    без повторного скрима и капсулы: они уже показаны.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Фото</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button>Текст</button><button class="is-active">Фото</button><button>Голос</button>
+          </div>
+          <div class="drop">
+            <div class="drop-icon">▣</div>
+            <div><b style="color: var(--text)">Перетащите фото</b> или выберите файл</div>
+            <div>Расписание, афиша, скриншот переписки</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Vision-извлечение (Gemini 3.1 Flash-Lite, <code>SPEC.md</code>
+      §5.1) идёт тем же путём дальше: фото → черновик → подтверждение. Разница
+      только на этом шаге — во что кладут исходник.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Голос</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button>Текст</button><button>Фото</button><button class="is-active">Голос</button>
+          </div>
+          <button class="rec-btn"><span class="rec-dot"></span>Начать запись</button>
+          <div class="field-hint" style="justify-content: center">Скажите: что, когда, во сколько</div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Это расшифровка речи в текст ради захвата события, а не
+      оценка произношения или речи моделью — та работа со звуком выведена
+      из продукта отдельно (<code>DECISIONS.md</code> ADR-010). Здесь голос —
+      просто третий способ надиктовать текст из раздела 1.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Черновик — подтверждение</h2>
+  <p>
+    Та же форма, теперь со извлечёнными полями. Слева — модель уверена во всём.
+    Справа — не нашла дату: поле пустое и с пояснением, кнопка подтверждения
+    недоступна. Это прямая иллюстрация правила «низкая уверенность или нет
+    даты → спросить, не угадывать» — сравните с полем «Место» в обеих формах:
+    оно тоже пустое, но не помечено, потому что необязательно.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Уверенно распознано</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Встреча с куратором">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="21 октября, чт">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="17:00">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="18:00">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">«После физики» разрешилось в 17:00 — конец пары у owner
+      сегодня в 16:50 (см. этап 2b). Дата и время всё равно остаются полями
+      формы, а не текстом: owner может поправить, прежде чем нажать
+      «Подтвердить».</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Не хватает данных</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">не забыть перенести встречу с зубным</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Встреча с зубным">
+          </div>
+          <div class="field-row">
+            <div class="field field--warn">
+              <label class="field-label">Дата</label>
+              <input class="field-input" placeholder="Не указано — впишите сами">
+              <div class="field-hint">В тексте нет даты. Модель не угадывает — укажите день сами.</div>
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">С</label>
+              <input class="field-input" placeholder="—">
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">До</label>
+              <input class="field-input" placeholder="—">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <span class="capture-block-hint">Укажите дату, чтобы продолжить</span>
+            <button class="btn" disabled>Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Название модель извлекла уверенно — оно не помечено,
+      хотя дата рядом пустая.</b> Уверенность оценивается по полю, не по всей
+      записи целиком: неполный черновик — это нормальный промежуточный
+      результат, а не брак.</p>
+  </section>
+
+</div></div>
+
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Уверенно распознано</b><span>dark</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Встреча с куратором">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="21 октября, чт">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="17:00">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="18:00">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Не хватает данных</b><span>dark</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">не забыть перенести встречу с зубным</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Встреча с зубным">
+          </div>
+          <div class="field-row">
+            <div class="field field--warn">
+              <label class="field-label">Дата</label>
+              <input class="field-input" placeholder="Не указано — впишите сами">
+              <div class="field-hint">В тексте нет даты. Модель не угадывает — укажите день сами.</div>
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">С</label>
+              <input class="field-input" placeholder="—">
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">До</label>
+              <input class="field-input" placeholder="—">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <span class="capture-block-hint">Укажите дату, чтобы продолжить</span>
+            <button class="btn" disabled>Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Пунктир поля «Дата» — тот же знак «не факт», что у
+      черновика в календаре (<code>.cal-ev--draft</code>) и у полосы давности
+      (<code>.stale-bar</code>). Второй пунктир с отдельным значением здесь
+      не заводится.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>4 · Правка существующего события</h2>
+  <p>
+    Тот же экран, другой источник данных: без цитаты исходника (событие не
+    из захвата — правится напрямую), с кнопкой «Удалить». Событие — «Стоматолог»
+    из этапа 2b, чтобы было видно: это форма для того самого блока в календаре.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая</b><span>light · событие «Стоматолог»</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Событие</h3>
+            <p>Личное · среда, 14 октября</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Стоматолог">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="14 октября, ср">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="16:30">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="17:30">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" value="ул. Марата 12">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Удалить</button>
+          <div class="capture-foot-actions">
+            <button class="btn btn--ghost">Отмена</button>
+            <button class="btn">Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>«Удалить» стоит слева, отдельно от «Отмена»/«Сохранить».</b>
+      Декоративных цветов нет (рамка owner), значит различить разрушительное
+      действие цветом нельзя — вместо этого оно физически отделено, чтобы
+      не оказаться соседней кнопкой при промахе мимо «Отмена».</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>dark · событие «Стоматолог»</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Событие</h3>
+            <p>Личное · среда, 14 октября</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Стоматолог">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="14 октября, ср">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="16:30">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="17:30">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" value="ул. Марата 12">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Удалить</button>
+          <div class="capture-foot-actions">
+            <button class="btn btn--ghost">Отмена</button>
+            <button class="btn">Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Ни одно поле здесь не помечено пунктиром — у уже
+      подтверждённого события неопределённости нет. Пунктир в этой форме
+      обязан означать ровно то же, что в разделе 3, а не «поле формы вообще».</p>
+  </section>
+
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>
