@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 2b — календарь, день · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета. Продуктовые стили — ниже, в блоке «день».
+   Здесь только обрамление: заголовки, панели, подписи к состояниям. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 78ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 78ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2 { grid-template-columns: 1fr; } }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Компоненты дня (.cal--day, .cal-note, .cal-now, .cal-hour--now) утверждены
+   owner на этапе 2b и переехали в tokens.css. Ниже — только то, что нужно
+   странице разбора. */
+
+/* Уменьшенная копия дня для секции состояний. */
+.cal--mini { --hour: 30px; max-width: none; }
+.cal--mini .cal-head, .cal--mini .cal-body { grid-template-columns: 48px 1fr; }
+.cal--mini .cal-note { font-size: 12px; padding: 7px 10px; }
+
+.pad { padding: var(--space-5); background: var(--bg); }
+.pad--grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4);
+              align-items: start; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 2b — календарь, день</h1>
+  <p>
+    Второй масштаб календаря (<code>SPEC.md</code> §8.4 требует «день и неделя»).
+    Новых сущностей здесь нет: это те же блоки, шапка и метки, что утверждены на
+    этапе 2, в одной колонке. Смотреть нужно на три вещи, которых на неделе не
+    было: <b>линия текущего времени</b>, <b>строка объяснения под шапкой</b> и
+    <b>подробности внутри блока</b>, для которых в колонке шириной в седьмую
+    часть экрана не хватало места.
+  </p>
+  <p>
+    День — тот же, что показан средой на неделе: 14 октября 2026. Данные
+    совпадают нарочно, чтобы разницу между масштабами было видно на одном
+    и том же расписании.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Данные вымышленные — расписание, названия пар и курсов придуманы для показа вёрстки.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · День целиком — светлая тема</h2>
+  <p>
+    Час выше, чем на неделе: 56px против 46. Из-за этого пара помещает и тип,
+    и аудиторию, а занятие курса — свою длительность. Линия «сейчас» проведена
+    под событиями и подписана точным временем в шкале.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая</b><span>data-theme="light"</span></div>
+  <div class="app" data-theme="light">
+    <nav class="rail">
+      <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">Calendar</div>
+      <div class="screen-sub">Wednesday, 14 October</div>
+
+      <div class="cal cal--day" style="--h0: 13; --h1: 22">
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button>‹</button><button>Сегодня</button><button>›</button>
+          </div>
+          <div class="seg">
+            <button class="is-active">День</button><button>Неделя</button>
+          </div>
+        </div>
+
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day is-today"><div class="cal-dow">Среда</div><div class="cal-date">14</div></div>
+        </div>
+
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:13">13:00</div>
+            <div class="cal-hour cal-hour--now" style="--t:14.17">14:10</div>
+            <div class="cal-hour" style="--t:15">15:00</div>
+            <div class="cal-hour" style="--t:16">16:00</div>
+            <div class="cal-hour" style="--t:17">17:00</div>
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+            <div class="cal-hour" style="--t:21">21:00</div>
+          </div>
+
+          <div class="cal-col">
+            <div class="cal-now" style="--s:14.17"></div>
+
+            <div class="cal-ev cal-ev--itmo" style="--s:13.5;--e:15">
+              <div class="cal-ev-time">13:30–15:00</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+              <div class="cal-ev-meta">практика · ауд. 285 · Кронверкский 49</div>
+            </div>
+
+            <div class="cal-ev cal-ev--itmo cal-ev--half-l cal-ev--clash" style="--s:15.33;--e:16.83">
+              <div class="cal-ev-time">15:20–16:50</div>
+              <div class="cal-ev-title">Физика</div>
+              <div class="cal-ev-meta">лаб. · ауд. 101</div>
+            </div>
+            <div class="cal-ev cal-ev--event cal-ev--half-r cal-ev--clash" style="--s:16.5;--e:17.5">
+              <div class="cal-ev-time">16:30–17:30</div>
+              <div class="cal-ev-title">Стоматолог</div>
+              <div class="cal-ev-meta">ул. Марата 12</div>
+            </div>
+
+            <div class="cal-ev cal-ev--study" style="--s:18.33;--e:19.33">
+              <div class="cal-ev-time">18:20–19:20
+                <span class="cal-flag">сдвинуто ×1 — конфликт в 17:20</span></div>
+              <div class="cal-ev-title">English</div>
+              <div class="cal-ev-meta">занятие · 60 минут</div>
+            </div>
+            <div class="cal-ev cal-ev--study" style="--s:19.33;--e:20.08">
+              <div class="cal-ev-time">19:20–20:05</div>
+              <div class="cal-ev-title">Calculus</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cal-legend">
+          <div><i class="l-itmo"></i>пара ИТМО</div>
+          <div><i class="l-study"></i>занятие курса</div>
+          <div><i class="l-event"></i>личное событие</div>
+          <div><i class="l-draft"></i>черновик захвата</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark"><b>Шкала начинается с 13:00, а не с 8:00.</b> На неделе границы
+    суток общие для семи колонок и их нельзя подрезать под один день; здесь день
+    один, и часы до первой пары — пустое место, которое нечем занять.</p>
+  <p class="mark"><b>Пометка сдвига стала фразой.</b> На неделе в блок влезало
+    «сдвинуто ×1», здесь — «сдвинуто ×1 — конфликт в 17:20»: видно не только
+    что занятие уехало, но и обо что (§4 п.5).</p>
+  <p class="mark"><b>Наложение помечено так же, как на неделе</b> — значком «⚠»
+    и половинной шириной. Приём не меняется от масштаба: одно правило, две
+    раскладки.</p>
+  <p class="mark"><b>Когда «сейчас» попадает внутрь пары, самой линии не видно</b>
+    — она под блоком. Положение показывают точка на краю колонки и подпись
+    времени в шкале, они не перекрываются никогда. Вести линию поверх блока
+    нельзя: в монохроме это читается как зачёркивание названия.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Тот же день — тёмная тема</h2>
+  <p>
+    Отдельных правил для тёмной темы по-прежнему нет. Проверять здесь нужно
+    линию «сейчас»: в тёмной теме акцент светлый, и линия обязана читаться,
+    не превращаясь в блик.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Тёмная</b><span>data-theme="dark"</span></div>
+  <div class="app" data-theme="dark">
+    <nav class="rail">
+      <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">Calendar</div>
+      <div class="screen-sub">Wednesday, 14 October</div>
+
+      <div class="cal cal--day" style="--h0: 13; --h1: 22">
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button>‹</button><button>Сегодня</button><button>›</button>
+          </div>
+          <div class="seg">
+            <button class="is-active">День</button><button>Неделя</button>
+          </div>
+        </div>
+
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day is-today"><div class="cal-dow">Среда</div><div class="cal-date">14</div></div>
+        </div>
+
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:13">13:00</div>
+            <div class="cal-hour cal-hour--now" style="--t:14.17">14:10</div>
+            <div class="cal-hour" style="--t:15">15:00</div>
+            <div class="cal-hour" style="--t:16">16:00</div>
+            <div class="cal-hour" style="--t:17">17:00</div>
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+            <div class="cal-hour" style="--t:21">21:00</div>
+          </div>
+
+          <div class="cal-col">
+            <div class="cal-now" style="--s:14.17"></div>
+
+            <div class="cal-ev cal-ev--itmo" style="--s:13.5;--e:15">
+              <div class="cal-ev-time">13:30–15:00</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+              <div class="cal-ev-meta">практика · ауд. 285 · Кронверкский 49</div>
+            </div>
+
+            <div class="cal-ev cal-ev--itmo cal-ev--half-l cal-ev--clash" style="--s:15.33;--e:16.83">
+              <div class="cal-ev-time">15:20–16:50</div>
+              <div class="cal-ev-title">Физика</div>
+              <div class="cal-ev-meta">лаб. · ауд. 101</div>
+            </div>
+            <div class="cal-ev cal-ev--event cal-ev--half-r cal-ev--clash" style="--s:16.5;--e:17.5">
+              <div class="cal-ev-time">16:30–17:30</div>
+              <div class="cal-ev-title">Стоматолог</div>
+              <div class="cal-ev-meta">ул. Марата 12</div>
+            </div>
+
+            <div class="cal-ev cal-ev--study" style="--s:18.33;--e:19.33">
+              <div class="cal-ev-time">18:20–19:20
+                <span class="cal-flag">сдвинуто ×1 — конфликт в 17:20</span></div>
+              <div class="cal-ev-title">English</div>
+              <div class="cal-ev-meta">занятие · 60 минут</div>
+            </div>
+            <div class="cal-ev cal-ev--study" style="--s:19.33;--e:20.08">
+              <div class="cal-ev-time">19:20–20:05</div>
+              <div class="cal-ev-title">Calculus</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cal-legend">
+          <div><i class="l-itmo"></i>пара ИТМО</div>
+          <div><i class="l-study"></i>занятие курса</div>
+          <div><i class="l-event"></i>личное событие</div>
+          <div><i class="l-draft"></i>черновик захвата</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark">Линия и подпись времени нарисованы акцентом — в светлой теме
+    чёрным, в тёмной светлым. Отдельного правила для тёмной темы нет.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Дни, в которые занятие не ставится</h2>
+  <p>
+    На неделе причина умещалась в чип из одного слова. День даёт место сказать
+    её словами — и, что важнее, сказать <b>последствие</b>: входит ли день
+    в отставание. Без этого пропущенный день читается как долг, которого нет.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая</b><span>day_flags · late_classes · пустой день</span></div>
+    <div class="pad pad--grid3" data-theme="light">
+
+      <div class="cal cal--mini" style="--h0: 9; --h1: 14">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Четверг</div><div class="cal-date">15</div><div class="cal-chip">отъезд</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:10">10:00</div>
+            <div class="cal-hour" style="--t:11">11:00</div>
+            <div class="cal-hour" style="--t:12">12:00</div>
+            <div class="cal-hour" style="--t:13">13:00</div>
+          </div>
+          <div class="cal-col is-flagged">
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:10;--e:11.5">
+              <div class="cal-ev-time">10:00–11:30</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+            </div>
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:11.67;--e:13.17">
+              <div class="cal-ev-time">11:40–13:10</div>
+              <div class="cal-ev-title">Английский</div>
+            </div>
+          </div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Период «отъезд».</b> Занятия курсов не ставятся, темы не выдаются.
+          День не входит в отставание.</span>
+        </div>
+      </div>
+
+      <div class="cal cal--mini" style="--h0: 17; --h1: 22">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Пятница</div><div class="cal-date">16</div><div class="cal-chip">поздние пары</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+            <div class="cal-hour" style="--t:21">21:00</div>
+          </div>
+          <div class="cal-col is-flagged">
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:18;--e:19.5">
+              <div class="cal-ev-time">18:00–19:30</div>
+              <div class="cal-ev-title">Программирование</div>
+            </div>
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:19.67;--e:21.17">
+              <div class="cal-ev-time">19:40–21:10</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+            </div>
+          </div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Пары кончаются в 21:10.</b> Занятие начиналось бы в 21:40 —
+          позже предела 21:00, поэтому не ставится. День помечен системой
+          и не входит в отставание.</span>
+        </div>
+      </div>
+
+      <div class="cal cal--mini" style="--h0: 9; --h1: 14">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Воскресенье</div><div class="cal-date">18</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:10">10:00</div>
+            <div class="cal-hour" style="--t:11">11:00</div>
+            <div class="cal-hour" style="--t:12">12:00</div>
+            <div class="cal-hour" style="--t:13">13:00</div>
+          </div>
+          <div class="cal-col"></div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Ничего не запланировано.</b> Пар нет, занятия курсов на этот
+          день не выпали. Это пустой день, а не сбой загрузки.</span>
+        </div>
+      </div>
+
+    </div>
+    <p class="mark">Три причины пустоты, которые нельзя путать: <b>период owner</b>,
+      <b>автоматический <code>late_classes</code></b> и <b>просто пустой день</b>.
+      Во всех трёх случаях сказано, что с отставанием — иначе пустой экран
+      читается как потерянный день.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>day_flags · late_classes · пустой день</span></div>
+    <div class="pad pad--grid3" data-theme="dark">
+
+      <div class="cal cal--mini" style="--h0: 9; --h1: 14">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Четверг</div><div class="cal-date">15</div><div class="cal-chip">отъезд</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:10">10:00</div>
+            <div class="cal-hour" style="--t:11">11:00</div>
+            <div class="cal-hour" style="--t:12">12:00</div>
+            <div class="cal-hour" style="--t:13">13:00</div>
+          </div>
+          <div class="cal-col is-flagged">
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:10;--e:11.5">
+              <div class="cal-ev-time">10:00–11:30</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+            </div>
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:11.67;--e:13.17">
+              <div class="cal-ev-time">11:40–13:10</div>
+              <div class="cal-ev-title">Английский</div>
+            </div>
+          </div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Период «отъезд».</b> Занятия курсов не ставятся, темы не выдаются.
+          День не входит в отставание.</span>
+        </div>
+      </div>
+
+      <div class="cal cal--mini" style="--h0: 17; --h1: 22">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Пятница</div><div class="cal-date">16</div><div class="cal-chip">поздние пары</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+            <div class="cal-hour" style="--t:21">21:00</div>
+          </div>
+          <div class="cal-col is-flagged">
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:18;--e:19.5">
+              <div class="cal-ev-time">18:00–19:30</div>
+              <div class="cal-ev-title">Программирование</div>
+            </div>
+            <div class="cal-ev cal-ev--itmo cal-ev--compact" style="--s:19.67;--e:21.17">
+              <div class="cal-ev-time">19:40–21:10</div>
+              <div class="cal-ev-title">Мат. анализ</div>
+            </div>
+          </div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Пары кончаются в 21:10.</b> Занятие начиналось бы в 21:40 —
+          позже предела 21:00, поэтому не ставится. День помечен системой
+          и не входит в отставание.</span>
+        </div>
+      </div>
+
+      <div class="cal cal--mini" style="--h0: 9; --h1: 14">
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day"><div class="cal-dow">Воскресенье</div><div class="cal-date">18</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:10">10:00</div>
+            <div class="cal-hour" style="--t:11">11:00</div>
+            <div class="cal-hour" style="--t:12">12:00</div>
+            <div class="cal-hour" style="--t:13">13:00</div>
+          </div>
+          <div class="cal-col"></div>
+        </div>
+        <div class="cal-note" style="margin: var(--space-3) 0 0">
+          <span><b>Ничего не запланировано.</b> Пар нет, занятия курсов на этот
+          день не выпали. Это пустой день, а не сбой загрузки.</span>
+        </div>
+      </div>
+
+    </div>
+    <p class="mark">Те же три состояния на тёмной базе. Строка объяснения —
+      новый компонент <code>.cal-note</code>; он же понадобится на экране
+      периодов <code>day_flags</code> (этап 9).</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>4 · Портал не отвечает — §10</h2>
+  <p>
+    То же правило, что на неделе: показываем последнее сохранённое расписание
+    и подписываем давность. Разница в том, что на дне видно, <b>чего именно
+    не хватает</b>: занятия курсов на месте, пары — вчерашние, а линия «сейчас»
+    показывает, насколько давно.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая</b><span>расписание от 12 октября</span></div>
+    <div class="pad" data-theme="light">
+      <div class="cal cal--day" style="--hour: 44px; --h0: 13; --h1: 21; margin: 0">
+        <div class="stale-bar" style="margin-bottom: var(--space-3)">
+          Расписание от 12 октября, 07:10 — портал не отвечает. Занятия курсов актуальны.
+        </div>
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day is-today"><div class="cal-dow">Среда</div><div class="cal-date">14</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:13">13:00</div>
+            <div class="cal-hour cal-hour--now" style="--t:14.17">14:10</div>
+            <div class="cal-hour" style="--t:15">15:00</div>
+            <div class="cal-hour" style="--t:16">16:00</div>
+            <div class="cal-hour" style="--t:17">17:00</div>
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+          </div>
+          <div class="cal-col">
+            <div class="cal-now" style="--s:14.17"></div>
+            <div class="cal-ev cal-ev--itmo is-stale" style="--s:13.5;--e:15">
+              <div class="cal-ev-time">13:30–15:00
+                <span class="cal-flag">от 12.10 — свежее нет</span></div>
+              <div class="cal-ev-title">Мат. анализ</div>
+              <div class="cal-ev-meta">практика · ауд. 285</div>
+            </div>
+            <div class="cal-ev cal-ev--study" style="--s:18.33;--e:19.33">
+              <div class="cal-ev-time">18:20–19:20</div>
+              <div class="cal-ev-title">English</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Чего здесь <b>нет</b>: пустого экрана, спиннера и пары,
+      подставленной «по расписанию прошлой недели». Пунктир и подпись говорят,
+      что данные старые, — молчать об этом запрещено (§10).</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>расписание от 12 октября</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="cal cal--day" style="--hour: 44px; --h0: 13; --h1: 21; margin: 0">
+        <div class="stale-bar" style="margin-bottom: var(--space-3)">
+          Расписание от 12 октября, 07:10 — портал не отвечает. Занятия курсов актуальны.
+        </div>
+        <div class="cal-head">
+          <div class="cal-corner"></div>
+          <div class="cal-day is-today"><div class="cal-dow">Среда</div><div class="cal-date">14</div></div>
+        </div>
+        <div class="cal-body">
+          <div class="cal-hours">
+            <div class="cal-hour" style="--t:13">13:00</div>
+            <div class="cal-hour cal-hour--now" style="--t:14.17">14:10</div>
+            <div class="cal-hour" style="--t:15">15:00</div>
+            <div class="cal-hour" style="--t:16">16:00</div>
+            <div class="cal-hour" style="--t:17">17:00</div>
+            <div class="cal-hour" style="--t:18">18:00</div>
+            <div class="cal-hour" style="--t:19">19:00</div>
+            <div class="cal-hour" style="--t:20">20:00</div>
+          </div>
+          <div class="cal-col">
+            <div class="cal-now" style="--s:14.17"></div>
+            <div class="cal-ev cal-ev--itmo is-stale" style="--s:13.5;--e:15">
+              <div class="cal-ev-time">13:30–15:00
+                <span class="cal-flag">от 12.10 — свежее нет</span></div>
+              <div class="cal-ev-title">Мат. анализ</div>
+              <div class="cal-ev-meta">практика · ауд. 285</div>
+            </div>
+            <div class="cal-ev cal-ev--study" style="--s:18.33;--e:19.33">
+              <div class="cal-ev-time">18:20–19:20</div>
+              <div class="cal-ev-title">English</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Полоса давности — тот же <code>.stale-bar</code> из
+      <code>tokens.css</code>. Каждая такая деградация пишется в
+      <code>audit_log</code>.</p>
+  </section>
+
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

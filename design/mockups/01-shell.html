@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 1 — каркас и навигация · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета. Продуктовые стили — ниже, в блоке «оболочка».
+   Здесь только обрамление: заголовки, панели, подписи к состояниям. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1400px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 74ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1400px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 74ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1400px; margin: 0 auto; padding: 0 32px; }
+/* align-items: start — иначе панель растягивается по высоте самой длинной
+   в ряду и под короткой капсулой повисает пустое поле. */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1180px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+
+/* Подпись к состоянию под панелью. Обрамление разбора, не продукт —
+   поэтому здесь допустимы прямые цвета, как и у .pane. */
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.5; }
+.mark b { color: #18181b; font-weight: 600; }
+
+/* --- Оболочка приложения ------------------------------------------------
+   Компоненты .app / .rail / .tab / .rail-action / .content утверждены на
+   этапе 1 и переехали в tokens.css. Здесь остаётся только то, что нужно
+   странице разбора.
+
+   В продукте оболочка занимает экран (min-height: 100vh); в панели разбора
+   это дало бы полосу в целый экран на каждую панель.                       */
+.app { min-height: 520px; }
+
+
+/* Заглушка вместо содержимого экрана: этап 1 — про каркас, наполнение
+   приходит на этапах 2–9. Пунктир честно говорит «здесь будет другое». */
+.slot { margin-top: var(--space-5); padding: var(--space-6) var(--space-5);
+        border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
+        background: var(--surface-2); color: var(--text-faint);
+        text-align: center; font-size: var(--fs-sm); }
+.slot b { display: block; color: var(--text-muted); font-size: var(--fs-body);
+          font-weight: 500; margin-bottom: 3px; }
+
+/* Компактная демонстрация: только капсула, без контента */
+.rail-demo { display: flex; gap: 26px; align-items: flex-start;
+             padding: var(--space-5); background: var(--bg); }
+.rail-demo-cap { font-size: var(--fs-xs); color: var(--text-faint);
+                 text-transform: uppercase; letter-spacing: .07em; }
+.rail-demo .rail { margin-top: 8px; }
+
+/* Зафиксированное состояние наведения для статичного снимка. В продукте это
+   делает :hover — здесь классы, иначе на скриншоте состояния не видно. */
+.is-dimmed { color: var(--text-muted); }
+.is-dimmed.is-active { opacity: .75; }
+.is-hovered { color: var(--text); }
+.rail-action.is-dimmed { color: var(--text-muted); border-color: var(--border); }
+
+/* Раскадровка движения подложки. Анимации в статичном HTML нет —
+   показаны три положения одного и того же элемента. */
+.frames { display: flex; gap: 18px; padding: var(--space-5); background: var(--bg); }
+.frame { text-align: center; }
+.frame-cap { margin-top: 10px; font-size: var(--fs-xs); color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 1 — каркас и навигация</h1>
+  <p>
+    Оболочка ПК-раскладки: вертикальная капсула в левом верхнем углу, контент
+    справа (<code>SPEC.md</code> §8.1). Содержимое экранов здесь намеренно
+    заглушено — оно приходит на этапах 2–9. Смотреть нужно на капсулу, её
+    состояния и на то, как область контента ведёт себя вокруг неё.
+  </p>
+  <p>
+    Решения owner, заложенные в макет: <b>курсов не больше пяти</b> — паттерн
+    переполнения не проектируется; <b>настройки — отдельная вкладка</b>, всегда
+    последняя, вне генерируемого списка; <b>подписи интерфейса — английские</b>,
+    разбор вокруг них — русский.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Данные вымышленные — названия курсов и даты придуманы для показа вёрстки.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · Оболочка целиком</h2>
+  <p>
+    Обе темы. Слева капсула, справа контент. Ширина колонки текста ограничена
+    880px, но сама область не ограничена: змейке и сетке недели ширина понадобится.
+    Наведите курсор на капсулу — соседние вкладки погаснут.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая</b><span>data-theme="light"</span></div>
+    <div class="app" data-theme="light">
+      <nav class="rail">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+      <div class="content">
+        <div class="content-col">
+          <div class="screen-title">Calendar</div>
+          <div class="screen-sub">Tuesday, 18 August</div>
+          <div class="slot"><b>Область контента</b>здесь неделя календаря — этап 2</div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Активна вкладка <b>Calendar</b>. Кнопка действия подписана
+      «Event» — §8.1: на календаре она добавляет событие. Текст вкладок чёрный,
+      не серый.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>data-theme="dark"</span></div>
+    <div class="app" data-theme="dark">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab is-active"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action"><div class="tab-icon">▶</div><div class="tab-text">Lesson</div></button>
+      </nav>
+      <div class="content">
+        <div class="content-col">
+          <div class="screen-title">English</div>
+          <div class="screen-sub">Unit 4 · Tenses · 38% complete</div>
+          <div class="slot"><b>Область контента</b>здесь шапка курса и змейка — этапы 4 и 5</div>
+        </div>
+      </div>
+    </div>
+    <p class="mark">Активна вкладка <b>курса</b> — та же кнопка действия сменила
+      смысл на «Lesson». Текст вкладок белый, не серый.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Капсула генерируется из списка курсов</h2>
+  <p>
+    Инвариант 3: вкладки не прописаны в коде. Календарь всегда первый, дальше по
+    одной на каждый установленный курс. «Settings» отделены разделителем — они
+    не курс и в генерируемый список не входят, поэтому потолок в пять их не
+    касается.
+  </p>
+</div>
+<div class="wrap"><div class="grid3">
+
+  <section class="pane">
+    <div class="pane-label"><b>Курсов нет</b><span>courses: 0</span></div>
+    <div class="rail-demo" data-theme="light">
+      <nav class="rail">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+    </div>
+    <p class="mark">Свежая установка. Капсула не ломается и не показывает
+      заглушек — просто короче.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Два курса — сейчас</b><span>courses: 2</span></div>
+    <div class="rail-demo" data-theme="light">
+      <nav class="rail">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+    </div>
+    <p class="mark">Текущий состав. Точка у «English» — есть занятие на
+      сегодня.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Пять курсов — потолок</b><span>courses: 5</span></div>
+    <div class="rail-demo" data-theme="light">
+      <nav class="rail">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab"><div class="tab-icon">▧</div><div class="tab-text">Physics</div></button>
+        <button class="tab"><div class="tab-icon">▨</div><div class="tab-text">Algorithms</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▩</div><div class="tab-text">Discrete</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+    </div>
+    <p class="mark">Предел, заданный §8.1 и подтверждённый owner. Шестой курс
+      установить нельзя — это ограничение продукта, а не вёрстки.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Наведение гасит остальные вкладки</h2>
+  <p>
+    Модель openai.com: курсор не подсвечивает элемент, а <b>приглушает все
+    остальные</b> — включая активную вкладку с заливкой. Полноцветным остаётся
+    ровно один элемент, тот, что под курсором. Слева капсула в покое, справа —
+    та же капсула с курсором на «Calculus». На живой странице это работает
+    само, здесь состояние зафиксировано классами ради снимка.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая</b><span>покой → курсор на «Calculus»</span></div>
+    <div class="rail-demo" data-theme="light">
+      <div>
+        <div class="rail-demo-cap">в покое</div>
+        <nav class="rail">
+          <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+          <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+          <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+          <div class="rail-sep"></div>
+          <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+        </nav>
+      </div>
+      <div>
+        <div class="rail-demo-cap">курсор на Calculus</div>
+        <nav class="rail">
+          <button class="tab is-active is-dimmed"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+          <button class="tab is-dimmed"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+          <button class="tab is-hovered"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+          <div class="rail-sep"></div>
+          <button class="rail-action is-dimmed"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+        </nav>
+      </div>
+    </div>
+    <p class="mark">В покое весь текст чёрный. Под курсором чёрным остаётся
+      только «Calculus», заливка активной вкладки гаснет вместе с остальными.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>покой → курсор на «Calculus»</span></div>
+    <div class="rail-demo" data-theme="dark">
+      <div>
+        <div class="rail-demo-cap">в покое</div>
+        <nav class="rail">
+          <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+          <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+          <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+          <div class="rail-sep"></div>
+          <button class="rail-action"><div class="tab-icon">▶</div><div class="tab-text">Lesson</div></button>
+        </nav>
+      </div>
+      <div>
+        <div class="rail-demo-cap">курсор на Calculus</div>
+        <nav class="rail">
+          <button class="tab is-active is-dimmed"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+          <button class="tab is-dimmed"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+          <button class="tab is-hovered"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+          <div class="rail-sep"></div>
+          <button class="rail-action is-dimmed"><div class="tab-icon">▶</div><div class="tab-text">Lesson</div></button>
+        </nav>
+      </div>
+    </div>
+    <p class="mark">В покое весь текст белый. Под курсором белым остаётся только
+      «Calculus» — зеркально светлой теме, отдельных правил для тёмной нет.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>4 · Подложка съезжает, а не перерисовывается</h2>
+  <p>
+    §8.1: «подложка анимируется перемещением». Три кадра одного движения. В
+    продукте это один элемент, меняющий <code>translateY</code> за ~180 мс; сама
+    вкладка при переключении не мигает.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Переход Calendar → English → Calculus</b><span>transform: translateY()</span></div>
+  <div class="frames" data-theme="light">
+    <div class="frame">
+      <nav class="rail">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      </nav>
+      <div class="frame-cap">кадр 1</div>
+    </div>
+    <div class="frame">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab is-active"><div class="tab-icon">▤</div><div class="tab-text">English</div></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      </nav>
+      <div class="frame-cap">кадр 2</div>
+    </div>
+    <div class="frame">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div></button>
+        <button class="tab is-active"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      </nav>
+      <div class="frame-cap">кадр 3</div>
+    </div>
+  </div>
+  <p class="mark">Переключение вкладки <b>не теряет состояние</b> экрана (§8.1):
+    вернувшись в курс, owner видит тот же узел, таймер занятия продолжает идти.
+    Это поведение, а не вёрстка, — на макете его не видно, но оно часть этапа.</p>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

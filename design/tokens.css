@@ -206,3 +206,341 @@ body {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
+
+/* --- Оболочка приложения — SPEC §8.1 --------------------------------------
+   Утверждено owner на этапе 1: вертикальная капсула в левом верхнем углу,
+   контент справа. Подписи внутри оболочки — английские, это интерфейс
+   продукта.                                                                 */
+
+/* Экран целиком: капсула слева, контент справа. */
+.app { display: flex; gap: var(--space-5); padding: var(--space-5);
+       min-height: 100vh; background: var(--bg); color: var(--text); }
+
+/* --- Капсула ------------------------------------------------------------
+   Вертикальная, левый верхний угол, прижата к верху (align-self), а не
+   растянута: список вкладок короткий, растягивать его не на чем.           */
+.rail { display: flex; flex-direction: column; gap: var(--space-1);
+        padding: var(--space-2); align-self: flex-start;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+
+/* Вкладка. Ширина 76px и радиус --radius, не pill — решение этапа 0:
+   в круглую подложку подпись «Calendar» не помещается.
+
+   Цвет в покое — --text, полноцветный: белый в тёмной теме, чёрный
+   в светлой. Приглушённый серый здесь означал бы «неактивно», а вкладка
+   курса активна всегда.                                                    */
+.tab { position: relative; display: block; width: 76px; padding: 10px 6px 8px;
+       border: 0; background: none; font: inherit; text-align: center;
+       border-radius: var(--radius); color: var(--text);
+       cursor: pointer; transition: background .15s, color .15s, opacity .15s; }
+.tab-icon { font-size: 17px; line-height: 1; }
+.tab-text { margin-top: 5px; font-size: var(--fs-xs); line-height: 1.2;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab.is-active { background: var(--accent); color: var(--accent-text); }
+
+/* --- Наведение: гаснут соседи, а не подсвечивается наведённое ------------
+   Модель openai.com, задана owner. Наведение на капсулу приглушает ВСЕ её
+   элементы, включая активный с заливкой; полноцветным остаётся ровно один —
+   тот, что под курсором. Обратный приём (подсветить наведённое на спокойном
+   фоне) owner отверг.
+
+   Активная вкладка гасится через opacity, а не цветом: у неё заливка
+   акцентом, и приглушать пришлось бы и фон, и текст двумя правилами.       */
+.rail:hover .tab { color: var(--text-muted); }
+.rail:hover .tab.is-active { opacity: .75; }
+.rail:hover .tab:hover { color: var(--text); }
+.rail:hover .tab.is-active:hover { opacity: 1; color: var(--accent-text); }
+
+/* Точка «есть что сделать сегодня». Метка курса, а не счётчик: число
+   непройденного пользователю ничего не решает, а давит.
+   currentColor — чтобы точка гасла вместе с подписью своей вкладки. */
+.tab-dot { position: absolute; top: 7px; right: 9px; width: 6px; height: 6px;
+           border-radius: var(--radius-pill); background: currentColor; }
+
+.rail-sep { height: 1px; margin: var(--space-2) 10px; background: var(--border); }
+
+/* Кнопка контекстного действия — §8.1. Смысл зависит от вкладки: на
+   календаре «Event», внутри курса «Lesson». Поэтому у неё подпись,
+   а не только «+»: безымянный плюс не сообщает, что именно создастся.
+   Отделяется границей, а не заливкой: в тёмной теме --surface-2 на
+   --surface почти сливается, а это единственный элемент капсулы, который
+   действует, а не переключает. Граница работает одинаково в обеих темах. */
+.rail-action { display: block; width: 76px; padding: 9px 6px;
+               border: 1px solid var(--border-strong); background: transparent;
+               border-radius: var(--radius); color: var(--text);
+               font: inherit; text-align: center; cursor: pointer;
+               transition: color .15s, border-color .15s; }
+.rail-action .tab-icon { font-size: 16px; }
+.rail-action .tab-text { margin-top: 4px; }
+/* Гаснет по тому же правилу, что и вкладки */
+.rail:hover .rail-action { color: var(--text-muted); border-color: var(--border); }
+.rail:hover .rail-action:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* --- Область контента ---------------------------------------------------
+   Ограничение ширины — на внутренней колонке, не на самой области: змейка
+   и сетка недели должны иметь право занять всю ширину, а текст не должен
+   растягиваться в нечитаемую строку.                                       */
+.content { flex: 1; min-width: 0; }
+.content-col { max-width: 880px; }
+
+.screen-title { font-size: var(--fs-hero); font-weight: 600; letter-spacing: -.02em;
+                line-height: var(--lh-tight); }
+/* Подзаголовок экрана — --text, не --text-muted: owner попросил убрать
+   серый текст из интерфейса, приглушение осталось только для наведения. */
+.screen-sub { margin-top: 3px; font-size: var(--fs-sm); color: var(--text); }
+
+/* --- Календарь, неделя — SPEC §8.4 ---------------------------------------
+   Утверждено owner на этапе 2. Экран дня использует те же компоненты:
+   различаться будут колонки и наличие линии текущего времени, а не блоки.  */
+
+/* Высота часа и границы суток — единственные величины, задающие
+   вертикальный масштаб. Стоят на .cal, поэтому уменьшенная копия сетки
+   (фрагмент §10) получается сменой трёх чисел, а не второй вёрсткой. */
+.cal { --hour: 46px; --h0: 8; --h1: 22; margin-top: var(--space-5); color: var(--text); }
+
+/* Панель управления неделей. Слева перемещение, справа масштаб.
+   §8.4 требует «день и неделя» — переключатель здесь, сам экран дня
+   отдельным этапом. */
+.cal-toolbar { display: flex; align-items: center; justify-content: space-between;
+               gap: var(--space-4); margin-bottom: var(--space-3); }
+.cal-nav { display: flex; align-items: center; gap: var(--space-1); }
+.cal-nav button { padding: 5px 10px; border: 1px solid transparent; background: none;
+                  border-radius: var(--radius); color: var(--text); font: inherit;
+                  font-size: var(--fs-sm); cursor: pointer; }
+.cal-nav button:hover { border-color: var(--border-strong); }
+
+/* Переключатель масштаба. Активный сегмент — та же заливка акцентом, что у
+   активной вкладки: одно правило «текущее выбрано» на весь продукт, и то же
+   поведение при наведении (гаснут соседи). */
+.seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--surface);
+       border: 1px solid var(--border); border-radius: var(--radius); }
+.seg button { padding: 4px 12px; border: 0; background: none; border-radius: var(--radius-sm);
+              color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+              transition: color .15s, opacity .15s; }
+.seg button.is-active { background: var(--accent); color: var(--accent-text); }
+.seg:hover button { color: var(--text-muted); }
+.seg:hover button.is-active { opacity: .75; }
+.seg:hover button:hover { color: var(--text); }
+.seg:hover button.is-active:hover { opacity: 1; color: var(--accent-text); }
+
+/* Шапка и тело живут в одной сетке колонок: 56px под шкалу часов, дальше семь
+   равных дней. Две сетки не разъезжаются, потому что описание колонок одно. */
+.cal-head, .cal-body { display: grid; grid-template-columns: 56px repeat(7, 1fr); }
+
+/* Цвет текста задан и здесь, а не только на .cal: шапка встречается
+   отдельно от сетки (сравнение меток дня), и без своего --text она
+   наследовала цвет страницы — тёмный по тёмному. */
+.cal-head { border: 1px solid var(--border);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            background: var(--surface); color: var(--text); }
+.cal-corner { border-right: 1px solid var(--border); }
+.cal-day { padding: var(--space-2) var(--space-3) 9px; border-right: 1px solid var(--border);
+           min-width: 0; }
+.cal-day:last-child { border-right: 0; }
+.cal-dow { font-size: var(--fs-xs); line-height: 1.2; }
+.cal-date { display: inline-flex; align-items: center; justify-content: center;
+            min-width: 24px; height: 24px; margin-top: 2px; padding: 0 5px;
+            border-radius: var(--radius); font-size: var(--fs-h2); font-weight: 600;
+            letter-spacing: -.01em; }
+/* Сегодня — единственное место в шапке с заливкой акцентом. Совпадает
+   с приёмом активной вкладки: «вот вы здесь». */
+.cal-day.is-today .cal-date { background: var(--accent); color: var(--accent-text); }
+
+/* Метка дня: day_flags (§2.5) и автоматический late_classes (§4 п.4).
+   Причина подписана словом — день без занятия и без объяснения читается
+   как сбой ассистента, а не как правило. */
+.cal-chip { display: inline-block; margin-top: 5px; padding: 1px 7px;
+            border: 1px dashed var(--border-strong); border-radius: var(--radius-pill);
+            background: var(--surface-2); font-size: 11px; line-height: 1.5;
+            white-space: nowrap; }
+
+/* День исключения приглушается целиком, но не прячется: пары в нём остались
+   фактом расписания, не ставятся только занятия курсов. */
+.cal-col.is-flagged { background: var(--surface-2); }
+.cal-col.is-flagged .cal-ev { opacity: .55; }
+
+.cal-body { position: relative; border: 1px solid var(--border); border-top: 0;
+            border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+            background: var(--surface); overflow: hidden; }
+
+/* Шкала часов. Подпись стоит ПОД своей линией, а не по центру на ней:
+   при центрировании первая подпись (8:00) уезжала под верхний край сетки —
+   найдено визуальной проверкой. */
+.cal-hours { position: relative; border-right: 1px solid var(--border); }
+.cal-hour { position: absolute; right: 8px;
+            top: calc((var(--t) - var(--h0)) * var(--hour) + 3px);
+            font-size: var(--fs-xs); line-height: 1.4; color: var(--text-muted); }
+
+/* Часовые линии рисуются фоном, а не элементами: 14 часов × 7 колонок — это
+   98 лишних узлов в разметке ради горизонтальных полосок. */
+.cal-col { position: relative; border-right: 1px solid var(--border); min-width: 0;
+           height: calc((var(--h1) - var(--h0)) * var(--hour));
+           background-image: repeating-linear-gradient(to bottom,
+             var(--border) 0 1px, transparent 1px var(--hour)); }
+.cal-col:last-child { border-right: 0; }
+
+/* Событие. --s и --e — начало и конец в десятичных часах; это данные,
+   а не оформление, поэтому они и приходят из разметки. */
+.cal-ev { position: absolute; left: 4px; right: 4px;
+          top: calc((var(--s) - var(--h0)) * var(--hour));
+          height: calc((var(--e) - var(--s)) * var(--hour) - 2px);
+          padding: 4px 7px; border-radius: var(--radius-sm);
+          border: 1px solid var(--border); border-left-width: 3px;
+          background: var(--surface); color: var(--text); overflow: hidden;
+          font-size: var(--fs-xs); line-height: 1.3; cursor: pointer; z-index: 1;
+          transition: opacity .15s; }
+.cal-ev-time { font-variant-numeric: tabular-nums; }
+.cal-ev-title { margin-top: 1px; font-size: 12px; font-weight: 600; letter-spacing: -.005em; }
+.cal-ev-meta { margin-top: 1px; }
+
+/* --- Четыре вида блоков --------------------------------------------------
+   Декоративных цветов нет (рамка owner), а §8.4 требует различать пары
+   университета и сессии курсов. Различает плотность: чем больше событие
+   «наше», тем оно контурнее.
+
+     пара ИТМО     — заливка, тихая полоса: данные извне, их не трогают
+     занятие курса — контур акцентом: поставил ассистент, сюда идут работать
+     событие       — простой контур: личное, подтверждённое
+     черновик      — пунктир: захвачено, но НЕ подтверждено               */
+.cal-ev--itmo  { background: var(--surface-2); border-left-color: var(--text-faint); }
+.cal-ev--study { border-color: var(--accent); border-left-color: var(--accent); }
+.cal-ev--event { border-left-color: var(--border-strong); }
+.cal-ev--draft { border-style: dashed; border-left-width: 1px;
+                 background: var(--surface-2); }
+
+/* Короткое событие. Занятие на 45 минут — это 34px: три строки в них не
+   влезают и обрезаются на середине буквы (найдено визуальной проверкой).
+   Время и название встают в одну строку, подробности уходят: в узкий блок
+   всё равно попадает только то, что читается с одного взгляда. */
+.cal-ev--compact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.cal-ev--compact .cal-ev-meta { display: none; }
+/* Название добирает остаток первой строки (flex: 1) — поэтому пометка всегда
+   переносится на вторую и при этом обжимается по содержимому. Задавать
+   пометке flex-basis: 100% было нельзя: она растягивалась в полосу во всю
+   ширину блока. Длинное название обрывается многоточием. */
+.cal-ev--compact .cal-ev-title { flex: 1 1 auto; min-width: 0; margin-top: 0;
+                                 overflow: hidden; text-overflow: ellipsis;
+                                 white-space: nowrap; }
+.cal-ev--compact .cal-flag { flex: 0 0 auto; }
+
+/* Наложение помечается значком в углу, а не подписью: при наложении блок
+   ужимается вдвое по ширине, и текстовая метка в него не влезает.
+   Место под значок освобождает не отступ, а сама подпись: в половинном блоке
+   показывается только время НАЧАЛА. Полный интервал «15:20–16:50» в 84px не
+   помещается рядом со значком и переносится по строкам — найдено визуальной
+   проверкой. Конец события и так виден по нижней границе блока. */
+.cal-ev--clash::after { content: "⚠"; position: absolute; top: 3px; right: 5px;
+                        font-size: 11px; line-height: 1; }
+
+/* Половинная ширина — для наложения. Конфликт не прячет второй блок и не
+   схлопывает его в полоску: оба события настоящие. Подробности при этом
+   уходят: в половину колонки «лаб. · ауд. 101» переносится по слогам
+   и съедает название. */
+.cal-ev--half-l { right: 50%; }
+.cal-ev--half-r { left: 50%; }
+.cal-ev--half-l .cal-ev-meta, .cal-ev--half-r .cal-ev-meta { display: none; }
+/* Длинное название в половине колонки обрывается многоточием, а не режется
+   границей блока: обрезанное без многоточия слово выглядит как настоящее,
+   и «Стоматолог» читается как «Стоматоло». */
+.cal-ev--half-l, .cal-ev--half-r { padding-left: 6px; padding-right: 6px; }
+.cal-ev--half-l .cal-ev-title, .cal-ev--half-r .cal-ev-title {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Устаревшее событие — §10. Пунктир здесь значит то же, что у полосы
+   давности: «показано, но это не факт прямо сейчас». */
+.cal-ev.is-stale { border-style: dashed; }
+
+/* Пометка внутри блока: конфликт, сдвиг, давность. §8.4 «конфликты помечены». */
+.cal-flag { display: inline-block; margin-top: 2px; padding: 0 5px;
+            border: 1px solid var(--text); border-radius: var(--radius-pill);
+            font-size: 10.5px; line-height: 1.5; white-space: nowrap; }
+
+/* Наведение гасит соседей — решение owner на этапе 1; здесь тот же приём
+   переносится с капсулы на сетку.
+
+   Условие стоит на :has(.cal-ev:hover), а не на :hover самой сетки. Разница
+   принципиальная: в капсуле под курсором всегда какая-то вкладка, а сетка
+   недели наполовину состоит из пустых часов, и правило по :hover гасило
+   расписание, стоило курсору просто пересечь календарь. Гаснет только тогда,
+   когда курсор действительно на событии.
+
+   Сила приглушения — .75, та же, что у активной вкладки капсулы (этап 1).
+   Первая версия давала .4: owner отверг, расписание проваливалось целиком. */
+.cal-body:has(.cal-ev:hover) .cal-ev { opacity: .75; }
+/* Помеченный день и в покое приглушён до .55 — при наведении на соседа он
+   гаснет в той же пропорции (.55 × .75), а не проваливается в фон. */
+.cal-body:has(.cal-ev:hover) .cal-col.is-flagged .cal-ev { opacity: .41; }
+/* Возврат полного цвета блоку под курсором. Префикс :has() повторён не для
+   красоты: селектор с :has() весит больше обычного, и правило без него
+   проигрывало по специфичности — блок под курсором гас вместе со всеми. */
+.cal-body:has(.cal-ev:hover) .cal-ev:hover { opacity: 1; }
+.cal-body:has(.cal-ev:hover) .cal-col.is-flagged .cal-ev:hover { opacity: 1; }
+
+/* Легенда. Не украшение: виды различаются формой, а форму нужно подписать
+   ровно один раз на экран. */
+.cal-legend { display: flex; flex-wrap: wrap; gap: var(--space-4);
+              margin-top: var(--space-3); font-size: var(--fs-sm); }
+.cal-legend div { display: flex; align-items: center; gap: 7px; }
+.cal-legend i { width: 28px; height: 18px; border-radius: var(--radius-sm);
+                border: 1px solid var(--border); border-left-width: 3px;
+                background: var(--surface); font-style: normal; }
+.cal-legend .l-itmo  { background: var(--surface-2); border-left-color: var(--text-faint); }
+.cal-legend .l-study { border-color: var(--accent); border-left-color: var(--accent); }
+.cal-legend .l-event { border-left-color: var(--border-strong); }
+.cal-legend .l-draft { border-style: dashed; border-left-width: 1px; background: var(--surface-2); }
+
+/* --- Календарь, день — SPEC §8.4 -----------------------------------------
+   Утверждено owner на этапе 2b. Новых сущностей нет: те же блоки, шапка
+   и метки, что у недели, в одной колонке. Линия текущего времени — только
+   здесь: на неделе её нет по решению owner.                                */
+
+/* Час выше, чем на неделе (56 против 46): колонка одна, вертикального места
+   не жалко, а подробности пары в 46px не помещались и уходили в компактную
+   раскладку. Ширина ограничена: растянутый на весь экран блок «Стоматолог» —
+   это полоса в 1200px ради двух слов. */
+.cal--day { --hour: 56px; max-width: 720px; }
+.cal--day .cal-head, .cal--day .cal-body { grid-template-columns: 64px 1fr; }
+
+/* Строка объяснения под шапкой. На неделе такого места не было — там причина
+   умещалась только в чип из одного слова. Здесь день один, и можно сказать
+   словами, почему занятие не поставлено и что это значит для отставания. */
+.cal-note { display: flex; gap: var(--space-2); margin-bottom: var(--space-3);
+            padding: 9px var(--space-3); border-radius: var(--radius);
+            border: 1px solid var(--border); background: var(--surface-2);
+            color: var(--text); font-size: var(--fs-sm); line-height: 1.45; }
+.cal-note b { font-weight: 600; }
+
+/* --- Линия текущего времени — только на дне ------------------------------
+   Решение owner: на неделе её нет. Идёт ПОД событиями (z-index ниже .cal-ev):
+   проведённая поверх блока, она в монохроме читается как зачёркивание
+   названия — найдено визуальной проверкой на этапе 2. Точка на левом краю
+   колонки остаётся видна всегда, даже когда линия спрятана за событием. */
+.cal-ev { z-index: 1; }
+.cal-now { position: absolute; left: 0; right: 0; height: 0; z-index: 0;
+           top: calc((var(--s) - var(--h0)) * var(--hour));
+           border-top: 1px solid var(--accent); pointer-events: none; }
+.cal-now::before { content: ""; position: absolute; left: -3px; top: -4px;
+                   width: 7px; height: 7px; border-radius: var(--radius-pill);
+                   background: var(--accent); }
+
+/* Время «сейчас» подписано в шкале, заливкой акцентом. Иначе линия сообщает
+   «сейчас где-то здесь», а точное время приходится вычислять по соседним
+   подписям часов. */
+.cal-hour--now { padding: 1px 6px; border-radius: var(--radius-sm);
+                 background: var(--accent); color: var(--accent-text);
+                 font-variant-numeric: tabular-nums;
+                 top: calc((var(--t) - var(--h0)) * var(--hour) - 9px); }
+
+/* На неделе половинный блок прятал подробности: в 84px они не помещались.
+   В дне половина колонки — это 300px, и прятать нечего. */
+.cal--day .cal-ev--half-l .cal-ev-meta,
+.cal--day .cal-ev--half-r .cal-ev-meta { display: block; }
+
+/* Пометка в дне встаёт в строку времени, а не отдельной строкой: занятие
+   в час — это 56px, четвёртая строка в них не влезала и обрезалась.
+   Интерлиньяж и отступы поджаты: три строки с пилюлей не помещались
+   в час на 2–4px — измерено, а не прикинуто на глаз. */
+.cal--day .cal-ev { padding: 2px 8px; line-height: 1.25; }
+.cal--day .cal-ev-time { display: flex; align-items: center; gap: var(--space-2); }
+.cal--day .cal-ev-time .cal-flag { margin-top: 0; }
