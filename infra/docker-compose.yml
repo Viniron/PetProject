@@ -1,0 +1,58 @@
+# Один compose на все окружения (инвариант хоста 4): различия - в env
+# и overlay-файлах, а не в копии этого файла.
+#
+# На Э0 здесь два сервиса и ни одной строки про туннель: cloudflared
+# добавляется на Э1 вместе с самим хостом.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      # Без дефолта намеренно: дефолтный пароль базы - это отсутствие пароля.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      # Единственное состояние сервиса живёт здесь (инвариант хоста 1):
+      # всё, что нужно восстановить, достаётся из pg_dump этой базы.
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jarvis} -d ${POSTGRES_DB:-jarvis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV:-prod}
+      # Строка собирается из POSTGRES_*, чтобы пароль базы существовал в одном
+      # месте: две независимые копии расходятся ровно в день смены пароля.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-jarvis}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-jarvis}
+    ports:
+      # Только на loopback: наружу сервис выставляется Cloudflare Tunnel (Э1),
+      # порты на роутере не открываются (ADR-017).
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Тем же /health, которым проверяется живость снаружи. Базу он не
+      # трогает, поэтому меряет именно контейнер, а не доступность Postgres.
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  db-data:

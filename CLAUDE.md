@@ -105,11 +105,17 @@ infra/
 Нужной нет — добавь в `Makefile` и обнови этот раздел тем же коммитом.
 
 ```bash
+make venv           # создать apps/api/.venv и поставить dev-зависимости
 make dev / test / lint / migrate
+make format         # ruff --fix + black
+make compose-check  # docker compose config, без запуска
 make sync-itmo      # dry-run по умолчанию
 make plan-today     # dry-run по умолчанию
 make backup         # pg_dump + выгрузка в Backblaze B2
 ```
+
+`make help` перечисляет цели и этап, на котором каждая появляется: `migrate`,
+`sync-itmo`, `plan-today` и `backup` пока заглушки и выходят с ошибкой.
 
 Всё, что пишет наружу, по умолчанию `--dry-run`. Реальная запись — только `--apply`.
 
