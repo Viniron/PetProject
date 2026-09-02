@@ -1,0 +1,26 @@
+# Multi-arch: собирается под linux/arm64 (Pi) и linux/amd64 (машина owner, CI)
+# одним и тем же файлом - инвариант хоста 4. Ничего архитектурно-специфичного
+# внутрь не попадает, поэтому buildx собирает оба варианта без ветвлений:
+#   docker buildx build --platform linux/amd64,linux/arm64 -f infra/Dockerfile.api .
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Сначала манифест, потом код: слой с зависимостями переживает правку кода.
+COPY apps/api/pyproject.toml /app/apps/api/pyproject.toml
+COPY apps/api/jarvis_api /app/apps/api/jarvis_api
+RUN pip install /app/apps/api
+
+# Приложение не пишет на диск контейнера ничего (инвариант хоста 1),
+# так что root ему не нужен.
+RUN useradd --create-home --uid 10001 jarvis
+USER jarvis
+
+EXPOSE 8000
+CMD ["uvicorn", "jarvis_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

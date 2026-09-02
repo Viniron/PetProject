@@ -1,0 +1,49 @@
+# CI - единственное место, где mypy --strict гарантированно исполняется:
+# на машине owner Store-сборка Python ломает нативное расширение mypy
+# (см. docs/BUILD-PROGRESS.md). Здесь Linux, здесь он работает.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: lint + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # venv, а не системный python: так CI повторяет ровно тот путь,
+      # которым запускается разработка у owner, вместе с путями в Makefile.
+      - name: Создать venv и поставить зависимости
+        run: |
+          python -m venv apps/api/.venv
+          apps/api/.venv/bin/python -m pip install --upgrade pip
+          apps/api/.venv/bin/python -m pip install -e "apps/api[dev]"
+
+      - name: Линтеры и типы
+        run: make lint
+
+      - name: Тесты
+        run: make test
+
+  compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Валидация без запуска: проверяется синтаксис и подстановка переменных.
+      # Пароль фиктивный - он здесь обязателен только потому, что compose
+      # намеренно не даёт базе дефолтного пароля.
+      - name: Проверить compose
+        env:
+          POSTGRES_PASSWORD: ci-dummy-not-a-secret
+        run: docker compose -f infra/docker-compose.yml config --quiet
