@@ -1,0 +1,75 @@
+# Overlay для домашнего Pi: то, что нужно только там, где лежат данные.
+#
+# Инвариант хоста 4 требует один docker-compose.yml, а различия окружений
+# держать в overlay и env - это он. Накладывается так:
+#   docker compose --env-file .env -f infra/docker-compose.yml \
+#                  -f infra/docker-compose.pi.yml <команда>
+#
+# Имя файла по хосту, а не по слову "prod", намеренно: разница не в
+# "боевое против отладочного", а в том, что туннель и бэкап нужны там, где
+# живёт база, и бессмысленны на машине разработки.
+
+name: jarvis
+
+services:
+  # Доступ извне без проброса портов на роутере (ADR-017, SPEC §11.1):
+  # туннель исходящий, поэтому динамический адрес провайдера не мешает.
+  cloudflared:
+    # Версия пинуется: latest у образа с сетевым доступом внутрь дома -
+    # это молчаливое обновление кода, который держит эту дверь.
+    image: cloudflare/cloudflared:2026.8.3
+    restart: unless-stopped
+    # Профиль, а не обязательная переменная. Причина найдена на Э1: compose
+    # подставляет переменные при чтении файла, ДО учёта профилей, поэтому
+    # запись ${CF_TUNNEL_TOKEN:?...} роняет и те команды, которым туннель не
+    # нужен - вплоть до сборки образа бэкапа. Пока Cloudflare не заведён,
+    # это блокировало бы работу целиком.
+    #
+    # Включается строкой COMPOSE_PROFILES=tunnel в .env - то есть там же, где
+    # появляется сам токен, и одновременно с ним.
+    profiles: ["tunnel"]
+    # Токенный туннель: маршруты и публичное имя настраиваются в панели
+    # Cloudflare, здесь только токен. Своего конфига нет намеренно - иначе
+    # правда о маршрутах оказалась бы в двух местах.
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    # Наружу сам себя не публикует: он и есть выход наружу.
+
+  # Ночной бэкап. Запускается таймером systemd на хосте, а не крутится
+  # постоянно, поэтому политики перезапуска у него нет: unless-stopped на
+  # одноразовом джобе означал бы бесконечный цикл прогонов.
+  backup:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.backup
+    restart: "no"
+    environment:
+      # Подключение к базе - те же значения, что у db: пароль существует
+      # в одном месте (в .env), второй копии нет.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-jarvis}
+      POSTGRES_USER: ${POSTGRES_USER:-jarvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_LOCAL: ${BACKUP_KEEP_LOCAL:-7}
+      BACKUP_PREFIX: ${BACKUP_PREFIX:-daily}
+      # Пустые значения допустимы: без них джоб работает в dry-run и
+      # отказывается от --apply с внятным перечнем недостающего.
+      B2_BUCKET: ${B2_BUCKET:-}
+      B2_KEY_ID: ${B2_KEY_ID:-}
+      B2_APP_KEY: ${B2_APP_KEY:-}
+      B2_API_URL: ${B2_API_URL:-https://api.backblazeb2.com}
+      HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+    volumes:
+      # Отдельный том, не тот, где данные базы: снимок и источник на одном
+      # томе теряются вместе.
+      - db-backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-backups:

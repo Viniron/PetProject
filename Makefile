@@ -12,8 +12,22 @@ endif
 
 API := apps/api
 COMPOSE := infra/docker-compose.yml
+COMPOSE_PI := infra/docker-compose.pi.yml
 
-.PHONY: help venv dev test lint format compose-check migrate sync-itmo plan-today backup
+# docker compose ищет .env в каталоге compose-файла, то есть в infra/, а
+# лежит он в корне репозитория - поэтому --env-file указывается явно.
+# Найдено на Э1 при первом подъёме стека на Pi.
+#
+# Если файла нет (CI), аргумент не добавляется вовсе и значения берутся из
+# переменных окружения: иначе compose падает на отсутствующем файле.
+ENV_FILE ?= .env
+ENV_FILE_ARG := $(if $(wildcard $(ENV_FILE)),--env-file $(ENV_FILE),)
+
+DC := docker compose $(ENV_FILE_ARG) -f $(COMPOSE)
+DC_PI := docker compose $(ENV_FILE_ARG) -f $(COMPOSE) -f $(COMPOSE_PI)
+
+.PHONY: help venv dev test lint format compose-check up down logs \
+        migrate sync-itmo plan-today backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -21,11 +35,16 @@ help:
 	@echo "test          - pytest"
 	@echo "lint          - ruff + black --check + mypy --strict"
 	@echo "format        - ruff --fix + black"
-	@echo "compose-check - validate docker-compose.yml without starting it"
+	@echo "compose-check - validate both compose files without starting them"
+	@echo "up            - start the stack on the Pi (base + pi overlay)"
+	@echo "down          - stop the stack"
+	@echo "logs          - follow logs of the stack"
+	@echo "backup        - pg_dump + report, dry-run (stage E1)"
+	@echo "backup-apply  - pg_dump + upload to B2 + heartbeat ping (stage E1)"
+	@echo "restore-check - restore the newest local dump into a scratch database (stage E1)"
 	@echo "migrate       - alembic upgrade head (stage E2)"
 	@echo "sync-itmo     - my.itmo.ru -> Google Calendar, dry-run (stage E3)"
 	@echo "plan-today    - morning planning job, dry-run (stage E5)"
-	@echo "backup        - pg_dump + upload to Backblaze B2 (stage E1)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
@@ -49,8 +68,31 @@ format:
 	$(PY) -m ruff check --fix $(API)
 	$(PY) -m black $(API)
 
+# Проверяются оба файла: overlay ломается ровно так же тихо, как база,
+# а применяется только на Pi - то есть там, где отладка дороже всего.
 compose-check:
-	docker compose -f $(COMPOSE) config --quiet
+	docker compose $(ENV_FILE_ARG) -f $(COMPOSE) config --quiet
+	docker compose $(ENV_FILE_ARG) -f $(COMPOSE) -f $(COMPOSE_PI) config --quiet
+
+up:
+	$(DC_PI) up -d
+
+down:
+	$(DC_PI) down
+
+logs:
+	$(DC_PI) logs -f --tail=100
+
+# Бэкап по умолчанию dry-run: снимает дамп, считает сумму, показывает, что
+# выгрузил бы, и не отправляет наружу ни байта (CLAUDE.md).
+backup:
+	$(DC_PI) run --rm backup
+
+backup-apply:
+	$(DC_PI) run --rm backup --apply
+
+restore-check:
+	./infra/restore-check.sh
 
 # Цели ниже перечислены в CLAUDE.md, но их реализация принадлежит следующим
 # этапам. Заглушка выходит с ненулевым кодом намеренно: молчаливый успех
@@ -63,6 +105,3 @@ sync-itmo:
 
 plan-today:
 	@echo "not implemented yet: stage E5, see docs/BUILD-PROGRESS.md" && exit 1
-
-backup:
-	@echo "not implemented yet: stage E1, see docs/BUILD-PROGRESS.md" && exit 1

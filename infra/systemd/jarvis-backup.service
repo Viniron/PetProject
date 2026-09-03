@@ -1,0 +1,45 @@
+# Ночной бэкап базы. Запускается таймером jarvis-backup.timer.
+#
+# Почему systemd на хосте, а не cron внутри контейнера: логи уходят в
+# journald вместе с логами всего остального, расписание видно в
+# `systemctl list-timers`, ручной прогон - одна команда, и cron не
+# приходится примирять с непривилегированным пользователем в контейнере.
+# Решение owner, Э1.
+#
+# Путь фиксирован и обязан совпадать с местом клона репозитория.
+# systemd не подставляет переменные в ExecStart, поэтому дублирование
+# пути здесь неизбежно; при переносе репозитория правится этот файл.
+
+[Unit]
+Description=JARVIS: pg_dump и выгрузка в Backblaze B2
+Documentation=file:///home/jarvis/jarvis/docs/RUNBOOK.md
+Requires=docker.service
+After=docker.service network-online.target
+
+# Ждать выверенных часов обязательно, и причина не в аккуратности.
+# У Raspberry Pi нет батарейки часов: при включении время берётся из
+# последнего сохранённого и уточняется по сети только после её появления.
+# Дамп, снятый до этого, получил бы имя «из прошлого» - а ретеншн сортирует
+# копии по имени и удалил бы самую свежую первой. Найдено на Э1: после
+# переезда платы часы отставали на 2,5 часа до синхронизации.
+Wants=time-sync.target
+After=time-sync.target
+
+[Service]
+Type=oneshot
+User=jarvis
+Group=docker
+WorkingDirectory=/home/jarvis/jarvis
+
+# --apply здесь единственное место, где бэкап пишет наружу по-настоящему.
+# Всё остальное - dry-run по умолчанию (CLAUDE.md).
+ExecStart=/usr/bin/docker compose \
+    --env-file /home/jarvis/jarvis/.env \
+    -f /home/jarvis/jarvis/infra/docker-compose.yml \
+    -f /home/jarvis/jarvis/infra/docker-compose.pi.yml \
+    run --rm backup --apply
+
+# Джоб на карте памяти может идти долго при выросшей базе, но вечно висеть
+# не должен: заклинивший бэкап не отправит ping, и healthchecks об этом
+# скажет - ровно так и задумано.
+TimeoutStartSec=1800

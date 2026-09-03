@@ -1,0 +1,53 @@
+# Образ для бэкапа: pg_dump плюс джоб на Python.
+#
+# База - тот же postgres:17-alpine, что и у сервиса db, по одной причине:
+# pg_dump обязан быть той же мажорной версии, что сервер, иначе он просто
+# откажется снимать дамп. Общая база означает ещё и общие слои: на Pi образ
+# уже скачан.
+#
+# Multi-arch как и Dockerfile.api - ничего архитектурно-специфичного внутри:
+#   docker buildx build --platform linux/amd64,linux/arm64 -f infra/Dockerfile.backup .
+
+FROM postgres:17-alpine
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+# Пакет jarvis_api ставится без зависимостей, а нужные две - отдельно.
+# Причина конкретная: джобу нужен только config.py (pydantic-settings),
+# а uvicorn[standard] тянет uvloop, у которого под musl нет колёс - сборка
+# на Pi уходила бы в компиляцию на десяток минут.
+#
+# Версии продублированы из apps/api/pyproject.toml и должны с ним совпадать.
+# Расхождение проявится не при сборке, а при импорте в контейнере.
+RUN apk add --no-cache python3 py3-pip \
+    && pip install --no-cache-dir --break-system-packages \
+        "pydantic>=2.9,<3" \
+        "pydantic-settings>=2.6,<3"
+
+COPY apps/api/jarvis_api /app/jarvis_api
+
+# Права нормализуются намеренно: COPY переносит их из контекста сборки, а он
+# может прийти с машины с другим umask - и тогда каталоги оказываются 700 у
+# root, из-за чего процесс под postgres не может импортировать пакет.
+# Ошибка при этом выглядит как "No module named", а не как отказ доступа.
+RUN chmod -R a+rX /app
+
+# Проверка восстановления живёт здесь же: только в этом образе есть
+# одновременно pg_restore нужной версии и том с дампами.
+COPY infra/restore-check-inner.sh /usr/local/bin/restore-check.sh
+RUN chmod 0755 /usr/local/bin/restore-check.sh
+
+# Каталог копий - том, а не диск контейнера: это единственное осознанное
+# исключение из инварианта хоста 1, и содержимое дублируется в B2.
+RUN mkdir -p /backups && chown postgres:postgres /backups
+VOLUME ["/backups"]
+
+# postgres:17-alpine приносит непривилегированного пользователя postgres,
+# и root для pg_dump не нужен.
+USER postgres
+
+# Без --apply джоб только снимает дамп и печатает, что сделал бы:
+# наружу по умолчанию не пишет ничего (CLAUDE.md).
+ENTRYPOINT ["python3", "-m", "jarvis_api.jobs.backup"]

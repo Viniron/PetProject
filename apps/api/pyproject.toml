@@ -33,7 +33,9 @@ dev = [
 [tool.setuptools]
 # Раскладка плоская: рядом с пакетом лежит tests/, и автообнаружение
 # setuptools на двух корневых пакетах отказывается угадывать.
-packages = ["jarvis_api"]
+# Подпакеты перечислены явно по той же причине: без них образ соберётся,
+# но упадёт на импорте jarvis_api.jobs уже в контейнере.
+packages = ["jarvis_api", "jarvis_api.integrations", "jarvis_api.jobs"]
 
 [tool.ruff]
 target-version = "py312"
