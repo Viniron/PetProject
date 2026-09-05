@@ -13,6 +13,27 @@ jobs:
   api:
     name: lint + tests
     runs-on: ubuntu-latest
+
+    # Тесты схемы гоняются против настоящей Postgres. SQLite не подошёл бы:
+    # проверяются timestamptz, jsonb, bytea, частичный уникальный индекс и
+    # каскад - то, чего у него либо нет, либо оно ведёт себя иначе.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: jarvis_test
+          POSTGRES_USER: jarvis
+          # Эфемерная база сборочного агента; секретом это значение быть
+          # не может и не является.
+          POSTGRES_PASSWORD: jarvis-test-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jarvis -d jarvis_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v7
 
@@ -32,6 +53,11 @@ jobs:
         run: make lint
 
       - name: Тесты
+        # Без этой переменной тесты схемы пропускаются, и прогон выглядит
+        # зелёным, ничего не проверив. В CI она задана всегда - именно
+        # здесь эти тесты обязаны выполняться.
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://jarvis:jarvis-test-not-a-secret@127.0.0.1:5432/jarvis_test
         run: make test
 
   compose:
@@ -55,3 +81,4 @@ jobs:
         run: |
           docker compose -f infra/docker-compose.yml config --quiet
           docker compose -f infra/docker-compose.yml -f infra/docker-compose.pi.yml config --quiet
+          docker compose --env-file infra/dev.env -f infra/docker-compose.yml -f infra/docker-compose.dev.yml config --quiet

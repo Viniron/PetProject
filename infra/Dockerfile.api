@@ -17,6 +17,12 @@ COPY apps/api/pyproject.toml /app/apps/api/pyproject.toml
 COPY apps/api/jarvis_api /app/apps/api/jarvis_api
 RUN pip install /app/apps/api
 
+# Миграции едут в образ вместе с кодом: на Pi нет venv, и `make migrate-pi`
+# запускает alembic именно отсюда. Инвариант хоста 3 - схему создаёт только
+# Alembic - иначе выполнить нечем.
+COPY apps/api/alembic.ini /app/apps/api/alembic.ini
+COPY apps/api/alembic /app/apps/api/alembic
+
 # Приложение не пишет на диск контейнера ничего (инвариант хоста 1),
 # так что root ему не нужен.
 RUN useradd --create-home --uid 10001 jarvis

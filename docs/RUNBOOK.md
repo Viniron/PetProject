@@ -41,6 +41,7 @@ VPN: клиент с включённым kill-switch блокирует дом�
 make up              # поднять стек (база и API; туннель - только с COMPOSE_PROFILES=tunnel)
 make down            # остановить
 make logs            # смотреть логи
+make migrate-pi      # накатить миграции внутри контейнера api
 make backup          # снять дамп и показать, что выгрузил бы (dry-run)
 make backup-apply    # снять дамп, выгрузить в B2, отправить ping
 make restore-check   # развернуть свежий дамп в отдельную базу и осмотреть
@@ -243,12 +244,40 @@ docker exec -i jarvis-db-1 pg_restore -U jarvis -d jarvis_restore --exit-on-erro
 docker exec -i jarvis-db-1 psql -U jarvis -d jarvis_restore -c '\dt'
 ```
 
-3. Убедиться, что данные на месте (до Э2 — таблица `restore_probe`).
+3. Убедиться, что данные на месте: `\dt` показывает девять таблиц схемы v1
+   (`settings`, `integration_tokens`, `itmo_lessons`, `calendar_events`,
+   `day_flags`, `audit_log`, `job_runs`, `capture_drafts`, `capture_blobs`)
+   плюс `alembic_version`.
 4. Только после этого, если восстановление идёт вместо живой базы:
    остановить стек, переименовать базы, поднять снова.
 
 Порядок именно такой: сначала развернуть рядом и посмотреть, потом
 подменять. Восстановление поверх живой базы не оставляет пути назад.
+
+---
+
+## Схема базы и миграции
+
+Схему создаёт только Alembic (инвариант хоста 3). Руками в базе структуру
+не менять — иначе следующий `upgrade` встретит не то, что ожидает.
+
+```bash
+make migrate-pi      # накатить всё, чего ещё нет
+```
+
+**Чистая плата:** поднять стек, затем `make migrate-pi` — база получит схему
+с нуля.
+
+**После восстановления из дампа миграции применять не нужно:** `pg_dump -Fc`
+несёт и структуру, и таблицу `alembic_version`. Прогнать `make migrate-pi`
+всё же стоит — он либо не сделает ничего, либо докатит то, чего в старом дампе
+не было, и это единственный способ заметить, что дамп старше кода.
+
+**Проверить, на какой версии база:**
+
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.pi.yml   run --rm api alembic -c /app/apps/api/alembic.ini current
+```
 
 ---
 

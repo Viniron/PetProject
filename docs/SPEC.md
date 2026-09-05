@@ -335,11 +335,15 @@ offset_x(i) = A * sin(2π * i / P)      A ≈ 25% ширины, P = 6
 **Один пользователь, без мультиарендности.** `user_id` в таблицах не заводим. Настройки owner — одна строка в `settings`, чтобы точка расширения была одна, если решение изменится.
 
 Таблицы ядра, ни одна из которых не знает про конкретный предмет:
-`courses`, `course_units`, `course_nodes`, `node_activities`, `node_state`, `study_sessions`, `vocab_cards`, `mistakes`, `submissions`, `level_checks`, `tutor_messages`, `content_items`, `content_history`, `extra_activity_log`, `calendar_events`, `day_flags`, `settings`, `audit_log`, `integration_tokens`, `job_runs`, `capture_drafts`, `capture_blobs`.
+`courses`, `course_units`, `course_nodes`, `node_activities`, `node_state`, `study_sessions`, `vocab_cards`, `mistakes`, `submissions`, `level_checks`, `tutor_messages`, `content_items`, `content_history`, `extra_activity_log`, `itmo_lessons`, `calendar_events`, `day_flags`, `settings`, `audit_log`, `integration_tokens`, `job_runs`, `capture_drafts`, `capture_blobs`.
 
 `job_runs` хранит факт «джоб отработал сегодня» — без него catch-up (§11.2) не работает, потому что расписание APScheduler пересоздаётся при каждом старте.
 
+`itmo_lessons` — зеркало расписания портала: то, что my.itmo.ru отдал в последний успешный забор, с временем этого забора. Отдельно от `calendar_events` намеренно: первое — желаемое состояние из источника, второе — журнал того, что записано в Google. В одной таблице «пара исчезла из расписания» и «запись в календарь не удалась» были бы одним состоянием строки, а reconcile (§11.2) обязан их различать. Пометка давности на экране календаря (§10) берётся из `fetched_at` этого зеркала.
+
 `capture_drafts` и `capture_blobs` живут от загрузки до подтверждения или отмены черновика и удаляются вместе с ним, в одной транзакции с созданием события. Сырьё вынесено в отдельную таблицу, чтобы выборка списка черновиков не читала `bytea`. Черновик, к которому не вернулись, удаляется джобом по сроку из конфига.
+
+**Схема заводится по частям.** Первый релиз — календарь без курсов (ADR-019 с поправкой ADR-020), поэтому схема v1 (этап Э2) содержит девять таблиц: `settings`, `integration_tokens`, `itmo_lessons`, `calendar_events`, `day_flags`, `audit_log`, `job_runs`, `capture_drafts`, `capture_blobs`. Курсовые таблицы появляются вместе с движком курсов: их поля выводятся из манифеста курса, и спроектированные до него они были бы догадкой, которую всё равно пришлось бы переделывать.
 
 ---
 

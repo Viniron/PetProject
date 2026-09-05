@@ -13,6 +13,7 @@ endif
 API := apps/api
 COMPOSE := infra/docker-compose.yml
 COMPOSE_PI := infra/docker-compose.pi.yml
+COMPOSE_DEV := infra/docker-compose.dev.yml
 
 # docker compose ищет .env в каталоге compose-файла, то есть в infra/, а
 # лежит он в корне репозитория - поэтому --env-file указывается явно.
@@ -25,9 +26,17 @@ ENV_FILE_ARG := $(if $(wildcard $(ENV_FILE)),--env-file $(ENV_FILE),)
 
 DC := docker compose $(ENV_FILE_ARG) -f $(COMPOSE)
 DC_PI := docker compose $(ENV_FILE_ARG) -f $(COMPOSE) -f $(COMPOSE_PI)
+# У машины разработки свой env-файл, и он коммитится: в нём нет секретов,
+# зато dev-база отличается от prod именем, портом и паролем (инвариант хоста 6).
+DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV)
+
+# Alembic вызывается с явным -c: пути внутри ini заданы через %(here)s,
+# поэтому цель работает из корня репозитория, а не только из apps/api.
+ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
 .PHONY: help venv dev test lint format compose-check up down logs \
-        migrate sync-itmo plan-today backup backup-apply restore-check
+        db-up db-down migrate migrate-pi revision \
+        sync-itmo plan-today backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -35,14 +44,18 @@ help:
 	@echo "test          - pytest"
 	@echo "lint          - ruff + black --check + mypy --strict"
 	@echo "format        - ruff --fix + black"
-	@echo "compose-check - validate both compose files without starting them"
+	@echo "compose-check - validate every compose overlay without starting it"
+	@echo "db-up         - start dev and test databases on the workstation (stage E2)"
+	@echo "db-down       - stop them"
 	@echo "up            - start the stack on the Pi (base + pi overlay)"
 	@echo "down          - stop the stack"
 	@echo "logs          - follow logs of the stack"
 	@echo "backup        - pg_dump + report, dry-run (stage E1)"
 	@echo "backup-apply  - pg_dump + upload to B2 + heartbeat ping (stage E1)"
 	@echo "restore-check - restore the newest local dump into a scratch database (stage E1)"
-	@echo "migrate       - alembic upgrade head (stage E2)"
+	@echo "migrate       - alembic upgrade head against DATABASE_URL (stage E2)"
+	@echo "migrate-pi    - the same inside the api container on the Pi (stage E2)"
+	@echo "revision      - autogenerate a migration: make revision m=\"what changed\" (stage E2)"
 	@echo "sync-itmo     - my.itmo.ru -> Google Calendar, dry-run (stage E3)"
 	@echo "plan-today    - morning planning job, dry-run (stage E5)"
 
@@ -62,7 +75,7 @@ test:
 lint:
 	$(PY) -m ruff check $(API)
 	$(PY) -m black --check $(API)
-	$(PY) -m mypy --strict --config-file $(API)/pyproject.toml $(API)/jarvis_api $(API)/tests
+	$(PY) -m mypy --strict --config-file $(API)/pyproject.toml $(API)/jarvis_api $(API)/tests $(API)/alembic
 
 format:
 	$(PY) -m ruff check --fix $(API)
@@ -73,6 +86,7 @@ format:
 compose-check:
 	docker compose $(ENV_FILE_ARG) -f $(COMPOSE) config --quiet
 	docker compose $(ENV_FILE_ARG) -f $(COMPOSE) -f $(COMPOSE_PI) config --quiet
+	$(DC_DEV) config --quiet
 
 up:
 	$(DC_PI) up -d
@@ -94,12 +108,31 @@ backup-apply:
 restore-check:
 	./infra/restore-check.sh
 
+# Базы разработки. Тестовая эфемерная и живёт в tmpfs, dev-база - обычная:
+# первую сносит каждый прогон тестов, вторую нет.
+db-up:
+	$(DC_DEV) up -d --wait db db-test
+
+db-down:
+	$(DC_DEV) down
+
+# Схема накатывается только миграциями (инвариант хоста 3): create_all нет
+# нигде, включая тесты, - иначе на Pi и в тестах оказались бы разные схемы.
+migrate:
+	$(ALEMBIC) upgrade head
+
+# То же на Pi: там нет venv, зато есть образ с alembic внутри.
+migrate-pi:
+	$(DC_PI) run --rm api alembic -c /app/apps/api/alembic.ini upgrade head
+
+# make revision m="что изменилось". Autogenerate сверяет модели с живой базой,
+# поэтому DATABASE_URL должен указывать на неё, а не на пустую.
+revision:
+	$(ALEMBIC) revision --autogenerate -m "$(m)"
+
 # Цели ниже перечислены в CLAUDE.md, но их реализация принадлежит следующим
 # этапам. Заглушка выходит с ненулевым кодом намеренно: молчаливый успех
 # несделанной работы хуже явной ошибки (инвариант 9 - падать громко).
-migrate:
-	@echo "not implemented yet: schema lands in stage E2, see docs/BUILD-PROGRESS.md" && exit 1
-
 sync-itmo:
 	@echo "not implemented yet: stage E3, see docs/BUILD-PROGRESS.md" && exit 1
 

@@ -106,16 +106,22 @@ infra/
 
 ```bash
 make venv           # создать apps/api/.venv и поставить dev-зависимости
-make dev / test / lint / migrate
+make dev / test / lint
 make format         # ruff --fix + black
 make compose-check  # docker compose config, без запуска
+make db-up          # dev- и тестовая базы в Docker на машине разработки
+make db-down        # остановить их
+make migrate        # alembic upgrade head по DATABASE_URL
+make migrate-pi     # то же внутри контейнера api на Pi
+make revision m="…" # autogenerate новой миграции
 make sync-itmo      # dry-run по умолчанию
 make plan-today     # dry-run по умолчанию
 make backup         # pg_dump + выгрузка в Backblaze B2
 ```
 
-`make help` перечисляет цели и этап, на котором каждая появляется: `migrate`,
-`sync-itmo`, `plan-today` и `backup` пока заглушки и выходят с ошибкой.
+`make help` перечисляет цели и этап, на котором каждая появляется. Заглушками
+остались `sync-itmo` и `plan-today`: они выходят с ошибкой, а не молча
+успехом.
 
 Всё, что пишет наружу, по умолчанию `--dry-run`. Реальная запись — только `--apply`.
 

@@ -1,0 +1,44 @@
+# Overlay для машины разработки: то, чего не должно быть на Pi.
+#
+# Инвариант хоста 4 требует один docker-compose.yml, а различия окружений
+# держать в overlay - это он, второй после pi. Накладывается так:
+#   docker compose --env-file infra/dev.env -f infra/docker-compose.yml \
+#                  -f infra/docker-compose.dev.yml <команда>
+#
+# Отличие от prod ровно в двух вещах: порт базы виден с хоста (иначе
+# `make dev` и alembic вне контейнера до неё не дотянутся) и рядом стоит
+# отдельная эфемерная база для тестов.
+
+name: jarvis-dev
+
+services:
+  db:
+    ports:
+      # Только loopback: база разработки не должна быть видна из сети,
+      # в которой сидит ноутбук, - в кафе это открытый Postgres.
+      - "127.0.0.1:5432:5432"
+
+  # Тесты гоняются против отдельной базы, а не против dev: миграция вниз
+  # (downgrade base) сносит схему целиком, и делать это с базой, где лежат
+  # данные ручной отладки, - способ терять их каждый прогон.
+  db-test:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      POSTGRES_DB: jarvis_test
+      POSTGRES_USER: jarvis
+      # Не секрет и не может им быть: значение продублировано в conftest.py,
+      # чтобы тесты находили эту базу без настройки окружения.
+      POSTGRES_PASSWORD: jarvis-test-not-a-secret
+    ports:
+      - "127.0.0.1:55432:5432"
+    # Данные живут в памяти и исчезают с контейнером. Тестовой базе нечего
+    # переживать перезапуск, а на SSD ноутбука это лишние записи.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jarvis -d jarvis_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
