@@ -10,10 +10,12 @@ SQLite здесь не годится принципиально: проверя
 в котором ничего не проверено» не выглядит зелёным.
 """
 
+import json
 import os
 from collections.abc import Callable, Iterator
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic.config import Config
@@ -22,6 +24,18 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 API_DIR = Path(__file__).resolve().parents[1]
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+
+
+def загрузить_фикстуру(*части: str) -> Any:
+    """Читает JSON-фикстуру ответа внешней системы.
+
+    Отдельной функцией, а не фикстурой pytest, чтобы её можно было звать
+    внутри параметризации - там фикстуры недоступны.
+    """
+    путь = FIXTURES_DIR.joinpath(*части)
+    return json.loads(путь.read_text(encoding="utf-8"))
+
 
 # Та самая база из infra/docker-compose.dev.yml. Значение продублировано
 # осознанно: `make db-up && make test` должно работать без настройки

@@ -25,14 +25,28 @@ dependencies = [
     # binary - готовое колесо, чтобы образ не тянул компилятор ради libpq;
     # для arm64 Pi такое колесо публикуется.
     "psycopg[binary]>=3.2,<4",
+    # Э3. Переехал из dev-зависимостей, новой библиотеки в проекте не появилось.
+    # Нужен не «чтобы ходить по HTTP» - для этого хватало urllib, на нём написан
+    # клиент B2. Нужен ровно ради входа в ИСУ: это Authorization Code + PKCE
+    # с эмуляцией формы Keycloak, то есть куки между четырьмя запросами,
+    # запрет следования редиректу и вылавливание code из Location. На urllib
+    # это cookiejar плюс свой redirect-handler - полсотни строк велосипеда
+    # в самом хрупком месте этапа.
+    "httpx2>=2.12",
+    # Э3. Единственная действительно новая зависимость. Пароль ИСУ лежит
+    # в базе шифротекстом (CLAUDE.md), а дампы уезжают в B2 нешифрованными
+    # (ADR-020) - без шифра утёкший бэкап отдаёт пароль. Шифра в stdlib нет,
+    # заменить нечем. Колесо под linux/arm64 публикуется, компилятор в образ
+    # не тянется.
+    "cryptography>=44,<47",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",
-    # httpx2, а не httpx: starlette.testclient со старым httpx выводит
-    # deprecation в каждом прогоне, и он бы шумел в отчётах всё время.
-    "httpx2>=2.12",
+    # httpx2 переехал в основные зависимости на Э3 - здесь его больше нет,
+    # но starlette.testclient по-прежнему берёт именно его: httpx2, а не httpx,
+    # потому что со старым httpx он выводит deprecation в каждом прогоне.
     "ruff>=0.8",
     "black>=24.10",
     "mypy>=1.13",
@@ -44,7 +58,13 @@ dev = [
 # setuptools на двух корневых пакетах отказывается угадывать.
 # Подпакеты перечислены явно по той же причине: без них образ соберётся,
 # но упадёт на импорте jarvis_api.jobs уже в контейнере.
-packages = ["jarvis_api", "jarvis_api.db", "jarvis_api.integrations", "jarvis_api.jobs"]
+packages = [
+    "jarvis_api",
+    "jarvis_api.db",
+    "jarvis_api.integrations",
+    "jarvis_api.integrations.itmo",
+    "jarvis_api.jobs",
+]
 
 [tool.ruff]
 target-version = "py312"

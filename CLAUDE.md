@@ -111,17 +111,19 @@ make format         # ruff --fix + black
 make compose-check  # docker compose config, без запуска
 make db-up          # dev- и тестовая базы в Docker на машине разработки
 make db-down        # остановить их
+make build          # пересобрать образ api после правки Dockerfile или зависимостей
 make migrate        # alembic upgrade head по DATABASE_URL
 make migrate-pi     # то же внутри контейнера api на Pi
 make revision m="…" # autogenerate новой миграции
-make sync-itmo      # dry-run по умолчанию
+make sync-itmo      # забор расписания в зеркало, dry-run по умолчанию
+make sync-itmo-apply  # то же с записью зеркала
+make sync-itmo-pi     # то же внутри контейнера api на Pi
 make plan-today     # dry-run по умолчанию
 make backup         # pg_dump + выгрузка в Backblaze B2
 ```
 
-`make help` перечисляет цели и этап, на котором каждая появляется. Заглушками
-остались `sync-itmo` и `plan-today`: они выходят с ошибкой, а не молча
-успехом.
+`make help` перечисляет цели и этап, на котором каждая появляется. Заглушкой
+остался `plan-today`: он выходит с ошибкой, а не молча успехом.
 
 Всё, что пишет наружу, по умолчанию `--dry-run`. Реальная запись — только `--apply`.
 

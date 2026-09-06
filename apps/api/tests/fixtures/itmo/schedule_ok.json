@@ -1,0 +1,58 @@
+{
+  "data": [
+    {
+      "date": "2026-09-07",
+      "lessons": [
+        {
+          "subject": "Дисциплина А",
+          "type": "Лекции",
+          "time_start": "10:00",
+          "time_end": "11:30",
+          "teacher_name": "Преподаватель А. А.",
+          "room": "1234",
+          "building": "Кронверкский пр., д.49",
+          "group": "X0000",
+          "note": null,
+          "zoom_url": null,
+          "zoom_password": null,
+          "zoom_info": null,
+          "pair_number": 2,
+          "work_type": "Аудиторная"
+        },
+        {
+          "subject": "Дисциплина Б",
+          "type": "Практические занятия",
+          "time_start": "11:40",
+          "time_end": "13:10",
+          "teacher_fio": "Преподаватель Б. Б.",
+          "room": null,
+          "building": null,
+          "group": "X0000",
+          "zoom_url": "https://us02web.zoom.us/j/0000000000",
+          "zoom_password": "000000",
+          "zoom_info": "Идентификатор конференции 000 0000 0000"
+        }
+      ]
+    },
+    {
+      "date": "2026-09-08",
+      "lessons": null
+    },
+    {
+      "date": "2026-09-09",
+      "lessons": [
+        {
+          "subject": "Дисциплина В",
+          "type": "Занятия спортом",
+          "time_start": "15:20:00",
+          "time_end": "16:50:00",
+          "teacher_name": "",
+          "room": "",
+          "building": "",
+          "group": "X0000",
+          "note": "  "
+        }
+      ]
+    }
+  ]
+}
