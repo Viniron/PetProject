@@ -1,0 +1,75 @@
+{
+  "code": 0,
+  "message": null,
+  "data": [
+    {
+      "day_number": 1,
+      "week_number": 5,
+      "date": "2026-09-21",
+      "note": null,
+      "type": null,
+      "intersections": [],
+      "lessons": [
+        {
+          "pair_id": 51000000001,
+          "subject": "Дистанционная дисциплина",
+          "subject_id": 61391,
+          "note": null,
+          "type": "Практические занятия",
+          "time_start": "15:20",
+          "time_end": "16:50",
+          "teacher_id": 1000,
+          "teacher_name": "Преподаватель А. А.",
+          "room": null,
+          "building": null,
+          "format": "Дистанционный",
+          "work_type": "Практические занятия",
+          "work_type_id": 3,
+          "group": "X0000",
+          "flow_type_id": 2,
+          "flow_id": 1001,
+          "zoom_url": "https://us02web.zoom.us/j/00000000000",
+          "zoom_password": "000000",
+          "zoom_info": "Идентификатор конференции 000 0000 0000",
+          "bld_id": null,
+          "format_id": 3,
+          "main_bld_id": null
+        },
+        {
+          "pair_id": 51000000002,
+          "subject": "Дисциплина с другим полем преподавателя",
+          "subject_id": 61391,
+          "note": null,
+          "type": "Практические занятия",
+          "time_start": "17:00:00",
+          "time_end": "18:30:00",
+          "teacher_id": 1000,
+          "room": "1404",
+          "building": "Кронверкский пр., д.49, лит.А",
+          "format": null,
+          "work_type": "Практические занятия",
+          "work_type_id": 3,
+          "group": "X0000",
+          "flow_type_id": 2,
+          "flow_id": 1001,
+          "zoom_url": null,
+          "zoom_password": null,
+          "zoom_info": null,
+          "bld_id": 13,
+          "format_id": 2,
+          "main_bld_id": 13,
+          "teacher_fio": "Преподаватель Д. Д."
+        }
+      ]
+    },
+    {
+      "day_number": 2,
+      "week_number": 5,
+      "date": "2026-09-22",
+      "note": null,
+      "type": null,
+      "intersections": [],
+      "lessons": null
+    }
+  ]
+}
