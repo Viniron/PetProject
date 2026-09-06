@@ -36,7 +36,7 @@ ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
 .PHONY: help venv dev test lint format compose-check up down logs \
         db-up db-down build migrate migrate-pi revision \
-        sync-itmo sync-itmo-apply sync-itmo-pi plan-today \
+        sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply plan-today \
         backup backup-apply restore-check
 
 help:
@@ -60,7 +60,8 @@ help:
 	@echo "revision      - autogenerate a migration: make revision m=\"what changed\" (stage E2)"
 	@echo "sync-itmo       - my.itmo.ru -> mirror, dry-run (stage E3)"
 	@echo "sync-itmo-apply - the same, writing the mirror (stage E3)"
-	@echo "sync-itmo-pi    - the same inside the api container on the Pi (stage E3)"
+	@echo "sync-itmo-pi    - dry-run inside the api container on the Pi (stage E3)"
+	@echo "sync-itmo-pi-apply - the same, writing the mirror on the Pi (stage E3)"
 	@echo "plan-today    - morning planning job, dry-run (stage E5)"
 
 venv:
@@ -150,7 +151,13 @@ sync-itmo-apply:
 	$(PY) -m jarvis_api.jobs.sync_itmo --apply
 
 # То же на Pi: там нет venv, зато есть образ со всеми зависимостями.
+# Умолчание такое же, как у остальных целей, - dry-run. Цель, пишущая
+# в prod-базу по одному слову без флага, рано или поздно будет набрана
+# по ошибке вместо соседней.
 sync-itmo-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.sync_itmo
+
+sync-itmo-pi-apply:
 	$(DC_PI) run --rm api python -m jarvis_api.jobs.sync_itmo --apply
 
 # Цели ниже перечислены в CLAUDE.md, но их реализация принадлежит следующим

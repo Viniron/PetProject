@@ -117,7 +117,8 @@ make migrate-pi     # то же внутри контейнера api на Pi
 make revision m="…" # autogenerate новой миграции
 make sync-itmo      # забор расписания в зеркало, dry-run по умолчанию
 make sync-itmo-apply  # то же с записью зеркала
-make sync-itmo-pi     # то же внутри контейнера api на Pi
+make sync-itmo-pi     # то же внутри контейнера api на Pi, dry-run
+make sync-itmo-pi-apply  # то же с записью зеркала на плате
 make plan-today     # dry-run по умолчанию
 make backup         # pg_dump + выгрузка в Backblaze B2
 ```

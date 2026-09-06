@@ -367,9 +367,8 @@ docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compo
 
 ```bash
 cd ~/jarvis
-make sync-itmo-pi                 # запись зеркала внутри контейнера
-docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.pi.yml \
-  run --rm api python -m jarvis_api.jobs.sync_itmo    # то же, но dry-run
+make sync-itmo-pi          # дифф, в базу не пишет
+make sync-itmo-pi-apply    # запись зеркала
 ```
 
 **Что читать в выводе.** Строки `+` — пары, которых в зеркале не было,
