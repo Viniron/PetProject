@@ -1,10 +1,14 @@
-"""Схема БД v1 - календарная часть (Э2).
+"""Схема БД: календарная часть (Э2) и финансовая книжка (Ф1).
 
 Границу объёма задаёт ADR-019 с поправкой ADR-020: первый релиз - календарь
 без курсов. Поэтому здесь девять таблиц, обслуживающих расписание, календарь
-и захват событий, и ни одной курсовой из списка `SPEC.md` §9: их поля
-выводятся из манифеста курса, которого ещё нет, а спроектированные вслепую
-они всё равно переделываются.
+и захват событий, шесть таблиц `fin_*` финансовой книжки (§15.2) - и ни одной
+курсовой из списка `SPEC.md` §9: их поля выводятся из манифеста курса,
+которого ещё нет, а спроектированные вслепую они всё равно переделываются.
+
+Книжка стоит в этом же файле, а не в своём, по той же причине, по которой
+у неё префикс `fin_`: `Base.metadata` одна на схему, и Alembic сверяется
+именно с ней. Разделять пришлось бы не файлы, а метаданные.
 
 Две таблицы вместо одной там, где речь о расписании, - осознанно.
 `itmo_lessons` хранит то, что портал отдал в последний успешный забор,
@@ -24,6 +28,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
@@ -363,4 +368,358 @@ class CaptureBlob(Base):
     # Файл в базе, а не на диске: инвариант хоста 1 - всё, что записано мимо
     # Postgres, не попадёт в pg_dump и не восстановится.
     data: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[CreatedAt] = mapped_column()
+
+
+# --- Финансовая книжка (Ф1, §15.2) --------------------------------------
+#
+# Шесть таблиц с префиксом `fin_`. Префикс не косметика: `transactions`
+# и `categories` без него читаются как что-то платформенное, а книжка -
+# отдельная подсистема, которая ничего не знает ни о курсах, ни о календаре.
+
+
+class FinImport(Base):
+    """Факт загрузки одного файла выписки (§15.3).
+
+    Строка на файл, а не на заход: выписок за раз приезжает несколько,
+    по одной с каждого банка (ADR-030), и отказ на одном файле не должен
+    отменять учёт по остальным.
+
+    `sha256` уникален - это и есть идемпотентность импорта: тот же файл
+    второй раз не создаёт вторую строку, а значит и вторых операций.
+    Проверять «а не грузили ли мы уже это» в коде было бы слабее: гонка
+    двух прогонов прошла бы такую проверку дважды.
+    """
+
+    __tablename__ = "fin_imports"
+    __table_args__ = (
+        UniqueConstraint("sha256", name="uq_fin_imports_sha256"),
+        Index("ix_fin_imports_bank_imported_at", "bank", "imported_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # Имя банка, а не «источник»: адаптер парсера выбирается по нему.
+    bank: Mapped[str] = mapped_column(String(SHORT))
+    filename: Mapped[str] = mapped_column(String(MEDIUM))
+    # Хэш содержимого, hex sha256 - ровно 64 символа.
+    sha256: Mapped[str] = mapped_column(String(64))
+    # Период, за который выгружен файл. Из содержимого, а не из имени файла:
+    # имя переименовывают. Nullable, потому что не всякий банк его отдаёт.
+    period_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True)
+    imported_at: Mapped[CreatedAt] = mapped_column()
+    rows_added: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    rows_updated: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    rows_skipped: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+
+
+class FinAccount(Base):
+    """Свой счёт owner: банк, имя счёта, роль (§15.5).
+
+    Появилась вместе с мультибанком (ADR-030). Пока банк был один, роль
+    угадывалась по имени счёта («Накопительный счёт»); с несколькими банками
+    угадывание ошибается в деньгах - именно по этой таблице считается статья
+    «Отложено», и она же отличает перевод себе от перевода человеку.
+
+    Роль `unknown` - не заглушка, а рабочее состояние: новое имя счёта
+    заводится импортом само и ждёт разметки owner. Пока роль неизвестна,
+    «Отложено» показывает «счета не размечены», а не ноль (§10).
+    """
+
+    __tablename__ = "fin_accounts"
+    __table_args__ = (
+        # Составной ключ кандидат нужен не для порядка: на него ссылается
+        # операция (`fin_transactions.bank` + `account`), и без него счёт
+        # операции мог бы оказаться строкой, которой нет в этой таблице.
+        UniqueConstraint("bank", "name", name="uq_fin_accounts_bank_name"),
+        CheckConstraint(
+            "role in ('checking', 'savings', 'unknown')",
+            name="role_known",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    bank: Mapped[str] = mapped_column(String(SHORT))
+    name: Mapped[str] = mapped_column(String(MEDIUM))
+    role: Mapped[str] = mapped_column(String(SHORT), server_default=text("'unknown'"))
+    created_at: Mapped[CreatedAt] = mapped_column()
+
+
+class FinCategory(Base):
+    """Категория owner - версией на месяц (§15.4).
+
+    Помесячная версия, а не одна строка на категорию: owner решил, что
+    созданное моделью обнуляется каждый месяц, а история остаётся неизменной
+    (ADR-030). Операция ссылается на версию своего месяца, поэтому разбор
+    закрытого месяца не меняется, когда модель в новом месяце передумает.
+
+    **`key` - стабильный ключ, и он важнее `title`.** Сравнение «больше, чем
+    в среднем» (§15.9) сопоставляет месяцы по ключу: по имени оно ломалось бы
+    от переименования, по `id` - от того, что каждый месяц это новая строка.
+
+    **Два уровня, и это держит база, а не соглашение.** Ограничение собрано
+    из трёх частей: `level` объявляет уровень, `parent_level` дублирует
+    уровень родителя с проверкой «= 1», а составной внешний ключ связывает
+    их с настоящей строкой родителя. Отсюда сразу два инварианта: третьего
+    уровня не существует, и подкатегория не может принадлежать категории
+    **другого месяца** - `period_month` входит в тот же ключ. Выразить это
+    обычным CHECK нельзя: он не видит других строк.
+    """
+
+    __tablename__ = "fin_categories"
+    __table_args__ = (
+        # Цель этого UNIQUE - быть целью внешнего ключа ниже. Как ограничение
+        # уникальности он тривиален (`id` и так первичный ключ).
+        UniqueConstraint("id", "level", "period_month", name="uq_fin_categories_id_level_month"),
+        ForeignKeyConstraint(
+            ["parent_id", "parent_level", "period_month"],
+            ["fin_categories.id", "fin_categories.level", "fin_categories.period_month"],
+            name="fk_fin_categories_parent",
+        ),
+        CheckConstraint("level in (1, 2)", name="level_known"),
+        # Форма строки: основная категория без родителя, подкатегория -
+        # с родителем первого уровня. Третий уровень не проходит здесь,
+        # а несуществующий родитель - на внешнем ключе.
+        CheckConstraint(
+            "(level = 1 and parent_id is null and parent_level is null)"
+            " or (level = 2 and parent_id is not null and parent_level = 1)",
+            name="parent_shape",
+        ),
+        CheckConstraint("origin in ('owner', 'ai')", name="origin_known"),
+        CheckConstraint("status in ('active', 'proposed', 'rejected')", name="status_known"),
+        # Уникальность ключа внутри месяца - двумя частичными индексами,
+        # а не одним UNIQUE по (period_month, parent_id, key). Причина
+        # в NULL: в Postgres два NULL не равны друг другу, и обычный UNIQUE
+        # пропустил бы две основные категории с одним ключом в одном месяце.
+        Index(
+            "uq_fin_categories_month_key_main",
+            "period_month",
+            "key",
+            unique=True,
+            postgresql_where=text("parent_id is null"),
+        ),
+        Index(
+            "uq_fin_categories_month_key_sub",
+            "period_month",
+            "parent_id",
+            "key",
+            unique=True,
+            postgresql_where=text("parent_id is not null"),
+        ),
+        Index("ix_fin_categories_period_month", "period_month"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(SHORT))
+    # Первое число месяца в зоне owner. `date`, а не год с месяцем двумя
+    # колонками: границы месяца всё равно считаются датами (§15.5).
+    period_month: Mapped[date] = mapped_column(Date)
+    level: Mapped[int] = mapped_column(SmallInteger)
+    parent_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    parent_level: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    title: Mapped[str] = mapped_column(String(MEDIUM))
+    # Кто её создал. Различие не косметическое: набор основных категорий
+    # owner утверждает сам, а созданное моделью живёт один месяц.
+    origin: Mapped[str] = mapped_column(String(SHORT))
+    # `proposed` - предложение модели на новый месяц, ждущее owner.
+    # В разбор такие не участвуют, пока не станут `active`.
+    status: Mapped[str] = mapped_column(String(SHORT), server_default=text("'active'"))
+    created_at: Mapped[CreatedAt] = mapped_column()
+
+
+class FinCategoryRule(Base):
+    """Детерминированное правило разбора (§15.4, §15.5).
+
+    Ступени 1-4 порядка разбора: MCC, категория банка, мерчант и отправитель
+    перевода. Модель зовётся только на то, что здесь не нашлось, - платить
+    за сравнение строк незачем (§5.1).
+
+    **Ссылка на `category_key`, а не на `fin_categories.id`.** Категория -
+    версия месяца, и правило, указывающее на строку сентября, в октябре
+    осиротело бы. Ключ переживает смену месяца, потому что он и есть то,
+    что в категории постоянно.
+
+    Правило по отправителю - единственное, что определяет не категорию,
+    а `kind`: родные дают доход, прочие входящие переводы по умолчанию
+    гасят расход (§15.5).
+    """
+
+    __tablename__ = "fin_category_rules"
+    __table_args__ = (
+        UniqueConstraint("rule_type", "pattern", name="uq_fin_category_rules_type_pattern"),
+        CheckConstraint(
+            "rule_type in ('mcc', 'bank_category', 'merchant', 'sender')",
+            name="rule_type_known",
+        ),
+        CheckConstraint("kind is null or kind in ('income', 'refund')", name="kind_known"),
+        # Правило обязано что-то определять. Пустое правило - не безобидная
+        # строка: разбор молча проходит мимо него, и причину «почему операция
+        # без категории» потом не найти.
+        CheckConstraint(
+            "(rule_type = 'sender' and kind is not null)"
+            " or (rule_type <> 'sender' and category_key is not null)",
+            name="rule_decides_something",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    rule_type: Mapped[str] = mapped_column(String(SHORT))
+    # Образец: код MCC, название категории банка, имя мерчанта или имя
+    # отправителя из колонки «Описание».
+    pattern: Mapped[str] = mapped_column(String(MEDIUM))
+    category_key: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    kind: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    created_at: Mapped[CreatedAt] = mapped_column()
+
+
+class FinTransaction(Base):
+    """Операция книжки (§15.2).
+
+    **Уникальность по `(bank, fingerprint, occurrence_no)`, а не по одному
+    `fingerprint`.** Он повторяется законно: две покупки на 200 ₽ в одном
+    месте в один день дают один ключ и две настоящие операции, поэтому
+    порядковый номер внутри группы входит в ключ (§15.3). Банк входит тоже -
+    без него одинаковая покупка из двух разных банков схлопнулась бы
+    в одну группу кратности, и импорт добавил бы ноль строк вместо одной.
+
+    **Счёт - составным внешним ключом на `fin_accounts`.** Операция не может
+    сослаться на счёт, которого нет в разметке: иначе статья «Отложено»
+    считалась бы по счетам, часть которых книжке неизвестна, и расхождение
+    было бы тихим.
+
+    **`offsets_transaction_id` - гашение конкретного расхода** (ADR-030):
+    «оплатил стол, потом скинули доли». Много поступлений на один расход,
+    поэтому ссылка живёт у поступления, а не список у расхода. Окно привязки
+    («текущий месяц и предыдущий») здесь не выражено намеренно: оно зависит
+    от «сейчас», CHECK такого не умеет, и живёт оно в сервисе - под тестом.
+    """
+
+    __tablename__ = "fin_transactions"
+    __table_args__ = (
+        UniqueConstraint(
+            "bank",
+            "fingerprint",
+            "occurrence_no",
+            name="uq_fin_transactions_bank_fingerprint_occurrence",
+        ),
+        ForeignKeyConstraint(
+            ["bank", "account"],
+            ["fin_accounts.bank", "fin_accounts.name"],
+            name="fk_fin_transactions_account",
+        ),
+        CheckConstraint("status in ('posted', 'pending', 'reverted')", name="status_known"),
+        CheckConstraint(
+            "kind in ('expense', 'income', 'transfer', 'refund')",
+            name="kind_known",
+        ),
+        CheckConstraint("occurrence_no >= 1", name="occurrence_no_positive"),
+        # Операция не гасит саму себя. Без этой проверки цикл из одной строки
+        # был бы законным, и эффективная сумма расхода считалась бы вечно.
+        CheckConstraint(
+            "offsets_transaction_id is null or offsets_transaction_id <> id",
+            name="offsets_not_self",
+        ),
+        # Гасить может только приход. Расход, «погашающий» другой расход, -
+        # не деньги от друзей, а ошибка привязки, и стоит она сразу двух
+        # неверных месяцев (§15.5).
+        CheckConstraint(
+            "offsets_transaction_id is null or amount > 0",
+            name="offsets_only_incoming",
+        ),
+        Index("ix_fin_transactions_occurred_at", "occurred_at"),
+        # Гашения расхода читаются при каждом показе строки и при расчёте
+        # сальдо месяца - без индекса это перебор всей таблицы на каждую строку.
+        Index("ix_fin_transactions_offsets_transaction_id", "offsets_transaction_id"),
+        Index("ix_fin_transactions_import_id", "import_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    bank: Mapped[str] = mapped_column(String(SHORT))
+    # NULL у операции, введённой руками: наличные и переводы с рук на руки
+    # ни в одной выписке не появятся, а без них сальдо расходится тихо (§15.1).
+    import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fin_imports.id", ondelete="SET NULL"), nullable=True
+    )
+    occurred_at: Mapped[Timestamp] = mapped_column()
+    account: Mapped[str] = mapped_column(String(MEDIUM))
+    # Пусто у 25 операций из 62 в настоящей выгрузке - поле необязательное,
+    # и `fingerprint` обязан переживать его отсутствие.
+    card_last4: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    # Деньги только `numeric`. На `float` копейки расходятся в рубли за год,
+    # и это инвариант того же уровня, что tz-aware время.
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(SHORT))
+    # Сумма в валюте счёта. Валютная покупка записывается суммой списания:
+    # полноценной мультивалютности в v1 нет (§15.8).
+    amount_rub: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    merchant: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    # Подсказки банка для разбора, ступени 1-3 порядка §15.4. Хранятся как
+    # пришли: по ним объясняется, почему операция попала в свою категорию.
+    bank_category: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    own_category: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    mcc: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Колонка «Учёт в аналитике» из выписки - подсказка для `excluded`,
+    # а не сам `excluded`: решение остаётся за owner.
+    analytics_hint: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    status: Mapped[str] = mapped_column(String(SHORT), server_default=text("'posted'"))
+    kind: Mapped[str] = mapped_column(String(SHORT))
+    # Версия категории того месяца, в котором произошла операция (§15.4).
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fin_categories.id", ondelete="SET NULL"), nullable=True
+    )
+    # RESTRICT, а не CASCADE: §15.3 запрещает удалять операции вовсе -
+    # исчезнувшая из выгрузки помечается `reverted`. Если удаление всё же
+    # случится, база не даст оставить гашение без расхода.
+    offsets_transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fin_transactions.id", ondelete="RESTRICT"), nullable=True
+    )
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    excluded: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    # Номер внутри группы одинаковых операций. Единица - не «первая
+    # и единственная», а «первая из сколько-нибудь».
+    occurrence_no: Mapped[int] = mapped_column(SmallInteger, server_default=text("1"))
+    # Исходная строка CSV целиком. Хранится не для истории, а для ответа
+    # на вопрос «почему эта операция попала в такую категорию»: без сырья
+    # он неотвечаем. Отдельной таблицы не заводим - строка весит сотни байт,
+    # в отличие от `capture_blobs` с фотографией.
+    source_row: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    entered_manually: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    created_at: Mapped[CreatedAt] = mapped_column()
+
+
+class FinSummary(Base):
+    """Резюме о расходах после импорта (§15.9).
+
+    **`basis` - снимок чисел, с которыми сравнивали.** Не избыточность:
+    привязка гашения задним числом меняет сальдо двух месяцев (§15.5),
+    и без снимка прошлый текст «на 30% больше среднего» стал бы противоречить
+    текущим цифрам необъяснимо.
+
+    Одно резюме на импорт: повторный расчёт заменяет строку, а не копит
+    варианты одного и того же периода.
+    """
+
+    __tablename__ = "fin_summaries"
+    __table_args__ = (
+        UniqueConstraint("import_id", name="uq_fin_summaries_import_id"),
+        Index("ix_fin_summaries_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    import_id: Mapped[int] = mapped_column(ForeignKey("fin_imports.id", ondelete="CASCADE"))
+    # Период, о котором текст: с прошлой загрузки по эту.
+    period_start: Mapped[Timestamp] = mapped_column()
+    period_end: Mapped[Timestamp] = mapped_column()
+    text_ru: Mapped[str] = mapped_column(Text)
+    basis: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Тот же набор колонок, что в `audit_log`: стоимость нужна и там (инвариант
+    # 8, месячный потолок), и здесь - чтобы у резюме было видно, чем оно
+    # посчитано, когда назначение моделей сменится.
+    provider: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
+    tokens_in: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
     created_at: Mapped[CreatedAt] = mapped_column()
