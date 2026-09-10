@@ -58,6 +58,16 @@ dependencies = [
     "google-api-python-client>=2.180,<3",
     "google-auth>=2.35,<3",
     "google-auth-httplib2>=0.2,<0.3",
+    # Э5. Планировщик назван в таблице стека CLAUDE.md, но зависимость всё
+    # равно новая, и owner её подтвердил отдельно. Ветка 3.x, а не 4.x:
+    # четвёртая до сих пор в альфе (4.0.0aN) и переписана async-first -
+    # то есть несовместима по именам и ставить её значило бы жить
+    # на предрелизе в единственном месте, которое обязано работать без
+    # присмотра. Цена: следом приезжает tzlocal - чистый Python, колесо
+    # py3-none-any, компилятор на плате не нужен. Знать про неё надо ради
+    # другого: tzlocal подставляет зону контейнера (UTC), если забыть
+    # передать timezone явно, и расписание молча уезжает на три часа.
+    "apscheduler>=3.11,<4",
 ]
 
 [project.optional-dependencies]
@@ -130,6 +140,17 @@ exclude = ['\.venv']
 # при этом нет: он погасил бы проверку и там, где типы есть.
 [[tool.mypy.overrides]]
 module = ["google_auth_httplib2"]
+ignore_missing_imports = true
+
+# Э5. У APScheduler 3.x нет py.typed, и стабов не существует: types-APScheduler
+# в typeshed нет, а apscheduler-stubs на PyPI - пустышка без содержимого
+# ("Add your description here"), то есть чужой пакет в зависимостях проекта,
+# где в базе лежит пароль ИСУ. Поэтому - точечный игнор по прецеденту
+# google_auth_httplib2. Следствие: модуль становится Any, и опечатку в имени
+# метода mypy не поймает. Отсюда правило: всё общение с APScheduler заперто
+# в jarvis_api/scheduler.py, наружу выходят только типизированные функции.
+[[tool.mypy.overrides]]
+module = ["apscheduler.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

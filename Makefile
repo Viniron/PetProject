@@ -34,10 +34,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test lint format compose-check up down logs \
-        db-up db-down build migrate migrate-pi revision \
-        sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply \n        gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply \n        sync-gcal sync-gcal-apply \n        sync-gcal-pi sync-gcal-pi-apply plan-today \
-        backup backup-apply restore-check
+.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision         sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -70,13 +67,23 @@ help:
 	@echo "sync-gcal-apply  - the same, writing to the calendar (stage E4)"
 	@echo "sync-gcal-pi     - dry-run inside the api container on the Pi (stage E4)"
 	@echo "sync-gcal-pi-apply - the same, writing to the calendar on the Pi (stage E4)"
-	@echo "plan-today    - morning planning job, dry-run (stage E5)"
+	@echo "daily            - the daily chain: mirror + calendar, dry-run (stage E5)"
+	@echo "daily-apply      - the same, doing the work (stage E5)"
+	@echo "daily-pi         - dry-run inside the api container on the Pi (stage E5)"
+	@echo "daily-pi-apply   - the same, doing the work on the Pi (stage E5)"
+	@echo "plan-today    - course session planning, not implemented (courses track)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
 	$(PY) -m pip install --upgrade pip
 	$(PY) -m pip install -e "$(API)[dev]"
 
+# Планировщик на машине разработки выключен целевой переменной, а не
+# infra/dev.env: эта цель поднимает uvicorn мимо compose, и env-файл до
+# него не доезжает. Без строки ниже каждое сохранение файла при --reload
+# перезапускало бы процесс, а вместе с ним - догоняющий запуск в живой
+# ИСУ и живой Google.
+dev: export SCHEDULER_ENABLED = false
 dev:
 	$(PY) -m uvicorn jarvis_api.main:app --reload --port 8000
 
@@ -203,9 +210,26 @@ sync-gcal-pi:
 sync-gcal-pi-apply:
 	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_gcal --apply
 
-# Цели ниже перечислены в CLAUDE.md, но их реализация принадлежит следующим
-# этапам. Заглушка выходит с ненулевым кодом намеренно: молчаливый успех
-# несделанной работы хуже явной ошибки (инвариант 9 - падать громко).
+# Ежедневная цепочка целиком - то же, что каждые три часа делает планировщик
+# внутри API. Нужна для ручного прогона и для проверки в dry-run перед тем,
+# как включать расписание на плате.
+daily:
+	$(PY) -m jarvis_api.jobs.runner
+
+daily-apply:
+	$(PY) -m jarvis_api.jobs.runner --apply
+
+daily-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.runner
+
+daily-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.runner --apply
+
+# Заглушка. Планирование занятия курса (SPEC §4) в календарный релиз не
+# входит: время напоминания считается по манифесту курса - offset_minutes,
+# fallback_time, latest_start, - а курсов установлено ноль. Выходит
+# с ненулевым кодом намеренно: молчаливый успех несделанной работы хуже
+# явной ошибки (инвариант 9 - падать громко).
 
 plan-today:
-	@echo "not implemented yet: stage E5, see docs/BUILD-PROGRESS.md" && exit 1
+	@echo "not implemented: needs a course manifest, see docs/BUILD-PROGRESS.md" && exit 1

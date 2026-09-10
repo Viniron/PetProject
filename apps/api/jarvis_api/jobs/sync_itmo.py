@@ -25,7 +25,6 @@ import datetime as dt
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx2
 from sqlalchemy import select
@@ -33,24 +32,25 @@ from sqlalchemy.orm import Session
 
 from jarvis_api.config import Settings, get_settings
 from jarvis_api.crypto import SecretCipherError, build_cipher
-from jarvis_api.db.models import AuditLogEntry, ItmoLesson, JobRun, Setting
+from jarvis_api.db.models import AuditLogEntry, ItmoLesson
 from jarvis_api.db.session import get_sessionmaker
 from jarvis_api.integrations.itmo.auth import ItmoAuth, ItmoAuthError
 from jarvis_api.integrations.itmo.client import ItmoApiError, ItmoClient, build_client
 from jarvis_api.integrations.itmo.mapping import MappingError, MirrorRow, payload_to_rows
 from jarvis_api.integrations.itmo.store import CredentialStore
+from jarvis_api.jobs.common import (
+    OwnerZoneError,
+    owner_timezone,
+    sync_window,
+    зона_без_падения,
+    отметить_прогон,
+)
 
 logger = logging.getLogger("jarvis.sync_itmo")
 
 # Имя джоба. Одно и то же в `job_runs` и в `audit_log`: по нему Э5 будет
 # искать след вчерашнего прогона, решая, нужен ли догоняющий запуск (§11.2).
 JOB_NAME = "sync_itmo"
-
-# Запасная зона, если строки настроек в базе ещё нет. Совпадает с
-# server_default колонки `settings.timezone` намеренно: два разных умолчания
-# дали бы расписание, сдвинутое на часы, в зависимости от того, успел ли
-# кто-нибудь создать строку настроек.
-FALLBACK_TIMEZONE = "Europe/Moscow"
 
 
 class SyncError(RuntimeError):
@@ -76,29 +76,6 @@ class SyncReport:
     @property
     def есть_изменения(self) -> bool:
         return bool(self.added or self.changed or self.removed)
-
-
-def owner_timezone(session: Session) -> ZoneInfo:
-    """Зона owner из настроек. Нужна, чтобы понять, что за «10:00» у портала.
-
-    Читается из базы, а не из env: она уже там (`settings.timezone`), и вторая
-    копия рано или поздно разойдётся с первой. Неизвестное имя зоны - отказ:
-    подставить UTC значило бы сдвинуть всё расписание на три часа молча.
-    """
-    строка = session.get(Setting, 1)
-    имя = строка.timezone if строка is not None else FALLBACK_TIMEZONE
-    try:
-        return ZoneInfo(имя)
-    except (ZoneInfoNotFoundError, ValueError) as ошибка:
-        raise SyncError(f"в настройках задана неизвестная зона {имя!r}") from ошибка
-
-
-def sync_window(settings: Settings, today: dt.date) -> tuple[dt.date, dt.date]:
-    """Границы забора вокруг сегодняшнего дня, включительно."""
-    return (
-        today - dt.timedelta(days=settings.itmo_sync_days_back),
-        today + dt.timedelta(days=settings.itmo_sync_days_ahead),
-    )
 
 
 def _строка_зеркала(row: ItmoLesson) -> MirrorRow:
@@ -197,30 +174,6 @@ def _применить(session: Session, отчёт: SyncReport, свежие: 
         строка.fetched_at = отчёт.fetched_at
 
 
-def _отметить_прогон(
-    session: Session,
-    run_date: dt.date,
-    now: dt.datetime,
-    status: str,
-    error: str | None = None,
-) -> None:
-    """Строка в `job_runs`: джоб за этот день отработал.
-
-    Одна строка на джоб и день - это ограничение базы, и оно же делает
-    догоняющий запуск (§11.2) безопасным: второй прогон за день обновляет
-    строку, а не заводит вторую.
-    """
-    существующая = session.scalars(
-        select(JobRun).where(JobRun.job == JOB_NAME, JobRun.run_date == run_date)
-    ).one_or_none()
-    if существующая is None:
-        существующая = JobRun(job=JOB_NAME, run_date=run_date, started_at=now)
-        session.add(существующая)
-    существующая.finished_at = now
-    существующая.status = status
-    существующая.error = error
-
-
 def _записать_в_аудит(
     session: Session,
     status: str,
@@ -291,7 +244,7 @@ def sync(
                 "unchanged": отчёт.unchanged,
             },
         )
-        _отметить_прогон(session, сегодня, now, "ok")
+        отметить_прогон(session, JOB_NAME, сегодня, now, "ok")
 
     return отчёт
 
@@ -312,15 +265,25 @@ def run_once(
     """
     try:
         отчёт = sync(session, settings, http, apply=apply, now=now)
-    except (SyncError, ItmoAuthError, ItmoApiError, MappingError, SecretCipherError) as сбой:
+    except (
+        SyncError,
+        # Неизвестная зона в настройках - отказ общего модуля, а не забора:
+        # читают её все джобы, ловить обязан каждый.
+        OwnerZoneError,
+        ItmoAuthError,
+        ItmoApiError,
+        MappingError,
+        SecretCipherError,
+    ) as сбой:
         # Откат до записи следа: иначе полуприменённое окно уедет в базу
         # вместе с отметкой об отказе, и зеркало окажется наполовину новым.
         session.rollback()
         if apply:
-            зона_отказа = _зона_без_падения(session)
+            зона_отказа = зона_без_падения(session)
             _записать_в_аудит(session, "error", {"error": str(сбой)})
-            _отметить_прогон(
+            отметить_прогон(
                 session,
+                JOB_NAME,
                 now.astimezone(зона_отказа).date(),
                 now,
                 "failed",
@@ -348,18 +311,6 @@ def run(settings: Settings, apply: bool, now: dt.datetime | None = None) -> int:
     момент = now or dt.datetime.now(dt.UTC)
     with build_client(settings) as клиент, get_sessionmaker()() as session:
         return run_once(session, settings, клиент, apply=apply, now=момент)
-
-
-def _зона_без_падения(session: Session) -> ZoneInfo:
-    """Зона для отметки об отказе.
-
-    Отказ могла вызвать сама зона, и падать второй раз при записи следа
-    об этом - худший из возможных исходов: пропадёт и след, и причина.
-    """
-    try:
-        return owner_timezone(session)
-    except SyncError:
-        return ZoneInfo(FALLBACK_TIMEZONE)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

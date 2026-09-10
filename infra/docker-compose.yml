@@ -56,6 +56,21 @@ services:
       # на плате упал именно на этом. Класс ошибки закрыт tests/test_compose_env.py.
       GOOGLE_SA_JSON: ${GOOGLE_SA_JSON:-}
       GOOGLE_CALENDAR_OWNER_EMAIL: ${GOOGLE_CALENDAR_OWNER_EMAIL:-}
+      # Планировщик (Э5). Пустое умолчание здесь такое же, как у секретов,
+      # хотя это не секреты, а настройки: формат один на все переменные,
+      # и проверяет его tests/test_compose_env.py. Пустое значение конфиг
+      # понимает как «умолчание» - без этого пустая строка на bool и int
+      # роняла бы процесс на импорте, до всякого /health.
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-}
+      SCHEDULER_DAILY_TIMES: ${SCHEDULER_DAILY_TIMES:-}
+      SCHEDULER_CATCHUP_COOLDOWN_MINUTES: ${SCHEDULER_CATCHUP_COOLDOWN_MINUTES:-}
+      SCHEDULER_MISFIRE_GRACE_SECONDS: ${SCHEDULER_MISFIRE_GRACE_SECONDS:-}
+    # Запас на остановку. Планировщик останавливается без ожидания текущего
+    # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
+    # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,
+    # и docker присылает SIGKILL посреди работы. Потеря при обрыве - максимум
+    # одно событие: push_gcal коммитит после каждого.
+    stop_grace_period: 30s
     ports:
       # Только на loopback: наружу сервис выставляется Cloudflare Tunnel (Э1),
       # порты на роутере не открываются (ADR-017).

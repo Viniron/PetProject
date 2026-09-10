@@ -396,3 +396,30 @@ def test_пустое_зеркало_не_чистит_календарь_цел
 
     assert google.ключи(календарь) == set()
     assert строк(база, CalendarEvent) == 0
+
+
+def test_неизвестная_зона_отказ_а_не_трассировка(
+    база: Session, клиент: GcalClient, google: ПодставнойGoogle
+) -> None:
+    """Зону читают все джобы, а бросал отказ модуль забора - и этот джоб
+    о таком типе не знал.
+
+    Дефект того же класса, что живой прогон Э4 нашёл на пропавшем календаре:
+    обычная причина (owner поправил `settings.timezone` и опечатался) давала
+    трассировку, без строки в `audit_log` и без отметки в `job_runs`.
+    Второе место того же дефекта - сама запись следа: она читала зону голым
+    вызовом и падала второй раз, унося и причину.
+    """
+    строка_настроек = база.get(Setting, 1)
+    assert строка_настроек is not None
+    строка_настроек.timezone = "Марс/Олимп"
+    база.flush()
+
+    assert run_once(база, настройки(), клиент, apply=True, now=СЕЙЧАС) == 1
+
+    assert google.записей() == 0
+    прогон_дня = база.scalars(select(JobRun).where(JobRun.job == JOB_NAME)).one()
+    assert прогон_дня.status == "failed"
+    assert "неизвестная зона" in (прогон_дня.error or "")
+    отказы = list(база.scalars(select(AuditLogEntry).where(AuditLogEntry.status == "error")))
+    assert len(отказы) == 1
