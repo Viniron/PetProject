@@ -39,6 +39,25 @@ dependencies = [
     # заменить нечем. Колесо под linux/arm64 публикуется, компилятор в образ
     # не тянется.
     "cryptography>=44,<47",
+    # Э4. Официальный SDK Google - выбор owner (ADR-026), а не следствие
+    # необходимости: пяти вызовов REST и подписи JWT хватило бы на httpx2
+    # с уже имеющейся cryptography. Взамен получаем discovery-описание
+    # календаря в самом пакете (static_discovery), повторы с backoff внутри
+    # execute() и штатные подставные транспорты для тестов.
+    #
+    # Три пакета, а не один: google-auth даёт учётные данные service account,
+    # google-auth-httplib2 - обёртку AuthorizedHttp, единственное место, где
+    # внешнему вызову задаётся таймаут (CLAUDE.md требует его на каждом,
+    # а умолчание httplib2 - без ограничения).
+    #
+    # Цена решения названа прямо: следом приезжают google-api-core, requests,
+    # protobuf, proto-plus, googleapis-common-protos и opentelemetry-api -
+    # то есть три строки здесь превращаются в дюжину пакетов в образе.
+    # Проверено, а не предположено: колёса под linux/arm64 публикуются для
+    # всех, включая protobuf, поэтому компилятор на плате по-прежнему не нужен.
+    "google-api-python-client>=2.180,<3",
+    "google-auth>=2.35,<3",
+    "google-auth-httplib2>=0.2,<0.3",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +70,12 @@ dev = [
     "black>=24.10",
     "mypy>=1.13",
     "pre-commit>=4.0",
+    # Э4. У google-api-python-client нет py.typed, и mypy --strict падает на
+    # импорте раньше, чем доходит до нашего кода. Стабы сообществом ведутся
+    # активно и версионируются вслед за SDK; альтернатива - ignore_missing_imports,
+    # то есть отказ от проверки типов ровно в том месте, где мы работаем
+    # с чужим API по строковым ключам.
+    "google-api-python-client-stubs>=1.29,<2",
 ]
 
 [tool.setuptools]
@@ -63,6 +88,7 @@ packages = [
     "jarvis_api.db",
     "jarvis_api.integrations",
     "jarvis_api.integrations.itmo",
+    "jarvis_api.integrations.gcal",
     "jarvis_api.jobs",
 ]
 
@@ -96,6 +122,15 @@ files = ["jarvis_api", "tests"]
 # Страховка на случай запуска по каталогу: в venv лежат чужие пакеты,
 # и проверять их --strict бессмысленно и очень долго.
 exclude = ['\.venv']
+
+# Единственное исключение из --strict, и оно узкое: у `google-auth-httplib2`
+# нет ни py.typed, ни стабов в природе (`google-auth-httplib2-stubs` не
+# существует, проверено). Пакет из трёх функций, и используется из него
+# одна - обёртка AuthorizedHttp. Глобального ignore_missing_imports
+# при этом нет: он погасил бы проверку и там, где типы есть.
+[[tool.mypy.overrides]]
+module = ["google_auth_httplib2"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

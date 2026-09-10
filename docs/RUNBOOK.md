@@ -45,6 +45,8 @@ make migrate-pi      # накатить миграции внутри конте
 make backup          # снять дамп и показать, что выгрузил бы (dry-run)
 make backup-apply    # снять дамп, выгрузить в B2, отправить ping
 make restore-check   # развернуть свежий дамп в отдельную базу и осмотреть
+make sync-itmo-pi    # забрать расписание портала в зеркало (dry-run)
+make sync-gcal-pi    # показать, что уедет в Google Calendar (dry-run)
 ```
 
 Наружу по умолчанию не пишет ничего: реальная выгрузка — только `--apply`.
@@ -138,6 +140,12 @@ docker exec -i jarvis-db-1 psql -U jarvis -d jarvis < infra/restore-probe.sql
 
 Секреты вписываются в `.env` **на плате** и никуда больше не копируются.
 Открыть файл: `nano ~/jarvis/.env`, сохранить `Ctrl+O`, выйти `Ctrl+X`.
+
+### Google Calendar → `GOOGLE_SA_JSON`, `GOOGLE_CALENDAR_OWNER_EMAIL`
+
+Service account в Google Cloud и почта owner, которой отдаются календари.
+Пошагово — в разделе «Google Calendar» ниже: там же создание календарей
+и первая запись расписания.
 
 ### Cloudflare Tunnel → `CF_TUNNEL_TOKEN`
 
@@ -358,8 +366,8 @@ docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compo
 
 ## Расписание из my.itmo.ru
 
-Джоб забирает расписание портала в зеркало `itmo_lessons`. В Google он ещё
-не пишет — это Э4.
+Джоб забирает расписание портала в зеркало `itmo_lessons`. В Google из
+зеркала пишет отдельный джоб — раздел «Google Calendar» ниже.
 
 **По умолчанию ничего не записывает.** `sync-itmo` показывает дифф и выходит;
 единственное, что он сохраняет в этом режиме, — токены доступа, добытые
@@ -421,6 +429,136 @@ docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
 ```
 
 Следующий прогон возьмёт новое значение из `.env` и положит его в базу заново.
+
+---
+
+## Google Calendar
+
+Расписание из зеркала уезжает в календарь owner. Доступ — **service account**
+(ADR-019): у него нет ни браузерного входа, ни срока жизни токена, ни
+требования публичного HTTPS-имени. Календари он создаёт себе и отдаёт owner.
+
+### Что завести в Google Cloud — один раз
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → создать
+   проект (имя любое, например `jarvis`).
+2. **APIs & Services → Library → Google Calendar API → Enable.** Без этого
+   шага все запросы получают `403`, и выглядит это как проблема с ключом.
+3. **IAM & Admin → Service Accounts → Create service account.** Имя любое,
+   например `jarvis-calendar`. **Роли не нужны** — на шаге «Grant this
+   service account access to project» ничего не выбирать: доступ к
+   календарям даётся не ролями IAM, а тем, что аккаунт сам их создаёт.
+4. Открыть созданный аккаунт → вкладка **Keys → Add key → Create new key →
+   JSON**. Файл скачается сам; второй раз его не показывают.
+
+### Ключ в `.env` на плате
+
+JSON нужен **одной строкой**. Превратить скачанный файл:
+
+```bash
+python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))))' key.json
+```
+
+Полученную строку вписать в `~/jarvis/.env` целиком, без кавычек вокруг:
+
+```
+GOOGLE_SA_JSON={"type":"service_account","project_id":"…"}
+GOOGLE_CALENDAR_OWNER_EMAIL=почта-owner@gmail.com
+```
+
+Две вещи, о которых стоит знать заранее:
+
+- **Кавычек вокруг значения ставить не нужно** — JSON начинается с `{`, и
+  compose передаёт строку как есть. А вот символ `$` в значении compose
+  попытался бы подставить как переменную; в ключах Google его не бывает
+  (base64 плюс hex), но если однажды появится — его удваивают: `$$`.
+- **Скачанный файл ключа после этого удалить.** В репозиторий он не должен
+  попасть никогда (инвариант 6), и второй копии на диске быть не должно.
+
+Дальше — перезапуск стека, чтобы переменные дошли до контейнера:
+
+```bash
+cd ~/jarvis && docker compose --env-file .env -f infra/docker-compose.yml -f infra/docker-compose.pi.yml up -d
+```
+
+### Создать календари
+
+```bash
+make gcal-setup          # показать, что будет создано
+make gcal-setup-apply    # создать и отдать owner
+```
+
+Создаётся три: `JARVIS · ИТМО`, `JARVIS · Занятия`, `JARVIS · События`.
+Наполняется на этом этапе только первый — два других ждут курсов и захвата.
+Их id ложатся в `settings`, а не в `.env`: они приезжают из Google и обязаны
+вернуться вместе с базой при восстановлении из дампа.
+
+**Что должен увидеть owner:** три новых календаря в списке слева в Google
+Calendar. Если их нет — проверить почту в `GOOGLE_CALENDAR_OWNER_EMAIL`
+и заглянуть в почтовый ящик: Google может прислать приглашение.
+
+Повторный запуск ничего не создаёт: команда сверяется с самим Google, а не
+со своей базой. Календарь, удалённый owner вручную, при следующем прогоне
+будет заведён заново — id в базе от этого не спасает и не должен.
+
+### Записать расписание
+
+```bash
+make sync-gcal-pi          # дифф, наружу не пишет ничего
+make sync-gcal-pi-apply    # запись в календарь
+```
+
+**Что читать в выводе.** `+` — событие будет создано, `~` — обновлено,
+`-` — удалено, `!` — не записано, с причиной. Первый прогон — одни `+`;
+**второй подряд обязан дать нули по всем трём** — это и есть проверка
+идемпотентности, ради которой существует реконсил (§11.2).
+
+Проверить, что записано:
+
+```bash
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "select external_key, title, starts_at, sync_state, google_event_id from calendar_events order by starts_at limit 10;"
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "select at, status, target, detail from audit_log where kind='calendar_write' order by at desc limit 5;"
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "select * from job_runs where job='push_gcal' order by run_date desc limit 5;"
+```
+
+Время в `calendar_events`, как и везде в базе, — UTC. Пара, стоящая в
+расписании на 10:00, лежит как 07:00 и показывается в календаре как 10:00:
+зона задана самому календарю при создании.
+
+### Когда что-то пошло не так
+
+- **`GOOGLE_SA_JSON пуст`** — переменная не дошла до контейнера. Сначала
+  проверить `.env`, потом — что стек перезапущен после правки.
+- **`GOOGLE_SA_JSON не разбирается как JSON`** — строка склеена не целиком
+  или в неё попал перенос строки.
+- **`календарь JARVIS · ИТМО не создан`** — не выполнен `make gcal-setup-apply`,
+  либо он выполнялся против другой базы.
+- **`Google отказал: … 403`** — два обычных случая: не включён Calendar API
+  (шаг 2 выше) или ключ отозван в консоли. Прогон при этом прекращается
+  целиком, а не перебирает все восемьдесят пар.
+- **`Google недоступен`** — сеть или таймаут. Зеркало и журнал не тронуты,
+  следующий прогон догонит: `sync-gcal` идемпотентен по построению.
+- **Отдельные события с `!`** — они помечены `sync_state = failed` в
+  `calendar_events`, причина в `last_error`. Следующий прогон допишет их сам,
+  вмешательства не требуется.
+
+**Событие, исправленное руками в Google, вернётся к прежнему виду.** Синк
+односторонний (ADR-001): источник истины — расписание портала. Удалённое
+руками событие создастся заново — по той же причине.
+
+**Начать календарь с чистого листа:** удалить календарь `JARVIS · ИТМО`
+в интерфейсе Google, затем очистить журнал и завести календарь заново.
+
+```bash
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "delete from calendar_events where source='itmo';"
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "update settings set gcal_itmo_id = null where id = 1;"
+make gcal-setup-apply && make sync-gcal-pi-apply
+```
 
 ---
 

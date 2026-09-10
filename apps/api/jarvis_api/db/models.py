@@ -71,6 +71,18 @@ class Setting(Base):
     # а «сегодня» у пользователя - местное. Значение по умолчанию - зона
     # ИТМО; меняется строкой в базе, а не пересборкой образа.
     timezone: Mapped[str] = mapped_column(String(SHORT), server_default=text("'Europe/Moscow'"))
+    # Идентификаторы трёх календарей JARVIS в Google (Э4). Здесь, а не в env,
+    # потому что это результат работы, а не конфигурация: календари создаёт
+    # сервисный аккаунт, и их id обязаны вернуться вместе с базой,
+    # восстановленной из дампа, - иначе следующий прогон заведёт вторые три
+    # календаря рядом с живыми.
+    #
+    # Пусто = календарь ещё не создан. Рабочее состояние, а не ошибка:
+    # `make gcal-setup` заполняет эти колонки, а джоб записи до тех пор
+    # отказывается работать с внятным текстом.
+    gcal_itmo_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    gcal_study_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    gcal_events_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
     updated_at: Mapped[Timestamp] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
