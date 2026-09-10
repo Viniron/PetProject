@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 4 — змейка курса · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета. Продуктовые стили — ниже, в блоке «змейка».
+   Здесь только обрамление: заголовки, панели, подписи к состояниям. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 78ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 78ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2 { grid-template-columns: 1fr; } }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+.pad { padding: var(--space-5); background: var(--bg); }
+.pad--row { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: flex-start;
+            justify-content: center; }
+.pad--col { display: flex; flex-direction: column; gap: var(--space-4); }
+/* Плашка среза в каталоге показывается в ширину дорожки, а не панели разбора:
+   иначе owner сравнивает пропорцию, которой на экране не будет. */
+.pad--col > .snake-check { width: 100%; max-width: 620px; margin-inline: auto; }
+
+/* Заглушка шапки курса. Шапка — этап 5 (прогресс, отставание, минуты за
+   сегодня, график срезов), рисовать её здесь нельзя: один экран — один этап.
+   Но и делать вид, что над змейкой ничего нет, нельзя тоже — от этого
+   зависит, сколько узлов остаётся в захвате. Это элемент страницы разбора,
+   не компонент продукта, поэтому живёт здесь, а не в токенах. */
+.ghost-head { margin-top: var(--space-4); padding: 11px var(--space-4);
+              border: 1px dashed var(--border); border-radius: var(--radius);
+              background: var(--surface-2); color: var(--text-faint);
+              font-size: var(--fs-sm); }
+
+/* Компоненты змейки (.snake-view, .snake, .snake-level и дочерние,
+   .snake-unit-head, .snake-node с видами и состояниями, .snake-dot,
+   .snake-face, .snake-label, .snake-link, .snake-check, .snake-lock,
+   .snake-legend) и цвета состояний (--state-done, --state-current)
+   утверждены owner на этапе 4 и переехали в tokens.css. Ниже — только то,
+   что нужно странице разбора. */
+
+/* ==========================================================================
+   Только для страницы разбора
+   ========================================================================== */
+
+/* Каталог состояний и видов: узлы стоят в ряд, без синусоиды и соединителей.
+   --amp: 0px — та же дорожка в другом масштабе, а не вторая вёрстка. */
+.snake--flat { --amp: 0px; --node: 64px; --labelh: 48px; gap: var(--space-4);
+               padding: 0; max-width: none; }
+
+/* Геометрия: голая дорожка, у узлов вместо названия индекс. Ширину берёт
+   от .snake — та же, что на экране, иначе наклон показывался бы не тот.
+   Лежит в блочном родителе, поэтому центрируется полями. */
+.snake--geo { --node: 56px; --labelh: 22px; --gap: 60px; margin-inline: auto; }
+.snake--geo .snake-title { font-family: var(--font-mono); font-size: 12px; font-weight: 400;
+                           color: var(--text-muted); }
+.snake--geo .snake-face { font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 4 — змейка курса</h1>
+  <p>
+    Главный экран курса: очередь узлов, по которой видно, где owner сейчас
+    и сколько осталось (<code>SPEC.md</code> §8.2). Смещение по горизонтали
+    посчитано формулой из спецификации — <code>offset_x(i) = A·sin(2π·i/P)</code>,
+    <code>A</code> = 25% ширины дорожки, <code>P</code> = 6 — а не подобрано
+    на глаз. Поля узла взяты из JSON-блока §8.2 дословно:
+    <code>index</code>, <code>kind</code>, <code>state</code>,
+    <code>minutes_accumulated</code>, <code>activities</code>.
+  </p>
+  <p>
+    Пять решений owner, принятых до рисования: разделы отделяются
+    <b>заголовком и линией</b> (цвета нет — рамка этапа 0); в захвате
+    <b>3–4 узла</b> с фокусом на активном и прокруткой до любого места;
+    уровни — <b>новый слой модели</b> <code>Course → Level → Unit → Node</code>,
+    следующий уровень закрыт до прохождения предыдущего и объясняет, чем
+    открывается; контрольный срез — <b>плашка во всю ширину</b>; линия
+    соединяет <b>только пройденный путь</b> и заканчивается на активном узле.
+  </p>
+  <p>
+    Шапка курса — прогресс, отставание, минуты за сегодня — это <b>этап 5</b>,
+    здесь она обозначена заглушкой. Один экран — один этап.
+  </p>
+  <p>
+    <b>Правка owner по первой версии:</b> состояние узла кодируется цветом —
+    пройденные салатовые, голова очереди фиолетовая, заблокированные подняты
+    по контрасту; змейка стала круглой, соединитель из прямого отрезка
+    превратился в кривую без изломов на узлах. Цвет состояний <b>отменяет
+    часть рамки этапа 0</b> («почти-монохромная база, один сдержанный
+    акцент») и потому объявлен пока внутри этого макета, а не в
+    <code>tokens.css</code>: пока не решено, кодируются ли цветом состояния
+    и на остальных экранах, палитру продукта трогать нельзя.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Данные вымышленные — уровни, разделы и названия тем поставлены заполнителем, чтобы показать вёрстку. Программа курса приходит от owner файлами курсов и здесь не изобретается.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · Как экран открывается — светлая тема</h2>
+  <p>
+    Фокус на активном узле, вокруг него 3–4 узла: сверху пройденное, снизу
+    заблокированное. В продукте дорожка прокручивается к активному узлу при
+    открытии вкладки; в макете он поставлен третьим, потому что статичный HTML
+    свою позицию прокрутки задать не может.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая</b><span>data-theme="light"</span></div>
+  <div class="app" data-theme="light">
+    <nav class="rail">
+      <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab is-active"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Lesson</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">English</div>
+      <div class="screen-sub">Level B1 · 28 of 96 sessions</div>
+
+      <div class="ghost-head">Шапка курса — этап 5: прогресс, отставание, минуты за сегодня, график срезов</div>
+
+      <div class="snake-view">
+        <div class="snake">
+          <div class="snake-unit-head">Раздел 3 · Время и последовательность</div>
+
+          <button class="snake-node is-done has-link" style="--i: 5">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Согласование времён</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-done has-link" style="--i: 6">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">↻</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Повторение раздела</span>
+              <span class="snake-meta"><span class="snake-acts">◫◇</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-available" style="--i: 7">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 1</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 8">
+            <span class="snake-dot"><span class="snake-face">▷</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Видео и вопросы к нему</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 9">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 2</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark">
+    <b>Три цвета — три состояния.</b> Салатовый — пройдено, фиолетовый —
+    голова очереди, серый — закрыто. Цвет здесь несёт смысл, а не украшает:
+    в первой версии состояния различались приглушением, и owner попросил
+    цвет. Больше на экране цвета нет — ни у разделов, ни у уровней, ни
+    у плашки среза.
+  </p>
+  <p class="mark">
+    <b>Линия заканчивается на активном узле</b> и идёт салатовым: это
+    пройденный путь, тот же цвет, что у пройденных узлов. Дальше узлы стоят
+    свободно — по разомкнутой змейке видно, докуда дошли, без второго
+    индикатора.
+  </p>
+  <p class="mark">
+    <b>Змейка круглая.</b> Соединитель — кубическая кривая с вертикальными
+    касательными на концах: линия выходит из круга вниз и входит в следующий
+    сверху, поэтому на узлах нет изломов. Направление берётся из той же
+    формулы §8.2 — при <code>P = 6</code> разность синусов даёт ровно
+    <code>−1</code>, <code>0</code> или <code>+1</code>.
+  </p>
+  <p class="mark">
+    <b>Заблокированные — «без деталей»</b> (§8.2): состав активностей и минуты
+    не показаны. Показывать состав того, что нельзя открыть, — приглашение
+    пролистнуть тему, а её пролистнуть нельзя (§2.3, инвариант 4). Но контраст
+    поднят по просьбе owner: в первой версии их было почти не видно.
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Тот же фрагмент — тёмная тема</h2>
+  <p>
+    Проверяется ровно одно: держат ли салатовый и фиолетовый контраст
+    на тёмной базе и не проваливается ли в фон заблокированный узел.
+    Оба цвета в тёмной теме взяты светлее, а глиф на них — тёмный: одно
+    и то же значение на белом и на <code>#171717</code> читается по-разному,
+    поэтому у каждого цвета пара значений, а не одно.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Тёмная</b><span>data-theme="dark"</span></div>
+  <div class="app" data-theme="dark">
+    <nav class="rail">
+      <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+      <button class="tab is-active"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+      <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+      <div class="rail-sep"></div>
+      <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      <div class="rail-sep"></div>
+      <button class="rail-action"><div class="tab-icon">＋</div><div class="tab-text">Lesson</div></button>
+    </nav>
+    <div class="content">
+      <div class="screen-title">English</div>
+      <div class="screen-sub">Level B1 · 28 of 96 sessions</div>
+
+      <div class="ghost-head">Шапка курса — этап 5</div>
+
+      <div class="snake-view">
+        <div class="snake">
+          <div class="snake-unit-head">Раздел 3 · Время и последовательность</div>
+
+          <button class="snake-node is-done has-link" style="--i: 5">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Согласование времён</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-done has-link" style="--i: 6">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">↻</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Повторение раздела</span>
+              <span class="snake-meta"><span class="snake-acts">◫◇</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-available" style="--i: 7">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 1</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 8">
+            <span class="snake-dot"><span class="snake-face">▷</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Видео и вопросы к нему</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 9">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 2</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="mark">
+    <b>В тёмной теме оба цвета состояний светлее, а глиф на них тёмный</b> —
+    тот же приём, что у <code>--accent</code> / <code>--accent-text</code>
+    в токенах. Салатовый <code>#7ad95d</code> против <code>#56bb3a</code>
+    в светлой, фиолетовый <code>#a58cff</code> против <code>#7a5af8</code>:
+    один и тот же цвет на белом и на <code>#171717</code> читается по-разному,
+    поэтому пара значений, а не одно.
+  </p>
+  <p class="mark">
+    Ни одного значения цвета мимо переменных: заблокированный узел —
+    <code>--surface-2</code> с <code>--border-strong</code>, глиф
+    <code>--text-muted</code>. Тема переопределяет только цвета, геометрия
+    у обеих общая (решение этапа 0).
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Прокрутка: хвост уровня, срез, закрытый следующий уровень</h2>
+  <p>
+    Панель ниже <b>реально прокручивается</b> — прокрутите её до конца.
+    Здесь видно то, чего не видно в захвате: границу раздела, плашку
+    контрольного среза и закрытый уровень B2 с объяснением, чем он
+    открывается. Скроллится дорожка, а не страница: капсула и шапка курса
+    остаются на месте.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая · прокручивается</b><span>overflow-y: auto</span></div>
+  <div class="pad">
+    <div class="snake-view" style="height: 620px">
+      <div class="snake">
+
+        <div class="snake-level">
+          <div class="snake-level-head">
+            <div class="snake-level-name">Уровень B1</div>
+            <div class="snake-level-meta">28 из 96 сессий</div>
+          </div>
+
+          <div class="snake-unit-head">Раздел 3 · Время и последовательность</div>
+
+          <button class="snake-node is-done has-link" style="--i: 5">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Согласование времён</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-done has-link" style="--i: 6">
+            <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+            <span class="snake-dot"><span class="snake-face">↻</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Повторение раздела</span>
+              <span class="snake-meta"><span class="snake-acts">◫◇</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-available" style="--i: 7">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 1</span>
+              <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 8">
+            <span class="snake-dot"><span class="snake-face">▷</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Видео и вопросы к нему</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 9">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Условные предложения, часть 2</span>
+            </span>
+          </button>
+
+          <div class="snake-unit-head">Раздел 4 · Косвенная речь</div>
+
+          <button class="snake-node is-locked" style="--i: 10">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Косвенная речь: утверждения</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 11">
+            <span class="snake-dot"><span class="snake-face">◆</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Контрольная точка раздела</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 12">
+            <span class="snake-dot"><span class="snake-face">▷</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Подкаст и вопросы</span>
+            </span>
+          </button>
+
+          <div class="snake-check">
+            <div class="snake-check-glyph">◈</div>
+            <div>
+              <div class="snake-check-title">Контрольный срез уровня B1</div>
+              <div class="snake-check-meta">
+                Суббота, 2 января · нерабочий день курса, очередь не прерывается.
+                В счётчик занятий и во внеурочное время не входит — это измерение,
+                а не занятие.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="snake-level is-locked">
+          <div class="snake-level-head">
+            <div class="snake-level-name">Уровень B2</div>
+            <div class="snake-level-meta">0 из 104 сессий</div>
+          </div>
+
+          <div class="snake-lock">
+            <b>Уровень закрыт.</b> Откроется, когда будет пройден уровень B1 —
+            осталось 68 сессий и контрольный срез.
+          </div>
+
+          <button class="snake-node is-locked" style="--i: 0">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Первая тема уровня</span>
+            </span>
+          </button>
+
+          <button class="snake-node is-locked" style="--i: 1">
+            <span class="snake-dot"><span class="snake-face">▦</span></span>
+            <span class="snake-label">
+              <span class="snake-title">Вторая тема уровня</span>
+            </span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <p class="mark">
+    <b>Раздел отделяется заголовком и линией, уровень — заголовком крупнее
+    и числом сессий.</b> Две ступени группировки различаются размером
+    и весом, а не цветом — owner выбрал этот вариант из трёх. Цвет, который
+    пришёл на этап позже, занят состоянием узла, и на разделы он не
+    распространяется: тогда пришлось бы читать два цветовых языка на одном
+    экране. Формулировку §8.2 «заголовком и цветом» после «ок» правлю
+    в <code>SPEC.md</code>.
+  </p>
+  <p class="mark">
+    <b>Прогресс уровня — в сессиях, не в узлах</b> (§2.6): узел на три сессии
+    не может весить столько же, сколько на одну.
+  </p>
+  <p class="mark">
+    <b>Закрытый уровень объясняет условие открытия числом.</b> «Осталось
+    68 сессий и контрольный срез» — проверяемое условие; закрытая змейка без
+    объяснения читается как сбой загрузки, а не как правило. Тот же довод,
+    по которому на этапе 2b пустой день обязан назвать причину.
+  </p>
+  <p class="mark">
+    <b>Срез рвёт змейку поперёк, а не встаёт в неё кружком.</b> Он привязан
+    к календарю (§2.7), а не к позиции в очереди, — единственный узел с датой:
+    остальным дату взять негде, они не привязаны к дням (инвариант 4).
+    Цветом не выделен: цвет занят состоянием узла, и салатовая плашка
+    читалась бы как ещё один пройденный узел.
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>4 · Состояния узла — §2.3</h2>
+  <p>
+    <code>locked → available → in_progress → done | partial</code>.
+    Три средних состояния принадлежат <b>одному</b> узлу — голове очереди
+    (§2.3: <code>available</code> ровно один), поэтому одновременно на экране
+    их не бывает и фиолетовый узел всё равно один. Кольцо вокруг круга —
+    накопленные минуты: §2.4 требует, чтобы они не сбрасывались, значит их
+    нельзя и не показать.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+  <div class="pane">
+    <div class="pane-label"><b>Светлая</b><span>data-theme="light"</span></div>
+    <div class="pad" data-theme="light">
+      <div class="snake snake--flat" style="flex-direction: row; flex-wrap: wrap; justify-content: center">
+        <div class="snake-node is-locked" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">locked</span>
+            <span class="snake-meta">без деталей</span>
+          </span>
+        </div>
+        <div class="snake-node is-available" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">available</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-progress" style="--i: 0">
+          <span class="snake-dot" style="--p: .3"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">in_progress</span>
+            <span class="snake-meta">идёт · 12 из 40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-partial" style="--i: 0">
+          <span class="snake-dot" style="--p: .62"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">partial</span>
+            <span class="snake-meta">частично · 25 из 40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-done" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">done</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pane">
+    <div class="pane-label"><b>Тёмная</b><span>data-theme="dark"</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="snake snake--flat" style="flex-direction: row; flex-wrap: wrap; justify-content: center">
+        <div class="snake-node is-locked" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">locked</span>
+            <span class="snake-meta">без деталей</span>
+          </span>
+        </div>
+        <div class="snake-node is-available" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">available</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-progress" style="--i: 0">
+          <span class="snake-dot" style="--p: .3"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">in_progress</span>
+            <span class="snake-meta">идёт · 12 из 40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-partial" style="--i: 0">
+          <span class="snake-dot" style="--p: .62"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">partial</span>
+            <span class="snake-meta">частично · 25 из 40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-done" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">done</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+<div class="wrap"><div class="pane" style="margin-top: 20px">
+  <p class="mark">
+    <b><code>partial</code> без заливки, но с фиолетовым кольцом.</b> Заливка
+    значит «здесь работают сейчас»; брошенное занятие — не сейчас. Но минуты
+    сохранены (§2.4, сброса нет даже после долгого перерыва), и кольцо —
+    единственное место на экране, где это видно. Обнулить кольцо было бы
+    ложью того же рода, что запрещает §10.
+  </p>
+  <p class="mark">
+    <b>У <code>done</code> приглушение снято.</b> §8.2 говорит «пройденные
+    приглушены», но приглушённый салатовый не читается ни как цвет, ни как
+    приглушение — два способа сказать одно и то же гасят друг друга. Теперь
+    «пройдено» говорит цвет, а приглушение осталось только состоянием
+    наведения: при курсоре на соседе гаснут все узлы одинаково, до .75.
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>5 · Виды узлов и состав активностей</h2>
+  <p>
+    <code>Node.kind</code> из §2.1: <code>lesson</code>, <code>review</code>,
+    <code>checkpoint</code>, <code>media</code>, <code>level_check</code>.
+    Первые четыре — круги, различаются глифом. Пятый — плашка: он один
+    привязан к дате. Строка под названием — состав активностей узла
+    (<code>activities</code> из §8.2), типы из §2.2.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая</b><span>Node.kind · Activity.type</span></div>
+  <div class="pad pad--col" data-theme="light">
+    <div class="snake snake--flat" style="flex-direction: row; flex-wrap: wrap; justify-content: center">
+      <div class="snake-node is-available" style="--i: 0">
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label">
+          <span class="snake-title">lesson</span>
+          <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+        </span>
+      </div>
+      <div class="snake-node is-available" style="--i: 0">
+        <span class="snake-dot"><span class="snake-face">↻</span></span>
+        <span class="snake-label">
+          <span class="snake-title">review</span>
+          <span class="snake-meta"><span class="snake-acts">◫◇</span> · 40 мин</span>
+        </span>
+      </div>
+      <div class="snake-node is-available" style="--i: 0">
+        <span class="snake-dot"><span class="snake-face">◆</span></span>
+        <span class="snake-label">
+          <span class="snake-title">checkpoint</span>
+          <span class="snake-meta"><span class="snake-acts">◇▤</span> · 40 мин</span>
+        </span>
+      </div>
+      <div class="snake-node is-available" style="--i: 0">
+        <span class="snake-dot"><span class="snake-face">▷</span></span>
+        <span class="snake-label">
+          <span class="snake-title">media</span>
+          <span class="snake-meta"><span class="snake-acts">♪◇</span> · вне сессии</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="snake-check">
+      <div class="snake-check-glyph">◈</div>
+      <div>
+        <div class="snake-check-title">level_check · предстоящий</div>
+        <div class="snake-check-meta">Суббота, 2 января · нерабочий день курса</div>
+      </div>
+    </div>
+
+    <div class="snake-check is-done">
+      <div class="snake-check-glyph">◈</div>
+      <div>
+        <div class="snake-check-title">level_check · выполнен</div>
+        <div class="snake-check-meta">
+          3 октября · сводная оценка не вычислена: часть навыков заполняется
+          вручную и пока пуста.
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="snake-legend">
+        <div><i>▦</i> lesson — занятие</div>
+        <div><i>↻</i> review — повторение</div>
+        <div><i>◆</i> checkpoint — контрольная точка</div>
+        <div><i>▷</i> media — материал вне сессии</div>
+        <div><i>◈</i> level_check — контрольный срез</div>
+      </div>
+      <div class="snake-legend">
+        <div><i>≡</i> theory — материал</div>
+        <div><i>◫</i> flashcards — колода</div>
+        <div><i>◇</i> quiz — закрытые задания</div>
+        <div><i>▤</i> reading — текст с вопросами</div>
+        <div><i>♪</i> listening — аудио с вопросами</div>
+        <div><i>✎</i> writing — свободный текст</div>
+      </div>
+    </div>
+  </div>
+  <p class="mark">
+    <b>Вид узла различается глифом, а состояние — цветом.</b> Два языка
+    не пересекаются: круг любого вида бывает салатовым, фиолетовым и серым,
+    и наоборот — цвет ничего не говорит о том, занятие это или повторение.
+    Все четыре круга здесь показаны в состоянии <code>available</code>
+    нарочно, чтобы сравнивался вид, а не состояние; на живом экране
+    фиолетовый узел ровно один (§2.3).
+  </p>
+  <p class="mark">
+    <b><code>media</code> подписан «вне сессии».</b> В манифесте это
+    <code>counts_toward_session: false</code> (§2.1), и §2.6 требует
+    отдельного счётчика такого времени. Если бы узел молчал об этом,
+    минуты выглядели бы частью нормы занятия.
+  </p>
+  <p class="mark">
+    <b>Выполненный срез не показывает сводную оценку, которой нет.</b> §2.7:
+    при незаполненных навыках сводная не вычисляется — иначе она
+    систематически завышается. На экране это прочерк со причиной,
+    а не ноль и не прочерк молча.
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>6 · Геометрия: формула, а не подобранные отступы</h2>
+  <p>
+    <code>offset_x(i) = A · sin(2π · i / P)</code>, <code>A</code> = 25%
+    ширины дорожки, <code>P</code> = 6 — §8.2, одинаково на всех платформах.
+    В вёрстке это <code>translateX(calc(var(--amp) * sin(2 * pi * var(--i) / 6)))</code>,
+    где <code>--i</code> — поле <code>index</code> из контракта. Период виден
+    глазом: узлы 0 и 6 стоят на одной вертикали.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Светлая · дорожка с индексами</b><span>i = 0 … 6</span></div>
+  <div class="pad" data-theme="light">
+    <div class="snake snake--geo">
+      <div class="snake-node has-link" style="--i: 0">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 0</span></span>
+      </div>
+      <div class="snake-node has-link" style="--i: 1">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 1</span></span>
+      </div>
+      <div class="snake-node has-link" style="--i: 2">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 2</span></span>
+      </div>
+      <div class="snake-node has-link" style="--i: 3">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 3</span></span>
+      </div>
+      <div class="snake-node has-link" style="--i: 4">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 4</span></span>
+      </div>
+      <div class="snake-node has-link" style="--i: 5">
+        <span class="snake-link" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none"><path class="lk-l" d="M100 0C100 46 0 54 0 100"/><path class="lk-s" d="M100 0V100"/><path class="lk-r" d="M100 0C100 46 200 54 200 100"/></svg></span>
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 5</span></span>
+      </div>
+      <div class="snake-node" style="--i: 6">
+        <span class="snake-dot"><span class="snake-face">▦</span></span>
+        <span class="snake-label"><span class="snake-title">i = 6</span></span>
+      </div>
+    </div>
+  </div>
+  <p class="mark">
+    <b>Формула не заменена таблицей.</b> При <code>P = 6</code> синус даёт
+    всего три значения по модулю (0, ±0.866), и шесть правил
+    <code>:nth-child(6n+k)</code> дали бы ту же картинку. Но формула — это
+    контракт §8.2, общий для веба и будущего клиента, а таблица — её копия,
+    которая разъедется при первой смене периода.
+  </p>
+  <p class="mark">
+    <b><code>--amp</code> задан в <code>cqw</code>, а не в процентах.</b>
+    Проценты в <code>translateX</code> считаются от ширины самого узла, а §8.2
+    говорит о ширине дорожки. <code>25cqw</code> — ровно 25% ширины дорожки.
+  </p>
+  <p class="mark">
+    <b>Соединитель строится из тех же <code>--i</code>.</b> Кривая занимает
+    по вертикали ровно <code>--step</code> — расстояние между центрами
+    кругов, — а направление задаёт знак разности синусов. Поэтому высота
+    узла задана явно и не зависит от того, в одну строку название или в две:
+    переменная высота оторвала бы конец кривой от следующего круга.
+  </p>
+  <p class="mark">
+    <b>Три готовых пути вместо одного считаемого.</b> При <code>P = 6</code>
+    переход бывает трёх видов — вправо, влево, прямо, — и виден тот, чья
+    непрозрачность равна единице: <code>max(0, dxk)</code>,
+    <code>max(0, −dxk)</code>, <code>1 − dxk²</code>. Квадрат вместо
+    <code>abs()</code> не из любви к арифметике: <code>abs()</code>
+    и <code>sign()</code> в CSS появились недавно, а это выражение работает
+    везде, где работает <code>sin()</code>.
+  </p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>7 · Узел на несколько сессий и наведение</h2>
+  <p>
+    Слева — узел с <code>sessions: 2</code> (§2.1) рядом с обычным: он
+    занимает два слота занятия, и это сказано словом, потому что от этого
+    зависит, когда до него дойдёт очередь. Справа — правило наведения этапа 1:
+    гаснут соседи, а не подсвечивается наведённое.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+  <div class="pane">
+    <div class="pane-label"><b>sessions: 1 и sessions: 2</b><span>§2.1 · §2.6</span></div>
+    <div class="pad" data-theme="light">
+      <div class="snake snake--flat" style="flex-direction: row; justify-content: center">
+        <div class="snake-node is-available" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">Условные предложения</span>
+            <span class="snake-meta"><span class="snake-acts">≡◇✎</span> · 40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-locked" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">Косвенная речь целиком</span>
+            <span class="snake-meta">2 сессии</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <p class="mark">
+      Число сессий у заблокированного узла — <b>исключение из «без
+      деталей»</b>: состав и минуты скрыты, а вес узла в очереди оставлен.
+      Он отвечает не «что внутри», а «когда до этого дойдёт дело», и по нему
+      же считается прогресс курса (§2.6).
+    </p>
+  </div>
+  <div class="pane">
+    <div class="pane-label"><b>Наведение</b><span>:has(.snake-node:hover)</span></div>
+    <div class="pad" data-theme="light">
+      <div class="snake snake--flat" style="flex-direction: row; justify-content: center">
+        <div class="snake-node is-done" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">Пройденный</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-available" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">Активный</span>
+            <span class="snake-meta">40 мин</span>
+          </span>
+        </div>
+        <div class="snake-node is-locked" style="--i: 0">
+          <span class="snake-dot"><span class="snake-face">▦</span></span>
+          <span class="snake-label">
+            <span class="snake-title">Заблокированный</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <p class="mark">
+      Наведите курсор на любой из трёх. Гаснут соседи до <b>.75</b> — та же
+      сила, что у активной вкладки капсулы и у сетки календаря. Условие стоит
+      на <code>:has(.snake-node:hover)</code>, а не на <code>:hover</code>
+      дорожки: дорожка, как и сетка недели, наполовину состоит из пустоты,
+      и правило по <code>:hover</code> гасило бы змейку от любого касания
+      экрана — дефект, который owner отверг на этапе 2.
+    </p>
+  </div>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

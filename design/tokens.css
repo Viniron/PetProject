@@ -36,6 +36,17 @@
   --accent-text:   #ffffff;   /* текст на заливке акцентом */
   --accent-soft:   #f0f0f0;   /* мягкая подложка: контекстная кнопка */
 
+  /* Цвет состояний узла змейки — этап 4 дизайна, ADR-029. Единственное
+     место в палитре, где цвет несёт смысл, а не оформление: салатовый —
+     пройдено, фиолетовый — голова очереди. Заблокированному узлу цвета
+     не положено, он остаётся серым. Пара «цвет + цвет глифа на нём»,
+     как у --accent/--accent-text: на белом и на #171717 один и тот же
+     салатовый читается по-разному. */
+  --state-done:       #56bb3a;
+  --state-done-on:    #ffffff;
+  --state-current:    #7a5af8;
+  --state-current-on: #ffffff;
+
   --shadow:        none;
 }
 
@@ -56,6 +67,12 @@
     --accent:        #ececec;
     --accent-text:   #171717;
     --accent-soft:   #2f2f2f;
+
+    /* Цвет состояний змейки — ADR-029. Оба светлее, глиф на них тёмный. */
+    --state-done:       #7ad95d;
+    --state-done-on:    #171717;
+    --state-current:    #a58cff;
+    --state-current-on: #171717;
     --shadow:        none;
   }
 }
@@ -75,6 +92,12 @@
   --accent:        #ececec;
   --accent-text:   #171717;
   --accent-soft:   #2f2f2f;
+
+  /* Цвет состояний змейки — ADR-029. Оба светлее, глиф на них тёмный. */
+  --state-done:       #7ad95d;
+  --state-done-on:    #171717;
+  --state-current:    #a58cff;
+  --state-current-on: #171717;
   --shadow:        none;
 }
 
@@ -92,6 +115,17 @@
   --accent:        #0d0d0d;
   --accent-text:   #ffffff;
   --accent-soft:   #f0f0f0;
+
+  /* Цвет состояний узла змейки — этап 4 дизайна, ADR-029. Единственное
+     место в палитре, где цвет несёт смысл, а не оформление: салатовый —
+     пройдено, фиолетовый — голова очереди. Заблокированному узлу цвета
+     не положено, он остаётся серым. Пара «цвет + цвет глифа на нём»,
+     как у --accent/--accent-text: на белом и на #171717 один и тот же
+     салатовый читается по-разному. */
+  --state-done:       #56bb3a;
+  --state-done-on:    #ffffff;
+  --state-current:    #7a5af8;
+  --state-current-on: #ffffff;
   --shadow:        none;
 }
 
@@ -649,3 +683,309 @@ textarea.field-input { min-height: 76px; resize: vertical; font-family: inherit;
 .seg--flat:hover button.is-active { color: var(--text-muted); font-weight: 600; }
 .seg--flat:hover button:hover { color: var(--text); }
 .seg--flat:hover button.is-active:hover { color: var(--text); }
+
+
+/* --- Змейка курса — SPEC §8.2 --------------------------------------------
+   Утверждено owner на этапе 4. Экран курса: очередь узлов, по которой видно,
+   где owner сейчас и сколько осталось.
+
+   «Как в Duolingo» — про композицию и поведение (3–4 узла в захвате, фокус
+   на активном, прокрутка до любого места, уровни с замком), а не про манеру:
+   игровой стиль owner отверг на этапе 0, границы вместо теней остались.
+   Правкой owner на этом этапе из рамки этапа 0 снят один пункт —
+   почти-монохромность: состояние узла кодируется цветом (ADR-029). Всё
+   остальное на экране цвета по-прежнему не имеет.
+
+   Уровень — слой модели над разделом (ADR-028, SPEC §2.1).                 */
+
+/* --- Дорожка -------------------------------------------------------------
+   Скроллится змейка, а не страница: капсула (этап 1) и шапка курса (этап 5)
+   обязаны остаться на месте. Высота в макете фиксированная, чтобы захват
+   было видно; в продукте это остаток высоты экрана под шапкой.
+
+   Область прокрутки занимает ширину контента целиком, а ограничена ширина
+   САМОЙ ЗМЕЙКИ (--track на .snake). Это и есть «ширина дорожки» из §8.2:
+   амплитуда считается от неё, а не от области экрана.
+
+   Найдено визуальной проверкой, в два захода. Сначала змейка шла во всю
+   ширину контента: при 1270px амплитуда 25% даёт 310px, узлы разлетаются
+   на 540px, соединитель ложится почти горизонтально — очередь перестаёт
+   читаться как очередь. Потом сузилась вместе с областью и была
+   отцентрована: ось змейки уехала от заголовка экрана и заглушки шапки,
+   выровненных по левому краю, — стало хуже, чем было. Правильный ответ:
+   рамка по контенту, змейка по центру внутри неё.
+
+   Скроллбар тонкий и в цвете токена: системный светлый в тёмной теме
+   выглядит как чужая деталь на своём экране.                               */
+.snake-view {
+  height: 560px; margin-top: var(--space-4);
+  overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--surface);
+  /* Центрирует змейку сама область, а не поля самой змейки: auto-поля внутри
+     flex-родителя отключают растягивание, и в каталогах страницы разбора
+     дорожка схлопывалась в нулевую ширину — найдено визуальной проверкой. */
+  display: flex; justify-content: center; align-items: flex-start;
+}
+
+/* Все величины змейки — на одном элементе, как масштаб сетки календаря
+   (--hour, --h0, --h1 на .cal). Уменьшенная копия получается сменой чисел,
+   а не второй вёрсткой.
+
+   --amp — та самая A из §8.2: 25% ширины дорожки. Проценты в translateX
+   считаются от ширины САМОГО элемента, поэтому взята единица контейнерных
+   запросов cqw: 25cqw — это ровно 25% ширины дорожки, а не узла.
+
+   --step обязан равняться расстоянию между центрами кругов соседних узлов:
+   из него считается соединитель. Поэтому высота узла задана явно и не
+   зависит от того, в одну строку название или в две.                       */
+.snake {
+  container-type: inline-size;
+  width: 100%; max-width: 620px;                        /* дорожка — узкая колонка */
+  --amp:  25cqw;                                        /* A ≈ 25% ширины — §8.2 */
+  --period: 6;                                          /* P = 6 — §8.2 */
+  --node: 76px;                                         /* диаметр круга */
+  --labelh: 52px;                                       /* подпись: 2 строки + мета */
+  --gap: 26px;
+  --nodeh: calc(var(--node) + 6px + var(--labelh));
+  --step: calc(var(--nodeh) + var(--gap));
+  display: flex; flex-direction: column; align-items: center; gap: var(--gap);
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  color: var(--text);
+}
+
+/* Уровень — слой модели над разделом (Course → Level → Unit → Node).
+   Решение owner на этом этапе: змейка следующего уровня закрыта целиком,
+   пока не пройден предыдущий, и объясняет, чем открывается.               */
+.snake-level { align-self: stretch; display: flex; flex-direction: column;
+               align-items: center; gap: var(--gap); }
+
+.snake-level-head { align-self: stretch; display: flex; align-items: baseline;
+                    justify-content: space-between; gap: var(--space-3);
+                    padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.snake-level-name { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.01em; }
+.snake-level-meta { font-size: var(--fs-sm); color: var(--text-muted);
+                    font-variant-numeric: tabular-nums; }
+.snake-level.is-locked .snake-level-name { color: var(--text-faint); }
+
+/* Закрытый уровень объясняет условие открытия словом и числом. Пустая
+   заблокированная змейка без объяснения читается как сбой загрузки — тот же
+   довод, по которому на этапе 2b три причины пустого дня не смешиваются. */
+.snake-lock { align-self: stretch; padding: 11px var(--space-4);
+              border: 1px solid var(--border); border-radius: var(--radius);
+              background: var(--surface-2); color: var(--text);
+              font-size: var(--fs-sm); line-height: 1.45; }
+.snake-lock b { font-weight: 600; }
+
+/* --- Заголовок раздела ---------------------------------------------------
+   §8.2 требует «заголовком и цветом». Цвета у раздела нет: owner выбрал
+   заголовок с линией. Цвет, пришедший на этап позже, закреплён за состоянием
+   узла и на разделы не распространяется — иначе на одном экране пришлось бы
+   читать два цветовых языка. Формулировка §8.2 правится в SPEC после «ок»:
+   противоречие закрывается в спецификации, а не обходится в вёрстке.       */
+.snake-unit-head { align-self: stretch; display: flex; align-items: center;
+                   gap: var(--space-3); font-size: var(--fs-xs); font-weight: 600;
+                   letter-spacing: .06em; text-transform: uppercase;
+                   color: var(--text-faint); }
+.snake-unit-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* --- Узел ----------------------------------------------------------------
+   Смещение по X — формулой §8.2, не таблицей значений:
+       offset_x(i) = A * sin(2π * i / P)
+   --i приходит из разметки и равен полю `index` контракта §8.2. При P = 6
+   различных значений синуса по модулю всего три, и соблазн заменить формулу
+   шестью правилами :nth-child(6n+k) есть — но формула одинакова на всех
+   платформах и остаётся источником истины.
+
+   Ширина узла фиксирована: иначе область наведения гуляла бы вместе
+   с длиной названия.                                                       */
+.snake-node {
+  position: relative; z-index: 0;
+  width: 190px; height: var(--nodeh);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0; border: 0; background: none; font: inherit; color: inherit;
+  text-align: center; cursor: pointer;
+  --s:  sin(2 * pi * var(--i) / var(--period));
+  --s1: sin(2 * pi * (var(--i) + 1) / var(--period));
+  /* Направление перехода к следующему узлу: ровно -1, 0 или +1 — при P = 6
+     разность синусов принимает только эти три значения, делённые на 0.866. */
+  --dxk: calc((var(--s1) - var(--s)) / 0.8660254);
+  transform: translateX(calc(var(--amp) * var(--s)));
+  transition: opacity .15s;
+}
+
+/* Круг. Кольцо — это накопленные минуты (§2.4: минуты сохраняются всегда,
+   независимо от длины перерыва, значит их нельзя не показать). Заполненная
+   доля --p приходит как minutes_accumulated / норма узла.
+   --radius-pill здесь по назначению: токен помечен «только для кнопок
+   и круглых узлов змейки» ещё на этапе 0.                                  */
+.snake-dot {
+  --p: 0; --ring: var(--border); --rest: var(--border);
+  position: relative; flex: 0 0 auto;
+  width: var(--node); height: var(--node);
+  padding: 3px; border-radius: var(--radius-pill);
+  background: conic-gradient(var(--ring) calc(var(--p) * 1turn), var(--rest) 0);
+  display: grid; place-items: center;
+}
+.snake-face {
+  width: 100%; height: 100%; border-radius: var(--radius-pill);
+  border: 1px solid var(--border); background: var(--surface);
+  display: grid; place-items: center;
+  font-size: 30px; line-height: 1; color: var(--text-muted);
+}
+
+/* z-index поднимает подпись над соединителем: кривая уходит в сторону
+   от центра круга и на первых десятках пикселей задевает название —
+   найдено визуальной проверкой, линия проходила по буквам. Фон подписи
+   при этом не заводится: плашка под каждым названием шумит сильнее,
+   чем линия за буквами. */
+.snake-label { position: relative; z-index: 1; margin-top: 6px; height: var(--labelh);
+               display: flex; flex-direction: column; gap: 2px; }
+/* Название обрезается на второй строке многоточием, а не растягивает узел:
+   переменная высота узла сломала бы соединитель, который считается из --step.
+   Тот же довод, по которому на этапе 2 название в половинном блоке
+   обрывается многоточием, а не режется границей. */
+.snake-title { font-size: var(--fs-sm); font-weight: 600; line-height: 1.3;
+               letter-spacing: -.005em; display: -webkit-box; -webkit-line-clamp: 2;
+               -webkit-box-orient: vertical; overflow: hidden; }
+.snake-meta { font-size: 11.5px; line-height: 1.4; color: var(--text-muted); }
+/* Состав активностей — §8.2 «иконки активностей показывают состав».
+   Разрядка, иначе глифы слипаются в кашу. */
+.snake-acts { letter-spacing: .16em; }
+
+/* --- Соединитель: кривая, а не отрезок -----------------------------------
+   Решение owner: линия соединяет пройденный путь и заканчивается на активном
+   узле; правка owner: змейка круглая, без изломов на узлах. Прямой отрезок
+   от центра к центру заменён кубической кривой с вертикальными касательными
+   на концах — линия выходит из круга вниз и входит в следующий сверху,
+   поэтому стыки не заламываются.
+
+   Форма от индекса не зависит, зависит только НАПРАВЛЕНИЕ, а его даёт та же
+   формула §8.2: --dxk = (sin(i+1) - sin(i)) / 0.866 — ровно -1, 0 или +1.
+   Из трёх путей виден тот, чья непрозрачность равна единице; у прямого она
+   считается как 1 - dxk², то есть без abs() и sign(): обе функции в CSS
+   появились недавно, а здесь без них можно.
+
+   z-index: -1 — линия идёт ПОД кругами. Тот же довод, что у линии текущего
+   времени на этапе 2b: проведённая поверх, она читается как зачёркивание.
+
+   Класс has-link стоит в разметке, а не выводится селектором: в продукте это
+   «узел пройден И следующий узел существует» — на границе раздела, перед
+   плашкой среза и в конце уровня линии быть не должно.                     */
+.snake-link { position: absolute; z-index: -1; left: 50%; top: calc(var(--node) / 2);
+              width: calc(var(--amp) * 1.7320508); height: var(--step);
+              margin-left: calc(var(--amp) * -0.8660254); pointer-events: none; }
+.snake-link svg { display: block; width: 100%; height: 100%; }
+/* Толщина линии не должна растягиваться вместе с viewBox, отсюда
+   non-scaling-stroke: viewBox 200×100 тянется до 268×160, и без него линия
+   стала бы разной толщины по осям. */
+.snake-link path { fill: none; stroke: var(--link, var(--border-strong));
+                   stroke-width: 2; stroke-linecap: round;
+                   vector-effect: non-scaling-stroke; }
+.lk-r { opacity: max(0, var(--dxk)); }
+.lk-l { opacity: max(0, -1 * var(--dxk)); }
+.lk-s { opacity: calc(1 - var(--dxk) * var(--dxk)); }
+
+/* --- Состояния — §2.3 locked → available → in_progress → done | partial --
+   available, in_progress и partial — три состояния ОДНОГО узла, головы
+   очереди (§2.3: available ровно один). Поэтому фиолетовый узел на экране
+   всё равно один, в каком бы из трёх состояний голова ни находилась.       */
+
+/* locked — «без деталей» (§8.2): состав не показывается, минут нет.
+   Но не еле видимый: правка owner — заблокированные почти не различались
+   на поверхности. Кольцо и граница круга подняты до --border-strong, глиф
+   и название до --text-muted. Серым узел при этом остаётся: цвет теперь
+   означает состояние, и заблокированному цвета не положено. */
+.snake-node.is-locked { cursor: default; }
+.snake-node.is-locked .snake-dot { --rest: var(--border-strong); }
+.snake-node.is-locked .snake-face { background: var(--surface-2);
+                                    border-color: var(--border-strong);
+                                    color: var(--text-muted); }
+.snake-node.is-locked .snake-title { font-weight: 500; color: var(--text-muted); }
+
+/* done — салатовый, правка owner. §8.2 говорит «пройденные приглушены»,
+   и приглушение снято: два способа сказать одно и то же дали бы бледный
+   салатовый, который не читается ни как цвет, ни как приглушение. Тем же
+   цветом идёт линия пройденного пути (--link).
+
+   Граница круга цвета поверхности — зазор в 1px между кольцом и заливкой:
+   без него замкнутое кольцо сливается с заливкой того же цвета. Галочка
+   на .snake-dot::after; соединитель теперь отдельный элемент .snake-link,
+   поэтому за псевдоэлемент они не спорят. */
+.snake-node.is-done { --link: var(--state-done); }
+.snake-node.is-done .snake-dot { --p: 1; --ring: var(--state-done); }
+.snake-node.is-done .snake-face { background: var(--state-done);
+                                  border-color: var(--surface);
+                                  color: var(--state-done-on); }
+.snake-node.is-done .snake-dot::after {
+  content: "✓"; position: absolute; right: -2px; bottom: -2px;
+  width: 21px; height: 21px; border-radius: var(--radius-pill);
+  border: 1px solid var(--state-done); background: var(--surface);
+  color: var(--state-done); font-size: 11px; line-height: 19px; text-align: center;
+}
+
+/* available — фиолетовый, правка owner: голова очереди отличается от
+   пройденного не тем, что она ярче, а цветом. Кольцо пустое: минут ещё
+   не накоплено. */
+.snake-node.is-available .snake-dot { --ring: var(--state-current); }
+.snake-node.is-available .snake-face { background: var(--state-current);
+                                       border-color: var(--surface);
+                                       color: var(--state-current-on); }
+
+/* in_progress — та же заливка (это по-прежнему твой узел) плюс кольцо
+   накопленных минут. Граница круга цвета поверхности, а не цвета состояния:
+   найдено визуальной проверкой — кольцо на заливке того же цвета слилось,
+   и вместо накопленных минут читалась НЕзаполненная часть кольца, то есть
+   смысл ровно наоборот. Зазор в 1px возвращает кольцу заполненную долю. */
+.snake-node.is-progress .snake-dot { --ring: var(--state-current); }
+.snake-node.is-progress .snake-face { background: var(--state-current);
+                                      border-color: var(--surface);
+                                      color: var(--state-current-on); }
+
+/* partial — занятие брошено, но минуты сохранены (§2.4). Заливки нет:
+   сейчас здесь не работают. Кольцо остаётся фиолетовым — оно и показывает,
+   что накопленное не потеряно. */
+.snake-node.is-partial .snake-dot { --ring: var(--state-current); }
+.snake-node.is-partial .snake-face { border-color: var(--state-current); color: var(--text); }
+
+/* --- Веха: контрольный срез level_check — §2.7 ---------------------------
+   Плашка во всю ширину дорожки, решение owner. Срез привязан к КАЛЕНДАРЮ,
+   а не к позиции в очереди, — единственный узел с датой; узлам её взять
+   негде, они не привязаны к дням (инвариант 4). Поэтому он и рвёт змейку
+   поперёк, а не встаёт в неё кружком.
+
+   Цветом не выделяется: цвет занят состоянием узла, и салатовая или
+   фиолетовая плашка читалась бы как ещё один узел очереди.                 */
+.snake-check { align-self: stretch; display: flex; gap: var(--space-3);
+               align-items: flex-start; padding: var(--space-3) var(--space-4);
+               border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+               background: var(--surface); }
+.snake-check-glyph { flex: 0 0 auto; font-size: 20px; line-height: 1.15; color: var(--text-muted); }
+.snake-check-title { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -.005em; }
+.snake-check-meta { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-muted);
+                    line-height: 1.45; }
+.snake-check.is-done { opacity: .72; }
+
+/* --- Наведение гасит соседей --------------------------------------------
+   Правило этапа 1 с оговоркой этапа 2: условие стоит на :has(.snake-node:hover),
+   а не на :hover дорожки. Дорожка, как и сетка недели, наполовину состоит
+   из пустоты, и правило по :hover гасило бы змейку от любого касания.
+   Сила .75 — та же, что у активной вкладки и у сетки календаря. Отдельного
+   правила для пройденного узла больше нет: приглушение в покое снято вместе
+   с приходом салатового, и все узлы гаснут одинаково.                      */
+.snake:has(.snake-node:hover) .snake-node { opacity: .75; }
+/* Префикс :has() повторён не для красоты: селектор с :has() весит больше
+   обычного, и правило без него проигрывало по специфичности. */
+.snake:has(.snake-node:hover) .snake-node:hover { opacity: 1; }
+
+/* --- Легенда ------------------------------------------------------------
+   Виды узлов и типы активностей различаются глифом, а глиф нужно подписать
+   ровно один раз на экран — как легенда календаря на этапе 2.              */
+.snake-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5);
+                margin-top: var(--space-4); font-size: var(--fs-sm); }
+.snake-legend div { display: flex; align-items: center; gap: 8px; }
+.snake-legend i { flex: 0 0 auto; display: inline-grid; place-items: center;
+                  width: 27px; height: 27px; border-radius: var(--radius-pill);
+                  border: 1px solid var(--border); background: var(--surface);
+                  color: var(--text-muted); font-size: 14px; font-style: normal; }
