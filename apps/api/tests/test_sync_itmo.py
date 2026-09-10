@@ -24,7 +24,8 @@ from sqlalchemy.orm import Session
 
 from jarvis_api.config import Settings
 from jarvis_api.db.models import AuditLogEntry, IntegrationToken, ItmoLesson, JobRun, Setting
-from jarvis_api.jobs.sync_itmo import JOB_NAME, run_once, sync_window
+from jarvis_api.jobs.common import sync_window
+from jarvis_api.jobs.sync_itmo import JOB_NAME, run_once
 
 КЛЮЧ = base64.b64encode(bytes(32)).decode()
 ПРОВАЙДЕР = "https://id.itmo.test/auth/realms/itmo"

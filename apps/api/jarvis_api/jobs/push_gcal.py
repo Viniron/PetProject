@@ -36,7 +36,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from jarvis_api.config import Settings, get_settings
-from jarvis_api.db.models import AuditLogEntry, CalendarEvent, ItmoLesson, JobRun, Setting
+from jarvis_api.db.models import AuditLogEntry, CalendarEvent, ItmoLesson, Setting
 from jarvis_api.db.session import get_sessionmaker
 from jarvis_api.integrations.gcal.client import (
     GcalClient,
@@ -49,7 +49,13 @@ from jarvis_api.integrations.gcal.mapping import DesiredEvent, lesson_to_event
 # Окно записи то же, что окно забора, и берётся из того же места намеренно:
 # две границы, живущие по отдельности, разъезжаются молча, и пара из края
 # окна начинает то появляться в календаре, то исчезать.
-from jarvis_api.jobs.sync_itmo import owner_timezone, sync_window
+from jarvis_api.jobs.common import (
+    OwnerZoneError,
+    owner_timezone,
+    sync_window,
+    зона_без_падения,
+    отметить_прогон,
+)
 
 logger = logging.getLogger("jarvis.push_gcal")
 
@@ -198,25 +204,6 @@ def _записать_в_аудит(session: Session, status: str, ключ: str
             detail=detail,
         )
     )
-
-
-def _отметить_прогон(
-    session: Session,
-    run_date: dt.date,
-    now: dt.datetime,
-    status: str,
-    error: str | None = None,
-) -> None:
-    """Строка в `job_runs`: джоб за этот день отработал. Одна на джоб и день."""
-    существующая = session.scalars(
-        select(JobRun).where(JobRun.job == JOB_NAME, JobRun.run_date == run_date)
-    ).one_or_none()
-    if существующая is None:
-        существующая = JobRun(job=JOB_NAME, run_date=run_date, started_at=now)
-        session.add(существующая)
-    существующая.finished_at = now
-    существующая.status = status
-    существующая.error = error
 
 
 def _сохранить_строку(
@@ -380,8 +367,9 @@ def push(
         return отчёт
 
     применить(session, client, calendar_id, действия, отчёт, now)
-    _отметить_прогон(
+    отметить_прогон(
         session,
+        JOB_NAME,
         сегодня,
         now,
         "failed" if отчёт.failed else "ok",
@@ -402,15 +390,22 @@ def run_once(
     """Прогон поверх готовой сессии и клиента. Возвращает код возврата процесса."""
     try:
         отчёт = push(session, settings, client, apply=apply, now=now)
-    except (PushError, GcalError) as сбой:
+    # OwnerZoneError ловится наравне со своими: зону читает `push`, а бросает
+    # её общий модуль. Пока этот тип принадлежал джобу забора, сломанная зона
+    # в настройках давала трассировку без следа в `audit_log` и `job_runs` -
+    # ровно тот дефект, что живой прогон Э4 нашёл на пропавшем календаре.
+    except (PushError, OwnerZoneError, GcalError) as сбой:
         # Откат до записи следа: полуприменённое состояние в журнале хуже
         # отсутствия записи - следующий прогон принял бы его за истину.
         session.rollback()
         if apply:
             _записать_в_аудит(session, "error", JOB_NAME, {"error": str(сбой)})
-            _отметить_прогон(
+            # Зона читается страхующей функцией: отказ могла вызвать сама зона,
+            # и второй бросок изнутри except унёс бы и след, и причину.
+            отметить_прогон(
                 session,
-                now.astimezone(owner_timezone(session)).date(),
+                JOB_NAME,
+                now.astimezone(зона_без_падения(session)).date(),
                 now,
                 "failed",
                 str(сбой),

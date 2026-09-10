@@ -27,7 +27,7 @@ from jarvis_api.config import Settings, get_settings
 from jarvis_api.db.models import AuditLogEntry, Setting
 from jarvis_api.db.session import get_sessionmaker
 from jarvis_api.integrations.gcal.client import GcalClient, GcalError, build_service
-from jarvis_api.jobs.sync_itmo import FALLBACK_TIMEZONE
+from jarvis_api.jobs.common import FALLBACK_TIMEZONE
 
 logger = logging.getLogger("jarvis.gcal_setup")
 
