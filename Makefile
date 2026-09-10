@@ -36,7 +36,7 @@ ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
 .PHONY: help venv dev test lint format compose-check up down logs \
         db-up db-down build migrate migrate-pi revision \
-        sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply plan-today \
+        sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply \n        gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply \n        sync-gcal sync-gcal-apply \n        sync-gcal-pi sync-gcal-pi-apply plan-today \
         backup backup-apply restore-check
 
 help:
@@ -62,6 +62,14 @@ help:
 	@echo "sync-itmo-apply - the same, writing the mirror (stage E3)"
 	@echo "sync-itmo-pi    - dry-run inside the api container on the Pi (stage E3)"
 	@echo "sync-itmo-pi-apply - the same, writing the mirror on the Pi (stage E3)"
+	@echo "gcal-setup       - create the three JARVIS calendars, dry-run (stage E4)"
+	@echo "gcal-setup-apply - the same, creating and sharing them (stage E4)"
+	@echo "gcal-setup-pi    - the same inside the api container on the Pi (stage E4)"
+	@echo "gcal-setup-pi-apply - the same, creating and sharing from the Pi (stage E4)"
+	@echo "sync-gcal        - mirror -> Google Calendar, dry-run (stage E4)"
+	@echo "sync-gcal-apply  - the same, writing to the calendar (stage E4)"
+	@echo "sync-gcal-pi     - dry-run inside the api container on the Pi (stage E4)"
+	@echo "sync-gcal-pi-apply - the same, writing to the calendar on the Pi (stage E4)"
 	@echo "plan-today    - morning planning job, dry-run (stage E5)"
 
 venv:
@@ -159,6 +167,41 @@ sync-itmo-pi:
 
 sync-itmo-pi-apply:
 	$(DC_PI) run --rm api python -m jarvis_api.jobs.sync_itmo --apply
+
+# Календари JARVIS. Создание расшаривает их owner, то есть действие видно
+# в чужом интерфейсе и отменяется руками - поэтому у него тот же порядок
+# умолчаний, что у записи наружу: сначала показать, потом сделать.
+gcal-setup:
+	$(PY) -m jarvis_api.jobs.gcal_setup
+
+gcal-setup-apply:
+	$(PY) -m jarvis_api.jobs.gcal_setup --apply
+
+# То же на плате. Нужны именно эти цели: ключ Google живёт в .env на Pi,
+# venv там нет, и настройка выполняется внутри контейнера. Найдено на живом
+# прогоне Э4 - без них команду приходилось набирать через docker compose руками.
+gcal-setup-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.gcal_setup
+
+gcal-setup-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.gcal_setup --apply
+
+# Запись расписания в Google. Dry-run показывает дифф к календарю -
+# что будет создано, обновлено и удалено, - и не отправляет наружу ничего.
+sync-gcal:
+	$(PY) -m jarvis_api.jobs.push_gcal
+
+sync-gcal-apply:
+	$(PY) -m jarvis_api.jobs.push_gcal --apply
+
+# То же на Pi. Умолчание dry-run по той же причине, что у sync-itmo-pi:
+# цель, пишущая наружу по одному слову без флага, рано или поздно будет
+# набрана по ошибке вместо соседней.
+sync-gcal-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_gcal
+
+sync-gcal-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_gcal --apply
 
 # Цели ниже перечислены в CLAUDE.md, но их реализация принадлежит следующим
 # этапам. Заглушка выходит с ненулевым кодом намеренно: молчаливый успех

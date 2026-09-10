@@ -50,6 +50,12 @@ services:
       ISU_LOGIN: ${ISU_LOGIN:-}
       ISU_PASSWORD: ${ISU_PASSWORD:-}
       ISU_CRED_KEY: ${ISU_CRED_KEY:-}
+      # Google Calendar (Э4), по тому же правилу пустого умолчания.
+      # Строка здесь не формальность: на Э3 переменные были и в config.py,
+      # и в .env, и в тестах - но не в этом блоке, и первый живой прогон
+      # на плате упал именно на этом. Класс ошибки закрыт tests/test_compose_env.py.
+      GOOGLE_SA_JSON: ${GOOGLE_SA_JSON:-}
+      GOOGLE_CALENDAR_OWNER_EMAIL: ${GOOGLE_CALENDAR_OWNER_EMAIL:-}
     ports:
       # Только на loopback: наружу сервис выставляется Cloudflare Tunnel (Э1),
       # порты на роутере не открываются (ADR-017).
