@@ -123,7 +123,13 @@ class GcalClient:
         найденные: dict[str, str] = {}
         страница: str | None = None
         while True:
-            ответ = self._вызвать(
+            # 404 здесь означает не "события нет", а "нет календаря": его
+            # удалили в интерфейсе Google или отозвали доступ сервисному
+            # аккаунту. Это отказ уровня прогона, а не одного события -
+            # найдено живым прогоном на плате, где GcalNotFound уходил
+            # наверх необработанным и джоб падал трассировкой вместо
+            # внятного текста и следа в audit_log.
+            ответ = self._прочитать_страницу(
                 self._service.events().list(
                     calendarId=calendar_id,
                     timeMin=_rfc3339(time_min),
@@ -132,7 +138,8 @@ class GcalClient:
                     singleEvents=True,
                     maxResults=self._settings.gcal_page_size,
                     pageToken=страница,
-                )
+                ),
+                calendar_id,
             )
             for событие in ответ.get("items", []):
                 ключ = событие.get("extendedProperties", {}).get("private", {}).get(KEY_PROPERTY)
@@ -205,6 +212,17 @@ class GcalClient:
         )
 
     # --- внутреннее ---------------------------------------------------------
+
+    def _прочитать_страницу(self, запрос: Any, calendar_id: str) -> dict[str, Any]:
+        """Страница выдачи событий; пропавший календарь - отказ всего прогона."""
+        try:
+            return self._вызвать(запрос)
+        except GcalNotFound as ошибка:
+            raise GcalError(
+                f"календарь {calendar_id} недоступен: он удалён в Google или "
+                "у сервисного аккаунта отозван доступ. Заведите заново - "
+                "`make gcal-setup-pi-apply`"
+            ) from ошибка
 
     def _вызвать(self, запрос: Any) -> dict[str, Any]:
         """Один вызов SDK с повторами и переводом ошибок в наши.

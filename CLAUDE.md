@@ -122,6 +122,8 @@ make sync-itmo-pi     # то же внутри контейнера api на Pi,
 make sync-itmo-pi-apply  # то же с записью зеркала на плате
 make gcal-setup     # создать три календаря JARVIS и отдать их owner, dry-run
 make gcal-setup-apply    # то же с созданием и расшариванием
+make gcal-setup-pi       # то же внутри контейнера api на Pi, dry-run
+make gcal-setup-pi-apply # то же с созданием и расшариванием с платы
 make sync-gcal      # зеркало расписания в Google Calendar, dry-run
 make sync-gcal-apply     # то же с записью в календарь
 make sync-gcal-pi        # то же внутри контейнера api на Pi, dry-run
