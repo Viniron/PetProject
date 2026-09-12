@@ -92,15 +92,22 @@
 | iOS | отложено (ADR-002), не начинать без переспроса |
 | Хостинг | домашний Raspberry Pi (ADR-020): API, Postgres, фронт одним compose + Cloudflare Tunnel |
 
-Контракт: OpenAPI в `packages/contracts/` — источник истины, клиенты
-генерируются.
+Контракт: OpenAPI в `packages/contracts/openapi.json` — источник истины,
+клиенты генерируются. Файл **коммитится** и перегенерируется `make contract`
+вручную: изменение контракта обязано быть видно в дифе, а не случаться
+побочным эффектом сборки. Сверку держит тест — правка эндпоинтов без
+`make contract` роняет `make test`.
 
 ```
-apps/api/   domain/ (courses activities srs tutor scheduling capture)
+apps/api/   api/ (роутеры, схемы, тело отказа)   domain/ (calendar day_flags;
+            дальше courses activities srs tutor scheduling capture)
             integrations/ (itmo gcal content llm)   jobs/ (идемпотентные, dry-run)
 apps/web/   Next.js (PWA)
 packages/contracts/   courses/   docs/   design/   infra/
 ```
+
+`api/` — граница HTTP, `domain/` — то же без HTTP: арифметика проверяется
+прямым вызовом, а не через `TestClient`.
 
 ## Интеграции — что нельзя нарушить
 
@@ -130,6 +137,7 @@ packages/contracts/   courses/   docs/   design/   infra/
 ```bash
 make venv / dev / test / lint / format
 make db-up / db-down / migrate / revision m="…"
+make contract                             # выгрузить OpenAPI в packages/
 make sync-itmo / sync-gcal / daily        # dry-run по умолчанию
 make backup
 ```

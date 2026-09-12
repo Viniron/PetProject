@@ -34,7 +34,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision         sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
+.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -43,6 +43,7 @@ help:
 	@echo "lint          - ruff + black --check + mypy --strict"
 	@echo "format        - ruff --fix + black"
 	@echo "compose-check - validate every compose overlay without starting it"
+	@echo "contract      - dump the OpenAPI contract to packages/contracts (stage E6)"
 	@echo "db-up         - start dev and test databases on the workstation (stage E2)"
 	@echo "db-down       - stop them"
 	@echo "build         - rebuild the api image after Dockerfile or dependency changes"
@@ -89,6 +90,12 @@ dev:
 
 test:
 	$(PY) -m pytest $(API)
+
+# Контракт коммитится, поэтому перегенерация - отдельный ручной шаг, а не
+# побочный эффект сборки: изменение контракта обязано быть видно в дифе.
+# Сверку делает tests/test_contract.py, то есть обычный `make test`.
+contract:
+	$(PY) -m jarvis_api.contract
 
 # Порядок неслучаен: сначала быстрый ruff, потом форматтер, потом самый
 # медленный mypy. Падать дешевле на первом шаге.

@@ -95,7 +95,9 @@ dev = [
 # но упадёт на импорте jarvis_api.jobs уже в контейнере.
 packages = [
     "jarvis_api",
+    "jarvis_api.api",
     "jarvis_api.db",
+    "jarvis_api.domain",
     "jarvis_api.integrations",
     "jarvis_api.integrations.itmo",
     "jarvis_api.integrations.gcal",

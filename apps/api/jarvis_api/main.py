@@ -1,7 +1,8 @@
 """FastAPI-приложение: живость и планировщик фоновых джобов (Э5).
 
-Предметных эндпоинтов здесь по-прежнему нет - API календаря принадлежит Э6.
-Зато с Э5 у процесса появилась вторая обязанность: он носит в себе
+С Э6 у процесса появились предметные эндпоинты - сетка календаря и периоды
+исключений; сами они живут в `jarvis_api.api`, здесь только сборка
+приложения. С Э5 у процесса есть и вторая обязанность: он носит в себе
 планировщик, потому что триггера ровно два - APScheduler и догон при старте,
 а внешнего тика нет и не будет (ADR-020).
 """
@@ -16,6 +17,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from jarvis_api import __version__
+from jarvis_api.api.errors import подключить_обработчики
+from jarvis_api.api.routes_calendar import маршрутизатор as роутер_календаря
+from jarvis_api.api.routes_day_flags import маршрутизатор as роутер_периодов
 from jarvis_api.config import get_settings
 from jarvis_api.scheduler import запустить, остановить
 
@@ -83,6 +87,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="JARVIS API", version=__version__, lifespan=lifespan)
+
+# Формат отказа один на все эндпоинты (§10). Подключается сразу после
+# создания приложения, а не рядом с роутерами: обработчики нужны и тем
+# отказам, которые случаются до входа в эндпоинт, - разбору параметров
+# и неизвестному пути.
+подключить_обработчики(app)
+app.include_router(роутер_календаря)
+app.include_router(роутер_периодов)
 
 
 class Health(BaseModel):

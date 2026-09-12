@@ -79,6 +79,27 @@ def sync_window(settings: Settings, today: dt.date) -> tuple[dt.date, dt.date]:
     )
 
 
+def границы_окна(
+    date_start: dt.date, date_end: dt.date, зона: ZoneInfo
+) -> tuple[dt.datetime, dt.datetime]:
+    """Окно дат в моменты времени UTC.
+
+    Конец - начало дня, следующего за последним: `date_end` включительная,
+    и пара, начинающаяся в 21:00 последнего дня, обязана попасть в выдачу.
+
+    Переехала сюда из `push_gcal` на Э6, когда вторым потребителем стал
+    API календаря. Причина переезда не в чистоте имени, а в зависимостях:
+    импорт из `push_gcal` притащил бы в слой HTTP `integrations.gcal.client`
+    вместе с SDK Google - библиотеку, к отображению сетки не относящуюся.
+    Здесь же она стоит рядом с `sync_window`, с которым составляет пару
+    «даты -> моменты», и обе конвенции границ видны в одном месте:
+    `sync_window` включительна с обеих сторон, эта - полуоткрыта в конце.
+    """
+    начало = dt.datetime.combine(date_start, dt.time.min, tzinfo=зона)
+    конец = dt.datetime.combine(date_end + dt.timedelta(days=1), dt.time.min, tzinfo=зона)
+    return начало.astimezone(dt.UTC), конец.astimezone(dt.UTC)
+
+
 def начать_прогон(session: Session, job: str, run_date: dt.date, now: dt.datetime) -> None:
     """Строка `running`: прогон начался и ещё не кончился.
 

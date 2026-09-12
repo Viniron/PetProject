@@ -1,0 +1,816 @@
+{
+  "components": {
+    "schemas": {
+      "CalendarOut": {
+        "description": "Сетка календаря на период: ответ `GET /api/calendar`.",
+        "properties": {
+          "days": {
+            "description": "Один элемент на день периода, по порядку",
+            "items": {
+              "$ref": "#/components/schemas/DayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/FreshnessOut"
+          },
+          "period": {
+            "$ref": "#/components/schemas/PeriodOut"
+          },
+          "timezone": {
+            "description": "Зона owner из settings, в которой приведены моменты",
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "timezone",
+          "freshness",
+          "days"
+        ],
+        "title": "CalendarOut",
+        "type": "object"
+      },
+      "DayFlagIn": {
+        "description": "Тело `POST /api/day-flags`.\n\nПроверки живут здесь, а не в базе: словарь причин будет меняться, а CHECK\nради нового слова ничего не защищает. В базе остаются два ограничения,\nкоторые пережить нельзя, - порядок дат и уникальность автопометки на день.",
+        "properties": {
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_on",
+          "ends_on",
+          "reason"
+        ],
+        "title": "DayFlagIn",
+        "type": "object"
+      },
+      "DayFlagOut": {
+        "description": "Период исключений, попавший на этот день (§2.5).",
+        "properties": {
+          "ends_on": {
+            "description": "Включительно: период «с 1 по 7» содержит седьмое",
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "manual": {
+            "description": "Внесён owner, а не проставлен системой",
+            "title": "Manual",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason": {
+            "description": "Свободное слово owner либо late_classes от системы",
+            "title": "Reason",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "starts_on",
+          "ends_on",
+          "manual"
+        ],
+        "title": "DayFlagOut",
+        "type": "object"
+      },
+      "DayFlagsOut": {
+        "description": "Ответ `GET /api/day-flags`.\n\nОбъектом, а не голым массивом: массив на верхнем уровне нельзя расширить\nни одним полем, не сломав клиента, - а список периодов рано или поздно\nзахочет отдавать границы запрошенного интервала.",
+        "properties": {
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/DayFlagOut"
+            },
+            "title": "Flags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "flags"
+        ],
+        "title": "DayFlagsOut",
+        "type": "object"
+      },
+      "DayOut": {
+        "description": "День сетки.\n\n`mirror_covers` отвечает на вопрос, который иначе неотличим от пустоты:\nпустой день внутри окна забора - «ничего не запланировано», а день,\nдо которого забор не доходил, - «сохранённых данных нет». Схлопнуть их\nв один пустой массив значило бы соврать (инвариант 9).",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/DayFlagOut"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "is_today": {
+            "title": "Is Today",
+            "type": "boolean"
+          },
+          "mirror_covers": {
+            "description": "День попадает в окно последнего успешного забора",
+            "title": "Mirror Covers",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "is_today",
+          "mirror_covers",
+          "flags",
+          "events"
+        ],
+        "title": "DayOut",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "Тело любого отказа API.\n\nИмя класса латиницей, в отличие от остального кода проекта, и это не\nвкусовщина: имена моделей Pydantic попадают в контракт именами схем\nOpenAPI, а из них генератор делает имена типов TypeScript. Кириллица\nтам формально законна и практически ломает автодополнение и генераторы.\nТо же правило действует в `api/schemas.py`.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "EventOut": {
+        "description": "Блок сетки: пара университета или личное событие.\n\nПоля разных источников не сливаются в одно: у пары есть вид занятия\nи аудитория, у личного события - место и заметка. Пустое поле приходит\nкак `null`, а не пропадает (`exclude_none` не используется): клиент\nобязан различать «поля нет в этом виде события» и «поле не заполнено».\n\nЗначения `source` - два: `itmo` и `event`. Занятий курсов (`study`)\nв календарном релизе нет: их время считается по манифесту курса (§4),\nкоторый уехал в дорожку курсов вместе с ADR-027 п.11.",
+        "properties": {
+          "building": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Building"
+          },
+          "conflict": {
+            "description": "Пересекается по времени с другим событием периода",
+            "title": "Conflict",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "key": {
+            "description": "Стабильный ключ источника: source_key пары или external_key",
+            "title": "Key",
+            "type": "string"
+          },
+          "lesson_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Вид занятия: лекция, практика",
+            "title": "Lesson Kind"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Место личного события",
+            "title": "Location"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Формат портала: Очный, Дистанционный",
+            "title": "Mode"
+          },
+          "online_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Online Url"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "source": {
+            "enum": [
+              "itmo",
+              "event"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "starts_at": {
+            "description": "Начало, приведённое к зоне owner",
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "starts_at",
+          "ends_at",
+          "title",
+          "conflict"
+        ],
+        "title": "EventOut",
+        "type": "object"
+      },
+      "FreshnessOut": {
+        "description": "Свежесть расписания (§10).\n\nПолосу давности показывает `state`; `portal` только объясняет причину.\nФразу собирает клиент: макет печатает один и тот же момент двумя\nформатами - «от 12 октября, 07:10» в полосе и «от 12.10» на блоке пары.",
+        "properties": {
+          "covered_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Окно вокруг даты забора, включительно",
+            "title": "Covered From"
+          },
+          "covered_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Covered To"
+          },
+          "fetched_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Последний успешный ответ портала",
+            "title": "Fetched At"
+          },
+          "portal": {
+            "description": "unknown - прогонов забора в журнале нет",
+            "enum": [
+              "ok",
+              "failing",
+              "unknown"
+            ],
+            "title": "Portal",
+            "type": "string"
+          },
+          "state": {
+            "description": "never - забор ещё не проходил ни разу",
+            "enum": [
+              "fresh",
+              "stale",
+              "never"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "fetched_at",
+          "portal",
+          "covered_from",
+          "covered_to"
+        ],
+        "title": "FreshnessOut",
+        "type": "object"
+      },
+      "Health": {
+        "description": "Ответ /health. Время отдаётся, чтобы инвариант 7 был проверяем извне.",
+        "properties": {
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "env",
+          "time"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "PeriodOut": {
+        "properties": {
+          "ends_on": {
+            "description": "Включительно",
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "today": {
+            "description": "Сегодня в зоне owner, независимо от периода",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "view": {
+            "enum": [
+              "day",
+              "week"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "starts_on",
+          "ends_on",
+          "today"
+        ],
+        "title": "PeriodOut",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "JARVIS API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/calendar": {
+      "get": {
+        "description": "Пары университета, личные события, пометки дней и пометка давности.\n\nГраницы периода считает сервер, а не клиент: неделя зависит от\n`settings.timezone`, которой у клиента нет (инвариант 1). Запрос за\nпределы окна забора - не ошибка, а законный вопрос: дни приходят\nс `mirror_covers = false`, то есть «сохранённых данных нет».",
+        "operationId": "сетка_календаря_api_calendar_get",
+        "parameters": [
+          {
+            "description": "Масштаб: день или неделя",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "week",
+              "description": "Масштаб: день или неделя",
+              "enum": [
+                "day",
+                "week"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Любая дата внутри периода. Не задана - сегодня в зоне owner",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Любая дата внутри периода. Не задана - сегодня в зоне owner",
+              "title": "Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Сетка календаря на день или неделю",
+        "tags": [
+          "calendar"
+        ]
+      }
+    },
+    "/api/day-flags": {
+      "get": {
+        "description": "Периоды, **пересекающие** интервал, а не лежащие внутри него.\n\nУмолчание - окно забора расписания (`sync_window`), а не «все периоды»:\nэкран открывается на текущей неделе, и период из позапрошлого семестра\nему не нужен. Параметры называются `from` и `to`, потому что `from` -\nключевое слово Python: имя в контракте задаётся `alias`, иначе клиент\nполучил бы `начало` транслитом или второе имя поля.",
+        "operationId": "список_периодов_api_day_flags_get",
+        "parameters": [
+          {
+            "description": "Не задано - начало окна забора расписания",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Не задано - начало окна забора расписания",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Включительно. Не задано - конец окна забора",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Включительно. Не задано - конец окна забора",
+              "title": "To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayFlagsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Периоды исключений за интервал",
+        "tags": [
+          "day-flags"
+        ]
+      },
+      "post": {
+        "description": "Создать период.\n\nЗаконны и дают 201: период в один день, перекрытие с уже внесённым,\nпериод задним числом. §2.5 требует по ним **пересчёта отставания**,\nа не запрета: «я болел позапрошлую неделю» вносится именно так.\n\nКоммит явный: период и строка аудита обязаны уехать одной транзакцией,\nа `session_scope` границу транзакции не ставит.",
+        "operationId": "внести_период_api_day_flags_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DayFlagIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayFlagOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Ограничение базы или системная пометка"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Внести период исключений",
+        "tags": [
+          "day-flags"
+        ]
+      }
+    },
+    "/api/day-flags/{flag_id}": {
+      "delete": {
+        "description": "Удалить период owner. Системную пометку удалить нельзя.\n\nОтказ на `late_classes` - 409, а не 403: дело не в правах, а в том, что\nснятая руками пометка вернулась бы сама следующим прогоном джоба (§4).\nОбещать owner результат, который не сохранится, - та же ложь, что\nправдоподобная выдумка на экране (инвариант 9).\n\nИмя параметра латиницей не только ради контракта: Starlette разбирает\nшаблон пути ASCII-регуляркой, и `{id_периода}` не распознаётся как\nпараметр вовсе - маршрут превращается в литерал, а любой `DELETE`\nотвечает 404 «Not Found». Найдено тестом, не ревью.",
+        "operationId": "убрать_период_api_day_flags__flag_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "flag_id",
+            "required": true,
+            "schema": {
+              "title": "Flag Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Периода с таким id нет"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Ограничение базы или системная пометка"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Убрать период исключений",
+        "tags": [
+          "day-flags"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Живость процесса.\n\nБазу не трогает намеренно: эндпоинт должен отвечать и при пустом\nDATABASE_URL - им проверяется, что контейнер поднялся, отдельно от того,\nдоступна ли база.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

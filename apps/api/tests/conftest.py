@@ -10,18 +10,26 @@ SQLite здесь не годится принципиально: проверя
 в котором ничего не проверено» не выглядит зелёным.
 """
 
+import datetime as dt
 import json
 import os
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import pytest
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import Connection, Engine, create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
+from jarvis_api.api.deps import сейчас as зависимость_сейчас
+from jarvis_api.config import Settings, get_settings
+from jarvis_api.db.session import get_engine, get_sessionmaker, session_scope
+from jarvis_api.main import app
 
 API_DIR = Path(__file__).resolve().parents[1]
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -140,3 +148,85 @@ def сессия(engine: Engine, схема: None) -> Iterator[Session]:
         with Session(bind=connection, join_transaction_mode="create_savepoint") as session:
             yield session
         транзакция.rollback()
+
+
+@dataclass
+class Стенд:
+    """Клиент API вместе с тем, что тест вправе подменить.
+
+    Поля читаются подменами **в момент вызова**, а не при создании стенда,
+    поэтому `стенд.сейчас = ...` в теле теста работает: иначе пришлось бы
+    заводить по фикстуре на каждый нужный момент времени.
+    """
+
+    клиент: TestClient
+    сессия: Session
+    сейчас: dt.datetime
+    настройки: Settings
+
+
+@pytest.fixture
+def стенд(сессия: Session) -> Iterator[Стенд]:
+    """Клиент FastAPI поверх откатываемой сессии.
+
+    Три тонкости, каждая из которых уже ломала бы прогон.
+
+    **`TestClient(app)` без `with`.** Контекстный менеджер выполняет
+    lifespan, то есть поднимает APScheduler - против тестовой базы, а его
+    догоняющий запуск ушёл бы в живой ИСУ и живой Google. Lifespan запускает
+    только `test_lifespan.py`, и делает это осознанно.
+
+    **Коммит эндпоинта безопасен** ровно благодаря `join_transaction_mode=
+    "create_savepoint"` в фикстуре `сессия`: `commit()` снимает savepoint,
+    внешняя транзакция остаётся, и `транзакция.rollback()` убирает за тестом.
+    «Упрощение» фикстуры до обычной сессии превратит каждый тест записи
+    в утечку строк, которая проявится в другом модуле.
+
+    **Подмены снимаются через `pop`, а не `clear()`.** Объект `app` один на
+    весь прогон, и `clear()` унёс бы чужие подмены вместе со своими.
+    """
+    стенд = Стенд(
+        клиент=TestClient(app),
+        сессия=сессия,
+        сейчас=dt.datetime.now(dt.UTC),
+        настройки=Settings(),
+    )
+
+    def подменить_сессию() -> Iterator[Session]:
+        # Генератор, а не lambda: FastAPI разбирает зависимость по её виду,
+        # и функция, возвращающая итератор, была бы подставлена как значение.
+        # Сессия здесь не закрывается - ею владеет фикстура `сессия`.
+        yield стенд.сессия
+
+    app.dependency_overrides[session_scope] = подменить_сессию
+    app.dependency_overrides[зависимость_сейчас] = lambda: стенд.сейчас
+    app.dependency_overrides[get_settings] = lambda: стенд.настройки
+    try:
+        yield стенд
+    finally:
+        for зависимость in (session_scope, зависимость_сейчас, get_settings):
+            app.dependency_overrides.pop(зависимость, None)
+
+
+@pytest.fixture
+def клиент_без_базы(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    """Клиент с пустым DATABASE_URL: проверка отказа `database_not_configured`.
+
+    Единственное место в прогоне, где чистятся кэши `lru_cache`, и чистить
+    надо **все три** и **с обеих сторон**: без очистки на входе тест не
+    увидит своей переменной, без очистки на выходе оставит в кэше движок
+    с пустым URL и сломает все последующие тесты базы - причём падение
+    будет зависеть от порядка их выполнения.
+    """
+
+    def сбросить_кэши() -> None:
+        get_settings.cache_clear()
+        get_engine.cache_clear()
+        get_sessionmaker.cache_clear()
+
+    сбросить_кэши()
+    monkeypatch.setenv("DATABASE_URL", "")
+    try:
+        yield TestClient(app)
+    finally:
+        сбросить_кэши()

@@ -65,6 +65,13 @@ services:
       SCHEDULER_DAILY_TIMES: ${SCHEDULER_DAILY_TIMES:-}
       SCHEDULER_CATCHUP_COOLDOWN_MINUTES: ${SCHEDULER_CATCHUP_COOLDOWN_MINUTES:-}
       SCHEDULER_MISFIRE_GRACE_SECONDS: ${SCHEDULER_MISFIRE_GRACE_SECONDS:-}
+      # API календаря (Э6), тот же формат пустого умолчания. Порог давности
+      # завязан на SCHEDULER_DAILY_TIMES: прореживание расписания требует
+      # поднять и его, иначе экран красит полосой каждое утро. Таймауты базы
+      # держат обещание §10 «деградация, а не вечный спиннер».
+      CALENDAR_STALE_AFTER_HOURS: ${CALENDAR_STALE_AFTER_HOURS:-}
+      DB_CONNECT_TIMEOUT_SECONDS: ${DB_CONNECT_TIMEOUT_SECONDS:-}
+      DB_POOL_TIMEOUT_SECONDS: ${DB_POOL_TIMEOUT_SECONDS:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,

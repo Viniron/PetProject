@@ -30,7 +30,6 @@ import datetime as dt
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -53,6 +52,7 @@ from jarvis_api.jobs.common import (
     OwnerZoneError,
     owner_timezone,
     sync_window,
+    границы_окна,
     зона_без_падения,
     отметить_прогон,
 )
@@ -116,19 +116,6 @@ def календарь_итмо(session: Session) -> str:
             "Заведите календари командой `make gcal-setup-apply`"
         )
     return строка.gcal_itmo_id
-
-
-def границы_окна(
-    date_start: dt.date, date_end: dt.date, зона: ZoneInfo
-) -> tuple[dt.datetime, dt.datetime]:
-    """Окно дат в моменты времени для запроса к Google.
-
-    Конец - начало дня, следующего за последним: `date_end` включительная,
-    и пара, начинающаяся в 21:00 последнего дня, обязана попасть в выдачу.
-    """
-    начало = dt.datetime.combine(date_start, dt.time.min, tzinfo=зона)
-    конец = dt.datetime.combine(date_end + dt.timedelta(days=1), dt.time.min, tzinfo=зона)
-    return начало.astimezone(dt.UTC), конец.astimezone(dt.UTC)
 
 
 def желаемое(session: Session, date_start: dt.date, date_end: dt.date) -> dict[str, DesiredEvent]:
