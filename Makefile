@@ -38,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
+.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -83,6 +83,8 @@ help:
 	@echo "web-lint      - eslint + tsc --noEmit (stage E7)"
 	@echo "web-test      - vitest (stage E7)"
 	@echo "web-client    - regenerate the API client types from the contract (stage E7)"
+	@echo "tunnel-check     - preflight before switching the tunnel on (stage E7)"
+	@echo "tunnel-check-pi  - the same inside the running stack on the Pi (stage E7)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
@@ -281,3 +283,18 @@ web-test:
 # роняет tests/contract.test.ts, то есть обычный make web-test.
 web-client:
 	$(NPM) run client
+
+# Проверка перед включением туннеля: ADR-031 п. 3 «туннель не раньше
+# аутентификации» прогоном, а не обещанием. Ничего не пишет, флага --apply
+# у неё нет - отсюда и отсутствие пары целей, как у джобов.
+#
+# Умолчания адресов - loopback платы. Нужен поднятый стек: половина пунктов -
+# живые запросы к API и к Caddy.
+tunnel-check:
+	$(PY) -m jarvis_api.jobs.tunnel_check
+
+# exec, а не run: проверяется работающий процесс, а одноразовый контейнер
+# api никого не слушает. Адрес Caddy - по имени сервиса, тем же путём,
+# каким пойдёт запрос из туннеля.
+tunnel-check-pi:
+	$(DC_PI) exec api python -m jarvis_api.jobs.tunnel_check --api http://127.0.0.1:8000 --web http://web:8080

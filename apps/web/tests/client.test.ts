@@ -144,3 +144,38 @@ describe("сеть", () => {
     expect(ошибка).toBe(отмена);
   });
 });
+
+describe("вход Cloudflare Access", () => {
+  /**
+   * Протухшая сессия приходит редиректом на чужой источник, и перехватывать
+   * его обязан клиент: иначе браузер ушёл бы туда сам, упёрся в CORS и отдал
+   * TypeError - тот же, что при выключенной плате. Экран тогда обещает
+   * «нет связи» и повтор, которым сессия не чинится.
+   */
+  it("перехваченный редирект - это нужен вход, а не обрыв сети", async () => {
+    подменитьFetch({ ok: false, status: 0, type: "opaqueredirect" } as Response);
+
+    const ошибка = (await получить("/api/calendar").catch((e: unknown) => e)) as ОшибкаAPI;
+
+    expect(ошибка).toBeInstanceOf(ОшибкаAPI);
+    expect(ошибка.нуженВход).toBe(true);
+    expect(ошибка.повторить).toBe(false);
+  });
+
+  it("за редиректом клиент не идёт сам", async () => {
+    const шпион = подменитьFetch(ответ({ ok: true }));
+
+    await получить("/api/calendar");
+
+    expect(шпион.mock.calls[0]?.[1]?.redirect).toBe("manual");
+  });
+
+  it("401 с телом Access вместо нашего - тоже вход", async () => {
+    подменитьFetch(ответ("<html>redirecting</html>", 401, true));
+
+    const ошибка = (await получить("/api/calendar").catch((e: unknown) => e)) as ОшибкаAPI;
+
+    expect(ошибка).toBeInstanceOf(ОшибкаAPI);
+    expect(ошибка.нуженВход).toBe(true);
+  });
+});
