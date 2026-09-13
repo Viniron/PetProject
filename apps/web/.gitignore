@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# AGENTS.md и CLAUDE.md здесь пишет сам `next dev` (generate-agent-files.js).
+# Это не наши инструкции, а подсказка агентам про свежий Next; решение
+# добавлять её в репозиторий - за owner, поэтому пока не версионируется.
+AGENTS.md
+CLAUDE.md

@@ -1,0 +1,34 @@
+# Фронт: сборка статики и статик-сервер, который её раздаёт.
+#
+# Multi-arch тем же способом, что Dockerfile.api (инвариант хоста 4):
+#   docker buildx build --platform linux/amd64,linux/arm64 -f infra/Dockerfile.web .
+#
+# Node живёт только в сборочном слое. В рантайме на плате остаётся Caddy
+# с готовыми файлами: рендерить на сервере нечего - источник истины backend
+# (инвариант 1), а Node-процесс стоил бы сотни мегабайт RAM (ADR-020).
+
+FROM node:24-alpine AS build
+
+WORKDIR /repo
+
+# Сначала манифесты, потом код: слой с зависимостями переживает правку кода.
+COPY apps/web/package.json apps/web/package-lock.json /repo/apps/web/
+RUN cd apps/web && npm ci --no-audit --no-fund
+
+# Контракт и палитра приезжают из своих мест, а не копиями внутри apps/web:
+# клиент генерируется из openapi.json, стили импортируют design/tokens.css.
+# Две копии одного файла расходятся молча, и первым это видит owner.
+COPY packages/contracts/openapi.json /repo/packages/contracts/openapi.json
+COPY design/tokens.css /repo/design/tokens.css
+COPY apps/web /repo/apps/web
+
+# Сборка проверяет и типы: next build падает на ошибке TypeScript, то есть
+# образ с несобирающимся кодом не появится.
+RUN cd apps/web && npm run build
+
+FROM caddy:2.11.4-alpine
+
+COPY infra/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /repo/apps/web/out /srv
+
+EXPOSE 8080

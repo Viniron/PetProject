@@ -11,6 +11,10 @@ PY ?= apps/api/.venv/bin/python
 endif
 
 API := apps/api
+WEB := apps/web
+# Скрипты фронта запускаются из каталога пакета, поэтому цели работают
+# из корня репозитория, как и остальные.
+NPM := npm --prefix $(WEB)
 COMPOSE := infra/docker-compose.yml
 COMPOSE_PI := infra/docker-compose.pi.yml
 COMPOSE_DEV := infra/docker-compose.dev.yml
@@ -34,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
+.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -73,6 +77,12 @@ help:
 	@echo "daily-pi         - dry-run inside the api container on the Pi (stage E5)"
 	@echo "daily-pi-apply   - the same, doing the work on the Pi (stage E5)"
 	@echo "plan-today    - course session planning, not implemented (courses track)"
+	@echo "web-install   - install frontend dependencies from the lockfile (stage E7)"
+	@echo "web-dev       - run the frontend with reload on :3000 (stage E7)"
+	@echo "web-build     - export the frontend to apps/web/out (stage E7)"
+	@echo "web-lint      - eslint + tsc --noEmit (stage E7)"
+	@echo "web-test      - vitest (stage E7)"
+	@echo "web-client    - regenerate the API client types from the contract (stage E7)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
@@ -240,3 +250,34 @@ daily-pi-apply:
 
 plan-today:
 	@echo "not implemented: needs a course manifest, see docs/BUILD-PROGRESS.md" && exit 1
+
+# --- Фронт (Э7) ------------------------------------------------------------
+# ci, а не install: ставится ровно то, что в package-lock.json. Иначе
+# у owner, в образе и в CI оказываются разные версии одной зависимости,
+# и «у меня работает» становится правдой в буквальном смысле.
+web-install:
+	$(NPM) ci
+
+# Порт 3000, прокси на API по /api - настроено в next.config.ts. Рядом
+# должен идти `make dev`: без API экран покажет деградацию, а не данные.
+web-dev:
+	$(NPM) run dev
+
+# Статический экспорт в apps/web/out (ADR-020). Ту же команду выполняет
+# сборочный слой infra/Dockerfile.web - расхождению взяться неоткуда.
+web-build:
+	$(NPM) run build
+
+# Порядок как у Python-линта: сначала быстрый eslint, потом проверка типов.
+web-lint:
+	$(NPM) run lint
+	$(NPM) run typecheck
+
+web-test:
+	$(NPM) run test
+
+# Клиент генерируется из packages/contracts/openapi.json - тем же ручным
+# шагом, что и сам контракт (make contract). Расхождение файла с контрактом
+# роняет tests/contract.test.ts, то есть обычный make web-test.
+web-client:
+	$(NPM) run client

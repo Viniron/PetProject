@@ -33,7 +33,10 @@ services:
     # правда о маршрутах оказалась бы в двух местах.
     command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN:-}
     depends_on:
-      api:
+      # Наружу смотрит web, а не api: Caddy раздаёт интерфейс и он же
+      # проксирует /api, поэтому маршрут туннеля в панели Cloudflare ведёт
+      # на web:8080. Дожидаться api отдельно не нужно - web сам ждёт его.
+      web:
         condition: service_healthy
     # Наружу сам себя не публикует: он и есть выход наружу.
 
