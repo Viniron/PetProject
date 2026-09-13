@@ -72,6 +72,15 @@ services:
       CALENDAR_STALE_AFTER_HOURS: ${CALENDAR_STALE_AFTER_HOURS:-}
       DB_CONNECT_TIMEOUT_SECONDS: ${DB_CONNECT_TIMEOUT_SECONDS:-}
       DB_POOL_TIMEOUT_SECONDS: ${DB_POOL_TIMEOUT_SECONDS:-}
+      # Аутентификация owner (Э7, ADR-033). Формат пустого умолчания тот же,
+      # но следствие у пустоты здесь противоположное: джоб без ISU_* просто
+      # не работает, а API без CF_ACCESS_* отказывает на каждом /api/* -
+      # пока ENV не dev. Это не строгость ради строгости: забытая строчка
+      # в .env под включённым туннелем означала бы публичный доступ
+      # к расписанию, то есть ошибку ценой в одну переменную.
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
+      CF_ACCESS_ALLOWED_EMAIL: ${CF_ACCESS_ALLOWED_EMAIL:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,
