@@ -127,11 +127,11 @@ compose-check:
 	docker compose $(ENV_FILE_ARG) -f $(COMPOSE) -f $(COMPOSE_PI) config --quiet
 	$(DC_DEV) config --quiet
 
-# Пересборка образа. Нужна после правки Dockerfile или зависимостей:
+# Пересборка образов api и web. Нужна после правки Dockerfile или зависимостей:
 # `up -d` поднимает уже собранный образ и молча оставляет старый, поэтому
 # новый код приезжает на плату только после этой цели.
 build:
-	$(DC_PI) build api
+	$(DC_PI) build api web
 
 up:
 	$(DC_PI) up -d
