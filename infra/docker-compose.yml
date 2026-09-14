@@ -72,6 +72,15 @@ services:
       CALENDAR_STALE_AFTER_HOURS: ${CALENDAR_STALE_AFTER_HOURS:-}
       DB_CONNECT_TIMEOUT_SECONDS: ${DB_CONNECT_TIMEOUT_SECONDS:-}
       DB_POOL_TIMEOUT_SECONDS: ${DB_POOL_TIMEOUT_SECONDS:-}
+      # Аутентификация owner (Э7, ADR-033). Формат пустого умолчания тот же,
+      # но следствие у пустоты здесь противоположное: джоб без ISU_* просто
+      # не работает, а API без CF_ACCESS_* отказывает на каждом /api/* -
+      # пока ENV не dev. Это не строгость ради строгости: забытая строчка
+      # в .env под включённым туннелем означала бы публичный доступ
+      # к расписанию, то есть ошибку ценой в одну переменную.
+      CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:-}
+      CF_ACCESS_AUD: ${CF_ACCESS_AUD:-}
+      CF_ACCESS_ALLOWED_EMAIL: ${CF_ACCESS_ALLOWED_EMAIL:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,
@@ -97,6 +106,32 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # Фронт (Э7): статика Next и он же - единственная дверь к API снаружи.
+  # Прокси здесь не удобство, а условие: фронт и API обязаны быть на одном
+  # источнике, иначе понадобится CORS, которого в API нет намеренно
+  # (ADR-031 п. 3). Своих переменных у сервиса нет - вся правда
+  # в infra/Caddyfile, а собранная статика уже лежит в образе.
+  web:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      # Только на loopback, как и api: наружу выходит Cloudflare Tunnel,
+      # порты на роутере не открываются (ADR-017).
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # Проверяется сам Caddy, а не API за ним: иначе падение API
+      # выглядело бы падением фронта, и compose перезапускал бы не то.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   db-data:

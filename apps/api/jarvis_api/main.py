@@ -13,10 +13,11 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
 from jarvis_api import __version__
+from jarvis_api.api.auth import ОТКАЗЫ_ДОСТУПА, предупредить_о_режиме, требуется_owner
 from jarvis_api.api.errors import подключить_обработчики
 from jarvis_api.api.routes_calendar import маршрутизатор as роутер_календаря
 from jarvis_api.api.routes_day_flags import маршрутизатор as роутер_периодов
@@ -66,6 +67,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     настроить_логи()
 
     settings = get_settings()
+    # Состояние защиты говорится один раз и при старте. Позже его не узнать:
+    # успешный запрос выглядит одинаково и с аутентификацией, и без неё.
+    предупредить_о_режиме(settings)
     планировщик: Any | None = getattr(app.state, "планировщик", None)
     if not settings.scheduler_enabled:
         logger.info("планировщик выключен (SCHEDULER_ENABLED)")
@@ -93,8 +97,16 @@ app = FastAPI(title="JARVIS API", version=__version__, lifespan=lifespan)
 # отказам, которые случаются до входа в эндпоинт, - разбору параметров
 # и неизвестному пути.
 подключить_обработчики(app)
-app.include_router(роутер_календаря)
-app.include_router(роутер_периодов)
+
+# Аутентификация вешается здесь, на подключении роутеров, а не внутри каждого
+# из них. Причина в том, как эту защиту забывают: роутер следующего этапа
+# пишется по образцу соседнего, и строчка с зависимостью в его заголовке
+# теряется незаметно. В одном месте её отсутствие видно глазами, а тест
+# `test_auth.py` обходит все маршруты `/api/*` и требует 401 от каждого -
+# то есть новый незащищённый роутер краснеет в тот же прогон.
+ЗАЩИТА = [Depends(требуется_owner)]
+app.include_router(роутер_календаря, dependencies=ЗАЩИТА, responses=ОТКАЗЫ_ДОСТУПА)
+app.include_router(роутер_периодов, dependencies=ЗАЩИТА, responses=ОТКАЗЫ_ДОСТУПА)
 
 
 class Health(BaseModel):

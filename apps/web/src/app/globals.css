@@ -1,0 +1,47 @@
+/* Порядок импортов значим.
+ *
+ * Сначала Tailwind - вместе с ним приезжает его сброс стилей; затем токены
+ * дизайна, которые обязаны победить сброс. Поменять местами - значит
+ * получить голый `body` без палитры и шрифта.
+ *
+ * Токены подключаются прямо из `design/`, без копии в `apps/web`: копия
+ * разъезжается с оригиналом молча, и первым это увидит не разработчик,
+ * а owner на экране. Правка палитры в `design/tokens.css` видна фронту
+ * в ту же секунду - это то же требование, что «контракт один», только
+ * про цвета.
+ */
+@import "tailwindcss";
+@import "../../../../design/tokens.css";
+@import "./shell-mobile.css";
+
+/* Заглушка вместо содержимого экрана - приём макета `01-shell.html`.
+ * Пунктир честно говорит «здесь будет другое» и исчезнет вместе
+ * с последним пустым экраном; в `design/tokens.css` ему не место -
+ * это не компонент продукта. */
+.slot {
+  margin-top: var(--space-5);
+  padding: var(--space-6) var(--space-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--text-faint);
+  text-align: center;
+  font-size: var(--fs-sm);
+}
+
+.slot b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+/* Кнопка внутри строки объяснения - раскладка, а не новый компонент:
+ * сама кнопка взята из токенов (`.btn--ghost`). Нужна ровно там, где
+ * экран деградировал и owner может попробовать снова (инвариант 9). */
+.cal-note .btn {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
+}

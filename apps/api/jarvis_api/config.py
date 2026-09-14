@@ -176,6 +176,37 @@ class Settings(BaseSettings):
     # 30 секунд, то есть экран показывает спиннер вместо честного отказа.
     db_pool_timeout_seconds: int = 10
 
+    # --- Э7: аутентификация owner (Cloudflare Access, ADR-033) ---------------
+    # Домен команды Cloudflare Zero Trust вида "имя.cloudflareaccess.com".
+    # Из него собираются две вещи: адрес публичных ключей и ожидаемый `iss`
+    # токена. Пустое значение - «аутентификация не настроена», и это не
+    # тихое «выключено»: в prod все /api/* отвечают отказом, потому что
+    # забытая строчка в .env обязана давать закрытую дверь, а не открытую.
+    cf_access_team_domain: str = ""
+    # Audience tag приложения из панели Cloudflare. Без сверки `aud` токен,
+    # выписанный любому другому приложению той же команды, пускал бы сюда.
+    cf_access_aud: str = ""
+    # Почта owner, которой разрешён вход. Политика в панели Cloudflare -
+    # первая дверь, эта проверка - вторая: политику правят мышкой, и промах
+    # в ней не должен означать доступ к расписанию.
+    cf_access_allowed_email: str = ""
+
+    # Сколько живёт кэш публичных ключей. Cloudflare ротирует их порядка
+    # раза в шесть недель, так что значение не про свежесть подписи, а про
+    # число походов наружу: без кэша каждый запрос экрана тянул бы JWKS.
+    cf_access_jwks_ttl_seconds: int = 600
+    # Не чаще этого перечитываем ключи из-за неизвестного `kid`. Ротация
+    # даёт законный незнакомый kid, но без паузы мусорный токен со случайным
+    # kid гонял бы нас в Cloudflare на каждом запросе.
+    cf_access_jwks_retry_seconds: int = 60
+    # Таймаут похода за ключами. Короткий намеренно: он лежит на пути
+    # запроса экрана, и §10 требует честного отказа, а не спиннера.
+    # Общий http_timeout_seconds (30) здесь означал бы полминуты ожидания.
+    cf_access_jwks_timeout_seconds: int = 5
+    # Допуск на расхождение часов при проверке `exp` и `iat`. На плате время
+    # синхронизируется NTP, но секунда расхождения не повод для 401.
+    cf_access_leeway_seconds: int = 10
+
     # Пустая строка в env означает «умолчание», а не «ошибка». Причина
     # конкретная: в docker-compose.yml переменные прокидываются как
     # ${ИМЯ:-} (это проверяется tests/test_compose_env.py), и на bool и int
@@ -191,6 +222,10 @@ class Settings(BaseSettings):
         "calendar_stale_after_hours",
         "db_connect_timeout_seconds",
         "db_pool_timeout_seconds",
+        "cf_access_jwks_ttl_seconds",
+        "cf_access_jwks_retry_seconds",
+        "cf_access_jwks_timeout_seconds",
+        "cf_access_leeway_seconds",
         mode="before",
     )
     @classmethod
@@ -198,6 +233,19 @@ class Settings(BaseSettings):
         if isinstance(значение, str) and not значение.strip():
             return cls.model_fields[str(info.field_name)].default
         return значение
+
+    @field_validator("cf_access_team_domain")
+    @classmethod
+    def _домен_команды_без_схемы(cls, значение: str) -> str:
+        """Панель Cloudflare показывает домен ссылкой - owner скопирует её целиком.
+
+        Из значения собирается `iss` токена: "https://" + домен. Лишняя схема
+        или слеш дали бы issuer вида "https://https://имя.../" и 401 на
+        совершенно законном токене - причём с текстом про подпись, который
+        уводит от настоящей причины на час.
+        """
+        текст = значение.strip().removeprefix("https://").removeprefix("http://")
+        return текст.rstrip("/")
 
     @field_validator("scheduler_daily_times")
     @classmethod

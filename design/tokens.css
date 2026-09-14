@@ -467,17 +467,30 @@ body {
 .cal-ev--clash::after { content: "⚠"; position: absolute; top: 3px; right: 5px;
                         font-size: 11px; line-height: 1; }
 
-/* Половинная ширина — для наложения. Конфликт не прячет второй блок и не
+/* Наложение делит ширину колонки. Конфликт не прячет второй блок и не
    схлопывает его в полоску: оба события настоящие. Подробности при этом
    уходят: в половину колонки «лаб. · ауд. 101» переносится по слогам
-   и съедает название. */
-.cal-ev--half-l { right: 50%; }
-.cal-ev--half-r { left: 50%; }
+   и съедает название.
+
+   Долей ровно столько, сколько событий наложилось: `--cols` в группе,
+   `--col` — номер блока от нуля. Утверждённые на этапе 2 половинки остались
+   частным случаем (`--cols: 2`) и считаются той же формулой — при двух
+   событиях геометрия совпадает с макетом до пикселя. Общий расчёт добавлен
+   на Э7 решением owner (ADR-035): трёхкратное наложение бывает, а рисовать
+   его было нечем. Внешние края держит max(4px, …) — тот же отступ, что
+   у блока во всю ширину. */
+.cal-ev--half-l { --col: 0; --cols: 2; }
+.cal-ev--half-r { --col: 1; --cols: 2; }
+.cal-ev--split, .cal-ev--half-l, .cal-ev--half-r {
+  left:  max(4px, calc(100% * var(--col) / var(--cols)));
+  right: max(4px, calc(100% * (var(--cols) - var(--col) - 1) / var(--cols)));
+  padding-left: 6px; padding-right: 6px; }
+.cal-ev--split .cal-ev-meta,
 .cal-ev--half-l .cal-ev-meta, .cal-ev--half-r .cal-ev-meta { display: none; }
-/* Длинное название в половине колонки обрывается многоточием, а не режется
+/* Длинное название в доле колонки обрывается многоточием, а не режется
    границей блока: обрезанное без многоточия слово выглядит как настоящее,
    и «Стоматолог» читается как «Стоматоло». */
-.cal-ev--half-l, .cal-ev--half-r { padding-left: 6px; padding-right: 6px; }
+.cal-ev--split .cal-ev-title,
 .cal-ev--half-l .cal-ev-title, .cal-ev--half-r .cal-ev-title {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -568,6 +581,7 @@ body {
 
 /* На неделе половинный блок прятал подробности: в 84px они не помещались.
    В дне половина колонки — это 300px, и прятать нечего. */
+.cal--day .cal-ev--split .cal-ev-meta,
 .cal--day .cal-ev--half-l .cal-ev-meta,
 .cal--day .cal-ev--half-r .cal-ev-meta { display: block; }
 
