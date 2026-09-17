@@ -33,9 +33,10 @@ from sqlalchemy.orm import Session
 from jarvis_api.config import Settings, get_settings, разобрать_слоты
 from jarvis_api.db.models import AuditLogEntry, JobRun
 from jarvis_api.db.session import get_sessionmaker
+from jarvis_api.integrations import heartbeat
 from jarvis_api.integrations.gcal.client import GcalClient, GcalError, build_service
 from jarvis_api.integrations.itmo.client import build_client
-from jarvis_api.jobs import push_gcal, sync_itmo
+from jarvis_api.jobs import capture_cleanup, push_capture, push_gcal, sync_itmo
 from jarvis_api.jobs.common import зона_без_падения, начать_прогон, отметить_прогон
 
 logger = logging.getLogger("jarvis.runner")
@@ -81,17 +82,86 @@ def _записать_в_календарь(
     return push_gcal.run_once(session, settings, клиент, apply=apply, now=now)
 
 
+def _записать_события_захвата(
+    session: Session, settings: Settings, apply: bool, now: dt.datetime
+) -> int:
+    """Шаг 3: очередь подтверждённых черновиков -> Google Calendar (Э8).
+
+    Отдельным шагом, а не внутри шага 2: у расписания и у захвата разные
+    календари, разные источники истины и разные последствия отказа.
+    Событие owner, не уехавшее в Google, - это потерянная договорённость,
+    и видно это должно быть отдельной строкой в логе, а не общим счётчиком
+    с парами.
+    """
+    клиент: GcalClient | None = None
+    try:
+        клиент = GcalClient(settings, build_service(settings))
+    except GcalError as сбой:
+        # Отказ шага, а не цепочки, и только при apply: в dry-run джобу
+        # клиент не нужен - он показывает очередь, не спрашивая Google.
+        if apply:
+            logger.error("запись событий захвата не выполнена: %s", сбой)
+            return 1
+        logger.warning("клиент Google не построен, dry-run покажет только очередь: %s", сбой)
+    return push_capture.run_once(session, settings, клиент, apply=apply, now=now)
+
+
+def _убрать_черновики(session: Session, settings: Settings, apply: bool, now: dt.datetime) -> int:
+    """Шаг 4: брошенные черновики захвата (§9).
+
+    Последним намеренно: уборка удаляет данные owner, и делать это до
+    попытки записать подтверждённое значило бы однажды убрать черновик,
+    который в этом же прогоне стал бы событием.
+    """
+    return capture_cleanup.run_once(session, settings, apply=apply, now=now)
+
+
 # Порядок значим: реконсил по зеркалу, которое ещё не обновили, уедет
 # по вчерашним данным. Проверяется тестом, а не только этим комментарием.
 ЦЕПОЧКА_КАЛЕНДАРЯ: tuple[Шаг, ...] = (
     Шаг("sync_itmo", _забрать_расписание),
     Шаг("push_gcal", _записать_в_календарь),
+    Шаг("push_capture", _записать_события_захвата),
+    Шаг("capture_cleanup", _убрать_черновики),
 )
 
 
 def _записать_в_аудит(session: Session, status: str, detail: dict[str, object]) -> None:
     """След цепочки целиком. Шаги пишут о себе сами, это - о прогоне."""
     session.add(AuditLogEntry(kind="job_chain", actor=JOB_NAME, status=status, detail=detail))
+
+
+def _сигнал_сторожу(settings: Settings) -> None:
+    """Ping внешнему сторожу после успешного прогона (§11.2, ADR-043).
+
+    **Почему только после успешного.** Сигнал означает «расписание доехало
+    до календаря», а не «процесс жив»: живость показывает `/health`, за
+    которым снаружи следит отдельный монитор (ADR-036). Отказ шага оставляет
+    сторожа без сигнала намеренно - сутки без единого удачного прогона
+    и есть тот отказ, о котором owner должен узнать письмом.
+
+    **Почему молчание сторожа не роняет цепочку.** Работа к этому моменту
+    сделана и записана; ненулевой код возврата из-за недоступного стороннего
+    сервиса означал бы, что догоняющий запуск при следующем старте посчитает
+    удачный прогон неудачным и пойдёт в ИСУ ещё раз.
+
+    **Почему пустой адрес - не отказ.** У бэкапа наоборот (ADR-020): копия
+    без контроля бесполезна, а расписание в календаре полезно и без сторожа.
+    Строка в логе при этом обязательна - иначе «не настроен» неотличимо
+    от «отправлен».
+    """
+    if not settings.jobs_heartbeat_url:
+        logger.info("сторож цепочки не настроен (JOBS_HEARTBEAT_URL пуст), ping не отправляю")
+        return
+
+    try:
+        heartbeat.отправить(
+            settings.jobs_heartbeat_url,
+            timeout=settings.http_timeout_seconds,
+            имя="цепочка календаря",
+        )
+    except heartbeat.HeartbeatError as сбой:
+        logger.warning("сторож цепочки не получил сигнал: %s", сбой)
 
 
 def нужен_догоняющий(session: Session, settings: Settings, *, now: dt.datetime) -> Решение:
@@ -201,6 +271,13 @@ def выполнить_цепочку(
             session.rollback()
             logger.exception("не удалось записать итог цепочки в базу")
             итог = 1
+
+    # Сигнал последним и только при полном успехе: до этой строки прогон мог
+    # стать неуспешным даже при целых шагах - например, оборвавшейся базой
+    # на записи следа. Сторож не должен успокаивать owner раньше, чем прогон
+    # действительно записан.
+    if apply and итог == 0:
+        _сигнал_сторожу(settings)
 
     logger.info(
         "цепочка завершена%s%s",

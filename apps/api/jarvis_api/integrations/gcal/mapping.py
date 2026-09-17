@@ -22,7 +22,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from jarvis_api.db.models import ItmoLesson
+from jarvis_api.db.models import CalendarEvent, ItmoLesson
 from jarvis_api.integrations.gcal.client import KEY_PROPERTY
 
 # Что за источник создал событие. Пишется в приватные свойства рядом
@@ -30,6 +30,10 @@ from jarvis_api.integrations.gcal.client import KEY_PROPERTY
 # разбирать руками.
 SOURCE_PROPERTY = "jarvis_source"
 SOURCE_ITMO = "itmo"
+# Подтверждённый черновик захвата (Э8). Второе значение появилось вместе
+# со вторым наполняемым календарём: `JARVIS · ИТМО` пишет джоб расписания,
+# `JARVIS · События` - подтверждение owner.
+SOURCE_CAPTURE = "capture"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +51,10 @@ class DesiredEvent:
     ends_at: dt.datetime
     location: str | None
     description: str | None
+    # Кто создал событие. Со значением по умолчанию, потому что источников
+    # было ровно столько же, сколько наполняемых календарей, - один;
+    # захват (Э8) стал вторым и передаёт его явно.
+    source: str = SOURCE_ITMO
 
     def body(self) -> dict[str, Any]:
         """Тело запроса к Google.
@@ -59,7 +67,7 @@ class DesiredEvent:
             "start": {"dateTime": _rfc3339(self.starts_at), "timeZone": "UTC"},
             "end": {"dateTime": _rfc3339(self.ends_at), "timeZone": "UTC"},
             "extendedProperties": {
-                "private": {KEY_PROPERTY: self.external_key, SOURCE_PROPERTY: SOURCE_ITMO}
+                "private": {KEY_PROPERTY: self.external_key, SOURCE_PROPERTY: self.source}
             },
         }
         # Пустые поля не отправляются вовсе, а не отправляются пустыми:
@@ -101,6 +109,26 @@ def lesson_to_event(lesson: ItmoLesson) -> DesiredEvent:
         ends_at=lesson.ends_at,
         location=_место(lesson),
         description=_описание(lesson),
+    )
+
+
+def event_to_desired(строка: CalendarEvent) -> DesiredEvent:
+    """Подтверждённое событие захвата в событие календаря (Э8).
+
+    Отличие от пары расписания в том, чего здесь **нет**. У пары источник -
+    портал, и заголовок с описанием собираются из его полей; здесь источник -
+    сам owner, и всё, что он ввёл, уезжает как есть. Ни подписи «поставлено
+    JARVIS», ни достроенного места: инвариант 9 запрещает выдумку в календаре
+    так же, как на экране, а «Не указано» в поле места - это выдумка.
+    """
+    return DesiredEvent(
+        external_key=строка.external_key,
+        summary=строка.title,
+        starts_at=строка.starts_at,
+        ends_at=строка.ends_at,
+        location=строка.location,
+        description=строка.description,
+        source=SOURCE_CAPTURE,
     )
 
 

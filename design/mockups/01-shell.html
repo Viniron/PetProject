@@ -80,6 +80,133 @@ body { background: #e8e8ea; color: #1a1a1c; }
 .frames { display: flex; gap: 18px; padding: var(--space-5); background: var(--bg); }
 .frame { text-align: center; }
 .frame-cap { margin-top: 10px; font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* --- Обрамление телефонной части страницы разбора ----------------------- */
+.part-head { max-width: 1400px; margin: 46px auto 0; padding: 34px 32px 0;
+             border-top: 1px solid #d4d4d8; }
+.part-head h2 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.part-head p  { margin: 0 0 10px; max-width: 74ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.part-head code { font-family: var(--font-mono); font-size: 13px; }
+
+/* Подставка под устройство: серое поле, чтобы белый экран телефона
+   не сливался с белой панелью разбора. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0;
+               background: #ededf0; }
+.ask { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+       background: #fff8e6; color: #52525b; font-size: 12.5px; line-height: 1.5; }
+.ask b { color: #18181b; font-weight: 600; }
+
+/* --- Телефонная раскладка оболочки — SPEC §8.1 ---------------------------
+   Догон 2026-09-16: телефон рисуется вторым артбордом на той же странице,
+   а не медиазапросом. Макет открывается двойным кликом, и обе раскладки
+   обязаны читаться, не меняя ширину окна (design/PROGRESS.md, рамки owner).
+   Отсюда классы-модификаторы: в продукте это тот же набор правил внутри
+   @media (max-width: 640px), и после «ок» он переезжает в tokens.css —
+   так же, как переехала ПК-оболочка на этапе 1.
+
+   Разметка у обеих раскладок одна (§8.1: «обе читают один контракт,
+   различается ориентация»): кнопка действия лежит внутри капсулы и
+   вырывается из неё позиционированием, а не вторым деревом элементов.   */
+
+/* Рамка устройства — обрамление разбора, как .pane. 390px — ширина типового
+   телефона; высота обрезана намеренно, чтобы было видно, что контент уходит
+   ПОД капсулу, а не заканчивается над ней. */
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; height: 560px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--bg); }
+
+/* Полоса с одной капсулой, без экрана — телефонный аналог .rail-demo. */
+.phone-strip { position: relative; width: 390px; padding: var(--space-4);
+               border-radius: var(--radius-lg); background: var(--bg); }
+.phone-strip--action { padding-top: 84px; }
+
+/* Экран: одна колонка, снизу запас под плавающую капсулу. */
+.app--phone { display: block; height: 100%; min-height: 0;
+              padding: var(--space-4); padding-bottom: 104px; overflow: hidden; }
+.app--phone .content-col { max-width: none; }
+
+/* Капсула: та же самая, повёрнутая. Прижата к низу поверх контента.
+   Радиус круглый: ограничение этапа 0 (76px и --radius, иначе подпись
+   не помещается в подложку) относилось к вертикальной раскладке —
+   в строке подложка вкладки шире подписи. */
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+
+/* В строке вкладки делят место поровну: фиксированные 76px при потолке
+   в пять курсов не помещаются в 390px экрана. Верхний предел ширины —
+   иначе на свежей установке две вкладки растягиваются на пол-экрана каждая
+   и подложка календаря читается как баннер, а не как вкладка. */
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+
+/* Разделитель поворачивается вместе с капсулой: полоса высотой 1px
+   в горизонтальном ряду была бы просто пустым промежутком. Граница берётся
+   усиленная: найдено визуальной проверкой — вертикальная черта короткая,
+   и на --border она на экране не читается, в отличие от длинной
+   горизонтальной на ПК. */
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+/* Второй разделитель отделял кнопку действия — на телефоне она уходит
+   из капсулы, и отделять больше нечего. */
+.rail--phone .rail-sep:last-of-type { display: none; }
+
+/* Точка держится за иконку, а не за угол вкладки: вкладка стала вдвое шире,
+   и в углу точка отрывается от того, что помечает. */
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+
+/* У пальца нет состояния «навёл»: приглушение соседей (этап 1) — приём
+   указателя и на телефоне не срабатывает. В макете мышь есть, поэтому
+   правило наведения приходится гасить явно, иначе артборд врёт. */
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone:hover .rail-action { color: var(--text);
+                                  border-color: var(--border-strong); }
+
+/* Отклик на касание — то, что заменяет наведение. */
+.tab.is-pressed { background: var(--accent-soft); }
+.tab.is-active.is-pressed { opacity: .75; }
+
+/* Кнопка действия — отдельная, над капсулой справа (§8.1). Позиционируется
+   от капсулы, а не от экрана: в продукте капсула fixed, и кнопка обязана
+   ехать вместе с ней, а не жить своей жизнью. */
+.rail--phone .rail-action { position: absolute; right: 0;
+                            bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); background: var(--surface); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+
+/* Вариант Б кнопки действия: пилюля с подписью вместо круга. Выбор owner. */
+.rail--phone .rail-action.is-pill { width: auto; height: 44px; gap: 7px;
+                                    padding: 0 var(--space-4); }
+.rail--phone .rail-action.is-pill .tab-icon { font-size: 16px; }
+.rail--phone .rail-action.is-pill .tab-text { display: block; margin: 0;
+                                              font-size: var(--fs-sm); }
+
+/* Вариант Б для пяти курсов: подпись только у активной вкладки. Выбор owner. */
+.rail--phone.is-labels-active .tab { max-width: 120px; }
+/* Безымянная вкладка занимает ровно место иконки, а не свою седьмую часть
+   ряда: иначе подпись активной режется так же, как в варианте А, и весь
+   смысл варианта пропадает. */
+.rail--phone.is-labels-active .tab:not(.is-active) { flex: 0 0 40px;
+                                                     padding: 14px 6px 13px; }
+.rail--phone.is-labels-active .tab:not(.is-active) .tab-icon { font-size: 19px; }
+.rail--phone.is-labels-active .tab:not(.is-active) .tab-text { display: none; }
+.rail--phone.is-labels-active .tab:not(.is-active) .tab-dot { top: 9px; }
+
+/* В полосах показывается сама капсула, без экрана: там она стоит в потоке,
+   а не плавает. Позиционирование — единственное, что различается. */
+.phone-strip .rail--phone { position: relative; left: auto; right: auto; bottom: auto; }
+.phone-strip .rail-demo-cap { margin-bottom: 8px; }
+.phone-strip--narrow { width: 330px; }
+.strip-pair { display: flex; gap: 20px; }
+
+/* Заглушка на телефоне тянется под капсулу — иначе не видно, что капсула
+   плавает поверх контента, а не стоит на его нижней границе. */
+.app--phone .slot { display: flex; flex-direction: column; justify-content: center;
+                    min-height: 500px; }
 </style>
 </head>
 <body>
@@ -91,6 +218,12 @@ body { background: #e8e8ea; color: #1a1a1c; }
     справа (<code>SPEC.md</code> §8.1). Содержимое экранов здесь намеренно
     заглушено — оно приходит на этапах 2–9. Смотреть нужно на капсулу, её
     состояния и на то, как область контента ведёт себя вокруг неё.
+  </p>
+  <p>
+    Страница идёт сверху вниз двумя частями: сначала ПК-раскладка (разделы
+    1&ndash;4, утверждена 18.08), затем телефонная (разделы 5&ndash;9, догон
+    16.09). ПК-вид в правку не входит &mdash; он показан как есть, чтобы
+    телефон было с чем сверять.
   </p>
   <p>
     Решения owner, заложенные в макет: <b>курсов не больше пяти</b> — паттерн
@@ -340,6 +473,306 @@ body { background: #e8e8ea; color: #1a1a1c; }
   <p class="mark">Переключение вкладки <b>не теряет состояние</b> экрана (§8.1):
     вернувшись в курс, owner видит тот же узел, таймер занятия продолжает идти.
     Это поведение, а не вёрстка, — на макете его не видно, но оно часть этапа.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<!-- ====================  ТЕЛЕФОННАЯ РАСКЛАДКА  ========================== -->
+<!-- ====================================================================== -->
+<div class="part-head">
+  <h2>Телефон — та же капсула в другой ориентации</h2>
+  <p>
+    <code>SPEC.md</code> §8.1: «плавающая капсула внизу поверх контента. Иконка
+    над подписью; активная вкладка — скруглённая подложка внутри капсулы и
+    акцентный цвет. Справа отдельная круглая кнопка контекстного действия».
+    Ниже — второй артборд того же экрана. Разметка общая с ПК-раскладкой,
+    различается только ориентация: кнопка действия лежит внутри капсулы
+    и вырывается из неё позиционированием.
+  </p>
+  <p>
+    Рамка устройства — 390px, ширина типового телефона. Высота обрезана
+    намеренно: видно, что контент уходит <b>под</b> капсулу, а не кончается
+    над ней.
+  </p>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>5 · Оболочка целиком</h2>
+  <p>
+    Обе темы, те же два состояния, что и на ПК: слева календарь, справа курс.
+    Кнопка действия меняет смысл вместе с вкладкой.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Светлая · календарь</b><span>390 × 844</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="screen-sub">Tuesday, 18 August</div>
+            <div class="slot"><b>Область контента</b>здесь неделя календаря — этап 2</div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action" aria-label="Add event"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Экран прокручен: заглушка уходит <b>под</b> капсулу и
+      обрезается краем экрана, а не заканчивается ровно над ней — капсула
+      плавает поверх контента, а не стоит на его нижней границе. В продукте
+      у контента снизу есть запас в высоту капсулы: последняя строка
+      добирается до места, где её не закрывает капсула.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная · курс</b><span>390 × 844</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">English</div>
+            <div class="screen-sub">Unit 4 · Tenses · 38% complete</div>
+            <div class="slot"><b>Область контента</b>здесь шапка курса и змейка — этапы 4 и 5</div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab is-active"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action" aria-label="Start lesson"><div class="tab-icon">▶</div><div class="tab-text">Lesson</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Та же капсула на тёмной теме: отдельных правил для неё нет,
+      цвета берутся из токенов. Кнопка действия сменила смысл на «начать
+      занятие» — как и на ПК.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>6 · Капсула так же генерируется из списка курсов</h2>
+  <p>
+    Инвариант 3 не зависит от раскладки. Разделитель перед «Settings»
+    поворачивается вместе с капсулой — становится вертикальной чертой,
+    а не исчезает: настройки не курс, и на телефоне это должно быть видно
+    так же, как на ПК.
+  </p>
+</div>
+<div class="wrap"><div class="grid3">
+
+  <section class="pane">
+    <div class="pane-label"><b>Курсов нет</b><span>courses: 0</span></div>
+    <div class="phone-stage"><div class="phone-strip" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Две вкладки на всю ширину. Капсула не растягивает подписи
+      и не показывает заглушек — просто пустее.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Два курса — сейчас</b><span>courses: 2</span></div>
+    <div class="phone-stage"><div class="phone-strip" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Рабочий состав. Подписи помещаются целиком, точка «есть
+      занятие сегодня» стоит у иконки, а не в углу вкладки.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Пять курсов — потолок</b><span>courses: 5</span></div>
+    <div class="phone-stage"><div class="phone-strip" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab"><div class="tab-icon">▧</div><div class="tab-text">Physics</div></button>
+        <button class="tab"><div class="tab-icon">▨</div><div class="tab-text">Algorithms</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▩</div><div class="tab-text">Discrete</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Семь элементов в ряду: календарь, пять курсов, настройки.
+      На 390px это ≈48px на вкладку — подписи длиннее семи знаков режутся
+      многоточием. <b>Разбирается в разделе 8.</b></p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>7 · Вопрос: кнопка действия — круг или пилюля</h2>
+  <p>
+    §8.1 говорит «отдельная <b>круглая</b> кнопка». Решение этапа 1 говорит
+    обратное: «у кнопки контекстного действия есть подпись, безымянный плюс
+    не сообщает, что именно создастся». На ПК противоречия нет — там кнопка
+    прямоугольная и подписана. На телефоне в круг подпись не помещается.
+    Это решает owner, за него не решено.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>А · круг, подписи нет</b><span>буква §8.1</span></div>
+    <div class="phone-stage"><div class="phone-strip phone-strip--action" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action" aria-label="Add event"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Как в §8.1 дословно. Подпись остаётся только в
+      <code>aria-label</code>: смысл действия читается из вкладки, на которой
+      стоишь, а не из самой кнопки.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Б · пилюля с подписью</b><span>решение этапа 1</span></div>
+    <div class="phone-stage"><div class="phone-strip phone-strip--action" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+        <div class="rail-sep"></div>
+        <button class="rail-action is-pill"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Подпись сохранена, форма — не круг. Кнопка шире и ближе
+      к большому пальцу, но занимает больше контента под собой.</p>
+  </section>
+
+</div></div>
+<div class="wrap"><div class="pane">
+  <p class="ask"><b>Нужно решение owner:</b> А или Б. Выбранное уходит
+    в <code>tokens.css</code>, отвергнутое — в журнал дизайна. Если выбран Б —
+    формулировка §8.1 «круглая кнопка» правится под решение, а не остаётся
+    расходиться с макетом.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>8 · Вопрос: пять курсов — подписи у всех или только у активной</h2>
+  <p>
+    Потолок в пять курсов — ограничение продукта, утверждённое на этапе 1,
+    поэтому раскладка обязана его выдерживать, а не надеяться, что столько
+    не наберётся. Семь элементов в ряду на 390px оставляют вкладке ≈48px.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>А · подписи у всех</b><span>буква §8.1</span></div>
+    <div class="phone-stage"><div class="phone-strip" data-theme="light">
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab"><div class="tab-icon">▧</div><div class="tab-text">Physics</div></button>
+        <button class="tab"><div class="tab-icon">▨</div><div class="tab-text">Algorithms</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▩</div><div class="tab-text">Discrete</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">«Иконка над подписью» у каждой вкладки, как в §8.1.
+      Расплата — обрезанные подписи: «Algorithms» и «Calendar» не влезают
+      и оканчиваются многоточием.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Б · подпись у активной</b><span>остальные — иконка</span></div>
+    <div class="phone-stage"><div class="phone-strip" data-theme="light">
+      <nav class="rail rail--phone is-labels-active">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab"><div class="tab-icon">▧</div><div class="tab-text">Physics</div></button>
+        <button class="tab"><div class="tab-icon">▨</div><div class="tab-text">Algorithms</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▩</div><div class="tab-text">Discrete</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div></div>
+    <p class="mark">Ни одна подпись не режется, активная вкладка читается
+      издалека. Расплата — курсы различаются иконками, а иконки курсов пока
+      выдуманы: их придётся задавать в манифесте осмысленно.</p>
+  </section>
+
+</div></div>
+<div class="wrap"><div class="pane">
+  <p class="ask"><b>Нужно решение owner:</b> А или Б. Вариант Б включается
+    только когда вкладок много, или всегда — тоже решение owner: переключение
+    по порогу даёт две разные капсулы на одном экране в разные дни.</p>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>9 · Приглушения соседей на телефоне нет</h2>
+  <p>
+    Приём этапа 1 — «курсор гасит все элементы, кроме одного» — держится
+    на наведении, а у пальца состояния «навёл» не бывает. На телефоне
+    от него остаётся только отклик на касание: подложка под нажатым
+    элементом, пока палец на нём.
+  </p>
+</div>
+<div class="wrap"><div class="pane">
+  <div class="pane-label"><b>Покой → палец на «Calculus»</b><span>:active вместо :hover</span></div>
+  <div class="phone-stage"><div class="strip-pair">
+    <div class="phone-strip phone-strip--narrow" data-theme="light">
+      <div class="rail-demo-cap">в покое</div>
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div>
+    <div class="phone-strip phone-strip--narrow" data-theme="light">
+      <div class="rail-demo-cap">палец на Calculus</div>
+      <nav class="rail rail--phone">
+        <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab is-pressed"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+    </div>
+  </div></div>
+  <p class="mark">Соседи не гаснут: гасить нечем и незачем — палец и так
+    закрывает половину капсулы. Активная вкладка остаётся активной, пока
+    переключение не произошло.</p>
 </div></div>
 
 <div class="tail"></div>

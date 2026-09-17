@@ -18,13 +18,12 @@ import logging
 import os
 import shutil
 import subprocess
-import urllib.error
-import urllib.request
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 from jarvis_api.config import Settings, get_settings
+from jarvis_api.integrations import heartbeat
 from jarvis_api.integrations.b2 import B2Client, B2Error
 
 logger = logging.getLogger("jarvis.backup")
@@ -162,16 +161,21 @@ def upload_dump(settings: Settings, path: Path, sha1: str, prefixes: list[str]) 
 
 
 def send_heartbeat(settings: Settings) -> None:
-    """Сообщает healthchecks, что копия уехала. Вызывается только после выгрузки."""
-    request = urllib.request.Request(settings.heartbeat_url, method="GET")
+    """Сообщает сторожу, что копия уехала. Вызывается только после выгрузки.
+
+    Недошедший ping - отказ бэкапа, а не замечание: копия, о существовании
+    которой снаружи никто не знает, обнаруживается в день восстановления
+    (ADR-020). Этим бэкап отличается от цепочки календаря, где молчание
+    сторожа не отменяет сделанной работы (ADR-043).
+    """
     try:
-        with urllib.request.urlopen(request, timeout=settings.http_timeout_seconds) as response:
-            code = int(response.status)
-    except urllib.error.URLError as error:
-        raise BackupError(f"ping в healthchecks не дошёл: {error.reason}") from error
-    if code >= 400:
-        raise BackupError(f"healthchecks ответил {code}")
-    logger.info("ping отправлен, ответ %s", code)
+        heartbeat.отправить(
+            settings.heartbeat_url,
+            timeout=settings.http_timeout_seconds,
+            имя="бэкап",
+        )
+    except heartbeat.HeartbeatError as error:
+        raise BackupError(str(error)) from error
 
 
 def _require_for_apply(settings: Settings) -> None:

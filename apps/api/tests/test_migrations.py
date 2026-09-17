@@ -38,6 +38,10 @@ from sqlalchemy import Connection, Engine, inspect, text
     "fin_imports",
     "fin_summaries",
     "fin_transactions",
+    # Ф12, недельный бюджет (§15.10, ADR-038). Две, а не одна: бюджет
+    # вносится вперёд, факт траты приходит назад.
+    "fin_week_budgets",
+    "fin_day_spend",
 }
 
 ОЖИДАЕМЫЕ_ТАБЛИЦЫ = ТАБЛИЦЫ_КАЛЕНДАРЯ | ТАБЛИЦЫ_КНИЖКИ

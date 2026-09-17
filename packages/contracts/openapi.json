@@ -33,6 +33,247 @@
         "title": "CalendarOut",
         "type": "object"
       },
+      "CaptureConfirmIn": {
+        "description": "Тело `POST /api/capture/drafts/{id}/confirm` - форма подтверждения.\n\nДата и время обязательны и не угадываются. `CLAUDE.md` требует этого\nпрямо: нет даты или низкая уверенность - спросить, а не подставить\nправдоподобное. Поэтому у полей нет умолчаний вроде «сегодня» и «час\nот текущего момента»: событие без времени в календарь не попадает.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "starts_at",
+          "ends_at"
+        ],
+        "title": "CaptureConfirmIn",
+        "type": "object"
+      },
+      "CaptureDraftIn": {
+        "description": "Тело `POST /api/capture/drafts` (Э8, §8.4).\n\nМодальность объявлена всеми тремя значениями, хотя принимается одна:\nконтракт обязан показывать, что режимов три, а отказ по фотографии\nи голосу - назвать причину. Спрятать их из перечисления значило бы\nописать продукт, которого не задумывали (решение owner 2026-09-17:\nрежимы видны, но погашены).",
+        "properties": {
+          "modality": {
+            "default": "text",
+            "description": "Вид входа: текст, фото или голос",
+            "enum": [
+              "text",
+              "image",
+              "audio"
+            ],
+            "title": "Modality",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Что вставили или напечатали. Обязателен для modality=text",
+            "title": "Text"
+          }
+        },
+        "title": "CaptureDraftIn",
+        "type": "object"
+      },
+      "CaptureDraftOut": {
+        "description": "Черновик захвата.\n\n`extracted` и `error` приходят пустыми до слоя моделей (Э12), и это\nсостояние клиент обязан различать: пустой разбор означает «поля\nзаполняет owner», а не «модель ничего не нашла».",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Разбор не удался - причина",
+            "title": "Error"
+          },
+          "extracted": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Структура от модели. До слоя моделей - null",
+            "title": "Extracted"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "modality": {
+            "enum": [
+              "text",
+              "image",
+              "audio"
+            ],
+            "title": "Modality",
+            "type": "string"
+          },
+          "source_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Text"
+          }
+        },
+        "required": [
+          "id",
+          "modality",
+          "source_text",
+          "created_at"
+        ],
+        "title": "CaptureDraftOut",
+        "type": "object"
+      },
+      "CaptureDraftsOut": {
+        "description": "Ответ `GET /api/capture/drafts`.\n\nОбъектом, а не голым массивом, по той же причине, что и периоды:\nмассив на верхнем уровне нельзя расширить ни одним полем, не сломав\nклиента.",
+        "properties": {
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/CaptureDraftOut"
+            },
+            "title": "Drafts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "drafts"
+        ],
+        "title": "CaptureDraftsOut",
+        "type": "object"
+      },
+      "CapturedEventOut": {
+        "description": "Событие, созданное из черновика: ответ на подтверждение.\n\n`sync_state` здесь не служебная подробность, а то, что экран показывает\nсловами. Событие принято и лежит в базе (инвариант 1: backend -\nисточник истины), но в Google оно попадает отдельным шагом, и до тех\nпор честный ответ - «записывается», а не готовое (инвариант 9).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "key": {
+            "description": "external_key события: capture:<id черновика>",
+            "title": "Key",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "sync_state": {
+            "description": "pending - в очереди в Google, synced - записано",
+            "title": "Sync State",
+            "type": "string"
+          },
+          "synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synced At"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "starts_at",
+          "ends_at",
+          "location",
+          "description",
+          "sync_state",
+          "synced_at"
+        ],
+        "title": "CapturedEventOut",
+        "type": "object"
+      },
       "DayFlagIn": {
         "description": "Тело `POST /api/day-flags`.\n\nПроверки живут здесь, а не в базе: словарь причин будет меняться, а CHECK\nради нового слова ничего не защищает. В базе остаются два ограничения,\nкоторые пережить нельзя, - порядок дат и уникальность автопометки на день.",
         "properties": {
@@ -602,6 +843,309 @@
         "summary": "Сетка календаря на день или неделю",
         "tags": [
           "calendar"
+        ]
+      }
+    },
+    "/api/capture/drafts": {
+      "get": {
+        "description": "Все живые черновики, новые сверху.\n\nБез фильтров и без страниц намеренно: черновик живёт часы, их единицы,\nа брошенные убирает джоб по сроку. Список, требующий фильтра, означал\nбы, что черновики копятся, - и чинить это надо было бы уборкой,\nа не параметром.",
+        "operationId": "список_черновиков_api_capture_drafts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureDraftsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Черновики, ждущие подтверждения",
+        "tags": [
+          "capture"
+        ]
+      },
+      "post": {
+        "description": "Принять вход и вернуть черновик.\n\nФотография и голос отвергаются с названной причиной, а не принимаются\nмолча: разбирать их до Э12 нечем, и принятое сырьё осталось бы байтами\nв базе, которые уезжают в каждый ночной дамп и удаляются по сроку, так\nи не став событием. Отказ с объяснением честнее обещания (инвариант 9).",
+        "operationId": "завести_черновик_api_capture_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureDraftIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Завести черновик захвата",
+        "tags": [
+          "capture"
+        ]
+      }
+    },
+    "/api/capture/drafts/{draft_id}": {
+      "delete": {
+        "description": "Убрать черновик вместе с сырьём.\n\nЭто вторая половина обещания «без подтверждения не пишем наружу»:\nотказ owner обязан уносить и то, что он прислал, - фотография, которую\nрешили не сохранять, не должна остаться в ночном дампе.",
+        "operationId": "отменить_черновик_api_capture_drafts__draft_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Черновика с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Отменить черновик",
+        "tags": [
+          "capture"
+        ]
+      }
+    },
+    "/api/capture/drafts/{draft_id}/confirm": {
+      "post": {
+        "description": "Черновик становится событием.\n\nОтвет 200, а не 201, и повтор безопасен. Черновика после подтверждения\nнет, поэтому второй такой же запрос - это обрыв связи, а не вторая\nпопытка что-то создать: ключ события детерминирован от id черновика\n(ADR-042), и повтор отдаёт то же самое событие вместо второй копии\nв календаре owner.\n\nЗапись в Google пробуется сразу же, коротким таймаутом и без повторов,\nи её отказ ответа не меняет: событие уже принято, а очередь заберёт\nего ближайшим прогоном джоба (`make sync-capture-apply` или\nпланировщик). Экран при этом видит `sync_state = pending` и говорит\n«записывается» - обещать записанное, пока Google не ответил, нельзя.",
+        "operationId": "подтвердить_черновик_api_capture_drafts__draft_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureConfirmIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapturedEventOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Черновика с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Подтвердить черновик и записать событие",
+        "tags": [
+          "capture"
         ]
       }
     },

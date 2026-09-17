@@ -45,6 +45,17 @@ services:
       # на web:8080. Дожидаться api отдельно не нужно - web сам ждёт его.
       web:
         condition: service_healthy
+    # Второй маршрут - ssh на саму плату (Э9б, ADR-045). sshd живёт на хосте,
+    # а не в контейнере, поэтому цель маршрута в панели Cloudflare -
+    # `ssh://host.docker.internal:22`. Запись `ssh://localhost:22` выглядела
+    # бы правильной и вела бы в сам контейнер cloudflared, где 22-го порта
+    # нет: отказ читался бы как «плата недоступна».
+    #
+    # Docker на Linux этого имени сам не заводит - его и дописывает строка
+    # ниже: `host-gateway` разворачивается в адрес шлюза сети compose,
+    # то есть в саму плату.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Наружу сам себя не публикует: он и есть выход наружу.
 
   # Ночной бэкап. Запускается таймером systemd на хосте, а не крутится
@@ -73,6 +84,13 @@ services:
       B2_APP_KEY: ${B2_APP_KEY:-}
       B2_API_URL: ${B2_API_URL:-https://api.backblazeb2.com}
       HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+      # Ежемесячная проверка восстановления (Э9, ADR-043). Живёт в этом же
+      # образе: только здесь есть одновременно pg_restore нужной версии
+      # и том с копиями. Свой сторож, а не общий с бэкапом, - у сигналов
+      # разный период, и ежедневный гасил бы тревогу о непроверенной копии.
+      RESTORE_HEARTBEAT_URL: ${RESTORE_HEARTBEAT_URL:-}
+      RESTORE_SCRATCH_DB: ${RESTORE_SCRATCH_DB:-}
+      RESTORE_MAX_DUMP_AGE_HOURS: ${RESTORE_MAX_DUMP_AGE_HOURS:-}
     volumes:
       # Отдельный том, не тот, где данные базы: снимок и источник на одном
       # томе теряются вместе.

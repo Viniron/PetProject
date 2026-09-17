@@ -1,0 +1,26 @@
+{
+  "month": "2026-08",
+  "categories": [
+    { "key": "transfers", "title": "Переводы" },
+    { "key": "transport", "title": "Транспорт" },
+    {
+      "key": "food",
+      "title": "Еда",
+      "children": [
+        { "key": "fastfood", "title": "Фастфуд" },
+        { "key": "canteen", "title": "Столовая" },
+        { "key": "supermarket", "title": "Супермаркет" }
+      ]
+    },
+    { "key": "marketplaces", "title": "Маркетплейсы" },
+    { "key": "other", "title": "Остальное" }
+  ],
+  "rules": [
+    { "type": "sender", "pattern": "Алексей А.", "kind": "income", "title": "родной" },
+    { "type": "sender", "pattern": "Борис Б.", "kind": "income", "title": "родной" },
+    { "type": "self", "pattern": "Роман В.", "title": "owner в выписке Т-Банка" },
+    { "type": "merchant", "pattern": "Фастфуд Альфа", "category": "fastfood" },
+    { "type": "mcc", "pattern": "5411", "category": "supermarket" },
+    { "type": "bank_category", "pattern": "Транспорт", "category": "transport" }
+  ]
+}

@@ -38,12 +38,13 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         backup backup-apply restore-check
+.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show         backup backup-apply restore-check restore-check-apply
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
 	@echo "dev           - run API with reload on :8000"
 	@echo "test          - pytest"
+	@echo "test-docker   - pytest inside the api image, next to the test database"
 	@echo "lint          - ruff + black --check + mypy --strict"
 	@echo "format        - ruff --fix + black"
 	@echo "compose-check - validate every compose overlay without starting it"
@@ -56,7 +57,8 @@ help:
 	@echo "logs          - follow logs of the stack"
 	@echo "backup        - pg_dump + report, dry-run (stage E1)"
 	@echo "backup-apply  - pg_dump + upload to B2 + heartbeat ping (stage E1)"
-	@echo "restore-check - restore the newest local dump into a scratch database (stage E1)"
+	@echo "restore-check - restore the newest local dump into a scratch database and report"
+	@echo "restore-check-apply - the same plus a heartbeat ping (stage E9)"
 	@echo "migrate       - alembic upgrade head against DATABASE_URL (stage E2)"
 	@echo "migrate-pi    - the same inside the api container on the Pi (stage E2)"
 	@echo "revision      - autogenerate a migration: make revision m=\"what changed\" (stage E2)"
@@ -72,11 +74,33 @@ help:
 	@echo "sync-gcal-apply  - the same, writing to the calendar (stage E4)"
 	@echo "sync-gcal-pi     - dry-run inside the api container on the Pi (stage E4)"
 	@echo "sync-gcal-pi-apply - the same, writing to the calendar on the Pi (stage E4)"
+	@echo "sync-capture     - confirmed capture drafts -> Google Calendar, dry-run (stage E8)"
+	@echo "sync-capture-apply - the same, writing to the calendar (stage E8)"
+	@echo "sync-capture-pi  - dry-run inside the api container on the Pi (stage E8)"
+	@echo "sync-capture-pi-apply - the same, writing on the Pi (stage E8)"
+	@echo "capture-cleanup  - abandoned capture drafts, dry-run (stage E8)"
+	@echo "capture-cleanup-apply - the same, deleting them (stage E8)"
+	@echo "capture-cleanup-pi - dry-run inside the api container on the Pi (stage E8)"
+	@echo "capture-cleanup-pi-apply - the same, deleting them on the Pi (stage E8)"
 	@echo "daily            - the daily chain: mirror + calendar, dry-run (stage E5)"
 	@echo "daily-apply      - the same, doing the work (stage E5)"
 	@echo "daily-pi         - dry-run inside the api container on the Pi (stage E5)"
 	@echo "daily-pi-apply   - the same, doing the work on the Pi (stage E5)"
 	@echo "plan-today    - course session planning, not implemented (courses track)"
+	@echo "finance-import       - bank statements -> book, dry-run: make finance-import file=\"a.csv b.pdf\" (stage F3)"
+	@echo "finance-import-apply - the same, writing the transactions (stage F3)"
+	@echo "finance-import-pi    - dry-run inside the api container on the Pi, one file= (stage F3)"
+	@echo "finance-import-pi-apply - the same, writing on the Pi (stage F3)"
+	@echo "finance-taxonomy     - owner categories and rules from a JSON file, dry-run: make finance-taxonomy file=\"set.json\" (stage F4a)"
+	@echo "finance-taxonomy-apply - the same, writing categories and rules (stage F4a)"
+	@echo "finance-inherit      - copy a month category set forward: make finance-inherit from=2026-08 to=2026-09 (stage F4a)"
+	@echo "finance-categorize   - apply the rules to the book, dry-run (stage F4a)"
+	@echo "finance-categorize-apply - the same, writing kind and category (stage F4a)"
+	@echo "finance-offset       - link an incoming payment to an expense, dry-run: make finance-offset income=12 expense=34 (stage F4b)"
+	@echo "finance-offset-apply - the same, writing the link (stage F4b)"
+	@echo "finance-offset-unlink - drop the link, dry-run: make finance-offset-unlink income=12 (stage F4b)"
+	@echo "finance-offset-unlink-apply - the same, writing (stage F4b)"
+	@echo "finance-offset-show  - show what an expense really cost: make finance-offset-show expense=34 (stage F4b)"
 	@echo "web-install   - install frontend dependencies from the lockfile (stage E7)"
 	@echo "web-dev       - run the frontend with reload on :3000 (stage E7)"
 	@echo "web-build     - export the frontend to apps/web/out (stage E7)"
@@ -102,6 +126,14 @@ dev:
 
 test:
 	$(PY) -m pytest $(API)
+
+# Тот же прогон, но внутри образа. Нужен на машине owner: Smart App Control
+# блокирует неподписанную DLL драйвера psycopg, и тесты с базой падают
+# на импорте, а не на соединении. Внутри linux-образа политики нет, среда
+# та же, что на Pi. `--build` намеренно: образ пересобирается при правке
+# зависимостей, иначе прогон молча пойдёт на вчерашнем окружении.
+test-docker:
+	$(DC_DEV) --profile test run --rm --build api-test
 
 # Контракт коммитится, поэтому перегенерация - отдельный ручной шаг, а не
 # побочный эффект сборки: изменение контракта обязано быть видно в дифе.
@@ -150,8 +182,14 @@ backup:
 backup-apply:
 	$(DC_PI) run --rm backup --apply
 
+# Проверка восстановления (Э1, разбор и расписание - Э9). Живую базу не
+# трогает ни в одном режиме: дамп разворачивается в отдельную базу. --apply
+# добавляет единственную запись наружу - ping сторожу, и так её зовёт таймер.
 restore-check:
 	./infra/restore-check.sh
+
+restore-check-apply:
+	./infra/restore-check.sh --apply
 
 # Базы разработки. Тестовая эфемерная и живёт в tmpfs, dev-база - обычная:
 # первую сносит каждый прогон тестов, вторую нет.
@@ -229,6 +267,37 @@ sync-gcal-pi:
 sync-gcal-pi-apply:
 	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_gcal --apply
 
+# --- Захват событий (Э8) ---------------------------------------------------
+# Очередь подтверждённых черновиков в календарь `JARVIS · События`. Dry-run
+# показывает, что стоит в очереди, и не отправляет наружу ничего. Обычно
+# событие уезжает сразу при подтверждении (ADR-042), и очередь пуста -
+# в ней остаётся только то, что не дошло с первой попытки.
+sync-capture:
+	$(PY) -m jarvis_api.jobs.push_capture
+
+sync-capture-apply:
+	$(PY) -m jarvis_api.jobs.push_capture --apply
+
+sync-capture-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_capture
+
+sync-capture-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.push_capture --apply
+
+# Уборка брошенных черновиков (§9). Наружу не пишет, но удаляет данные
+# owner - отсюда тот же dry-run по умолчанию, что у остальных целей.
+capture-cleanup:
+	$(PY) -m jarvis_api.jobs.capture_cleanup
+
+capture-cleanup-apply:
+	$(PY) -m jarvis_api.jobs.capture_cleanup --apply
+
+capture-cleanup-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.capture_cleanup
+
+capture-cleanup-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.capture_cleanup --apply
+
 # Ежедневная цепочка целиком - то же, что каждые три часа делает планировщик
 # внутри API. Нужна для ручного прогона и для проверки в dry-run перед тем,
 # как включать расписание на плате.
@@ -252,6 +321,99 @@ daily-pi-apply:
 
 plan-today:
 	@echo "not implemented: needs a course manifest, see docs/BUILD-PROGRESS.md" && exit 1
+
+# --- Финансовая книжка (Ф3) ------------------------------------------------
+# Импорт выписок. По умолчанию dry-run: дифф по каждому файлу и ни одной
+# записанной строки. Файлов за заход несколько, по одному с каждого банка
+# (ADR-030), поэтому file= принимает список: file="tbank.csv ozon.pdf".
+# Формат файла определяет адаптер банка, а не расширение (ADR-044):
+# Т-Банк отдаёт CSV, Ozon Bank - PDF, цель у них одна.
+#
+# Проверка на пустой file= здесь, а не в argparse, только ради сообщения:
+# `make finance-import` без аргумента - обычная опечатка, и она должна
+# отвечать по-человечески, а не трассировкой.
+ФАЙЛЫ = $(if $(file),,$(error укажи file="путь/к/выписке ..."))$(foreach ф,$(file),--file "$(ф)")
+
+finance-import:
+	$(PY) -m jarvis_api.jobs.finance_import $(ФАЙЛЫ)
+
+finance-import-apply:
+	$(PY) -m jarvis_api.jobs.finance_import $(ФАЙЛЫ) --apply
+
+# То же на плате. Файл лежит на Pi (owner кладёт его туда scp), а внутрь
+# контейнера попадает монтированием на один прогон: постоянного тома под
+# входящие файлы нет и не нужно - сырьё живёт в базе, а не на диске
+# (инвариант хоста 1). Отсюда ограничение: один файл за прогон.
+DC_PI_IMPORT = $(DC_PI) run --rm -v "$(abspath $(file))":/in/$(notdir $(file)):ro api 	python -m jarvis_api.jobs.finance_import --file /in/$(notdir $(file))
+
+finance-import-pi:
+	$(DC_PI_IMPORT)
+
+finance-import-pi-apply:
+	$(DC_PI_IMPORT) --apply
+
+# --- Разбор книжки (Ф4а) ---------------------------------------------------
+# Набор категорий месяца и правила разбора - файлом от owner: они данные,
+# а не код (инвариант 2), и в исходниках нет ни одного их названия.
+НАБОР = $(if $(file),,$(error укажи file="путь/к/набору.json"))--file "$(file)"
+
+finance-taxonomy:
+	$(PY) -m jarvis_api.jobs.finance_taxonomy $(НАБОР)
+
+finance-taxonomy-apply:
+	$(PY) -m jarvis_api.jobs.finance_taxonomy $(НАБОР) --apply
+
+# Наследование набора на новый месяц (§15.4). Отдельной целью, а не флагом
+# импорта: месяц наследуется один раз, и случиться это должно по решению
+# owner, а не побочным эффектом загрузки выписки.
+МЕСЯЦЫ = $(if $(from),,$(error укажи from=ГГГГ-ММ))$(if $(to),,$(error укажи to=ГГГГ-ММ))--inherit-from $(from) --month $(to)
+
+finance-inherit:
+	$(PY) -m jarvis_api.jobs.finance_taxonomy $(МЕСЯЦЫ)
+
+finance-inherit-apply:
+	$(PY) -m jarvis_api.jobs.finance_taxonomy $(МЕСЯЦЫ) --apply
+
+# Переразбор книжки. Нужен отдельно от импорта, потому что правила приезжают
+# позже данных: owner разметил счёт или добавил родного - книжка обязана
+# пересчитаться без перезагрузки выписок.
+finance-categorize:
+	$(PY) -m jarvis_api.jobs.finance_categorize
+
+finance-categorize-apply:
+	$(PY) -m jarvis_api.jobs.finance_categorize --apply
+
+finance-categorize-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_categorize
+
+finance-categorize-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_categorize --apply
+
+# Гашение расхода поступлением (Ф4б, §15.5). Экрана для него ещё нет - он
+# приезжает на Ф7, - а разбирать входящие переводы owner хочет раньше.
+# Аргументы обязательны: `make finance-offset` без них - опечатка, и она
+# должна останавливать make, а не запускать джоб, который сам не знает, что
+# гасить.
+ГАШЕНИЕ = $(if $(income),,$(error укажи income=<id поступления>))--income $(income)
+РАСХОД = $(if $(expense),,$(error укажи expense=<id расхода>))--expense $(expense)
+ПОКАЗАТЬ = $(if $(expense),,$(error укажи expense=<id расхода>))--show $(expense)
+
+finance-offset:
+	$(PY) -m jarvis_api.jobs.finance_offset $(ГАШЕНИЕ) $(РАСХОД)
+
+finance-offset-apply:
+	$(PY) -m jarvis_api.jobs.finance_offset $(ГАШЕНИЕ) $(РАСХОД) --apply
+
+finance-offset-unlink:
+	$(PY) -m jarvis_api.jobs.finance_offset $(ГАШЕНИЕ) --unlink
+
+finance-offset-unlink-apply:
+	$(PY) -m jarvis_api.jobs.finance_offset $(ГАШЕНИЕ) --unlink --apply
+
+# Только чтение: ни `--apply`, ни записи. Отвечает на вопрос «сколько
+# на самом деле стоил этот расход» - его же owner задаёт после привязки.
+finance-offset-show:
+	$(PY) -m jarvis_api.jobs.finance_offset $(ПОКАЗАТЬ)
 
 # --- Фронт (Э7) ------------------------------------------------------------
 # ci, а не install: ставится ровно то, что в package-lock.json. Иначе

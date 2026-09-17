@@ -20,6 +20,7 @@ from jarvis_api import __version__
 from jarvis_api.api.auth import ОТКАЗЫ_ДОСТУПА, предупредить_о_режиме, требуется_owner
 from jarvis_api.api.errors import подключить_обработчики
 from jarvis_api.api.routes_calendar import маршрутизатор as роутер_календаря
+from jarvis_api.api.routes_capture import маршрутизатор as роутер_захвата
 from jarvis_api.api.routes_day_flags import маршрутизатор as роутер_периодов
 from jarvis_api.config import get_settings
 from jarvis_api.scheduler import запустить, остановить
@@ -107,6 +108,7 @@ app = FastAPI(title="JARVIS API", version=__version__, lifespan=lifespan)
 ЗАЩИТА = [Depends(требуется_owner)]
 app.include_router(роутер_календаря, dependencies=ЗАЩИТА, responses=ОТКАЗЫ_ДОСТУПА)
 app.include_router(роутер_периодов, dependencies=ЗАЩИТА, responses=ОТКАЗЫ_ДОСТУПА)
+app.include_router(роутер_захвата, dependencies=ЗАЩИТА, responses=ОТКАЗЫ_ДОСТУПА)
 
 
 class Health(BaseModel):

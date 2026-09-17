@@ -29,6 +29,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/capture/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Черновики, ждущие подтверждения
+         * @description Все живые черновики, новые сверху.
+         *
+         *     Без фильтров и без страниц намеренно: черновик живёт часы, их единицы,
+         *     а брошенные убирает джоб по сроку. Список, требующий фильтра, означал
+         *     бы, что черновики копятся, - и чинить это надо было бы уборкой,
+         *     а не параметром.
+         */
+        get: operations["\u0441\u043F\u0438\u0441\u043E\u043A_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A\u043E\u0432_api_capture_drafts_get"];
+        put?: never;
+        /**
+         * Завести черновик захвата
+         * @description Принять вход и вернуть черновик.
+         *
+         *     Фотография и голос отвергаются с названной причиной, а не принимаются
+         *     молча: разбирать их до Э12 нечем, и принятое сырьё осталось бы байтами
+         *     в базе, которые уезжают в каждый ночной дамп и удаляются по сроку, так
+         *     и не став событием. Отказ с объяснением честнее обещания (инвариант 9).
+         */
+        post: operations["\u0437\u0430\u0432\u0435\u0441\u0442\u0438_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/capture/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Отменить черновик
+         * @description Убрать черновик вместе с сырьём.
+         *
+         *     Это вторая половина обещания «без подтверждения не пишем наружу»:
+         *     отказ owner обязан уносить и то, что он прислал, - фотография, которую
+         *     решили не сохранять, не должна остаться в ночном дампе.
+         */
+        delete: operations["\u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts__draft_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/capture/drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Подтвердить черновик и записать событие
+         * @description Черновик становится событием.
+         *
+         *     Ответ 200, а не 201, и повтор безопасен. Черновика после подтверждения
+         *     нет, поэтому второй такой же запрос - это обрыв связи, а не вторая
+         *     попытка что-то создать: ключ события детерминирован от id черновика
+         *     (ADR-042), и повтор отдаёт то же самое событие вместо второй копии
+         *     в календаре owner.
+         *
+         *     Запись в Google пробуется сразу же, коротким таймаутом и без повторов,
+         *     и её отказ ответа не меняет: событие уже принято, а очередь заберёт
+         *     его ближайшим прогоном джоба (`make sync-capture-apply` или
+         *     планировщик). Экран при этом видит `sync_state = pending` и говорит
+         *     «записывается» - обещать записанное, пока Google не ответил, нельзя.
+         */
+        post: operations["\u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/day-flags": {
         parameters: {
             query?: never;
@@ -141,6 +231,147 @@ export interface components {
              * @description Зона owner из settings, в которой приведены моменты
              */
             timezone: string;
+        };
+        /**
+         * CaptureConfirmIn
+         * @description Тело `POST /api/capture/drafts/{id}/confirm` - форма подтверждения.
+         *
+         *     Дата и время обязательны и не угадываются. `CLAUDE.md` требует этого
+         *     прямо: нет даты или низкая уверенность - спросить, а не подставить
+         *     правдоподобное. Поэтому у полей нет умолчаний вроде «сегодня» и «час
+         *     от текущего момента»: событие без времени в календарь не попадает.
+         */
+        CaptureConfirmIn: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Location */
+            location?: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * CaptureDraftIn
+         * @description Тело `POST /api/capture/drafts` (Э8, §8.4).
+         *
+         *     Модальность объявлена всеми тремя значениями, хотя принимается одна:
+         *     контракт обязан показывать, что режимов три, а отказ по фотографии
+         *     и голосу - назвать причину. Спрятать их из перечисления значило бы
+         *     описать продукт, которого не задумывали (решение owner 2026-09-17:
+         *     режимы видны, но погашены).
+         */
+        CaptureDraftIn: {
+            /**
+             * Modality
+             * @description Вид входа: текст, фото или голос
+             * @default text
+             * @enum {string}
+             */
+            modality: "text" | "image" | "audio";
+            /**
+             * Text
+             * @description Что вставили или напечатали. Обязателен для modality=text
+             */
+            text?: string | null;
+        };
+        /**
+         * CaptureDraftOut
+         * @description Черновик захвата.
+         *
+         *     `extracted` и `error` приходят пустыми до слоя моделей (Э12), и это
+         *     состояние клиент обязан различать: пустой разбор означает «поля
+         *     заполняет owner», а не «модель ничего не нашла».
+         */
+        CaptureDraftOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Error
+             * @description Разбор не удался - причина
+             */
+            error?: string | null;
+            /**
+             * Extracted
+             * @description Структура от модели. До слоя моделей - null
+             */
+            extracted?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Modality
+             * @enum {string}
+             */
+            modality: "text" | "image" | "audio";
+            /** Source Text */
+            source_text: string | null;
+        };
+        /**
+         * CaptureDraftsOut
+         * @description Ответ `GET /api/capture/drafts`.
+         *
+         *     Объектом, а не голым массивом, по той же причине, что и периоды:
+         *     массив на верхнем уровне нельзя расширить ни одним полем, не сломав
+         *     клиента.
+         */
+        CaptureDraftsOut: {
+            /** Drafts */
+            drafts: components["schemas"]["CaptureDraftOut"][];
+        };
+        /**
+         * CapturedEventOut
+         * @description Событие, созданное из черновика: ответ на подтверждение.
+         *
+         *     `sync_state` здесь не служебная подробность, а то, что экран показывает
+         *     словами. Событие принято и лежит в базе (инвариант 1: backend -
+         *     источник истины), но в Google оно попадает отдельным шагом, и до тех
+         *     пор честный ответ - «записывается», а не готовое (инвариант 9).
+         */
+        CapturedEventOut: {
+            /** Description */
+            description: string | null;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Key
+             * @description external_key события: capture:<id черновика>
+             */
+            key: string;
+            /** Location */
+            location: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Sync State
+             * @description pending - в очереди в Google, synced - записано
+             */
+            sync_state: string;
+            /** Synced At */
+            synced_at: string | null;
+            /** Title */
+            title: string;
         };
         /**
          * DayFlagIn
@@ -443,6 +674,258 @@ export interface operations {
             };
             /** @description Токен принадлежит не owner */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0441\u043F\u0438\u0441\u043E\u043A_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A\u043E\u0432_api_capture_drafts_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureDraftsOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0437\u0430\u0432\u0435\u0441\u0442\u0438_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaptureDraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureDraftOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts__draft_id__delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Черновика с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts__draft_id__confirm_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaptureConfirmIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapturedEventOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Черновика с таким id нет */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

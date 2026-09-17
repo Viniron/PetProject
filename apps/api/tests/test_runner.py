@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from jarvis_api.config import Settings
 from jarvis_api.db.models import AuditLogEntry, ItmoLesson, JobRun, Setting
+from jarvis_api.integrations import heartbeat
 from jarvis_api.jobs.runner import (
     JOB_NAME,
     ЦЕПОЧКА_КАЛЕНДАРЯ,
@@ -314,7 +315,12 @@ def test_dry_run_не_пишет_ничего(база: Session) -> None:
 
 def test_состав_настоящей_цепочки() -> None:
     """Порядок значим: реконсил по необновлённому зеркалу уедет по вчерашним данным."""
-    assert [шаг.имя for шаг in ЦЕПОЧКА_КАЛЕНДАРЯ] == ["sync_itmo", "push_gcal"]
+    assert [шаг.имя for шаг in ЦЕПОЧКА_КАЛЕНДАРЯ] == [
+        "sync_itmo",
+        "push_gcal",
+        "push_capture",
+        "capture_cleanup",
+    ]
 
 
 def test_сломанная_зона_не_даёт_трассировку(база: Session) -> None:
@@ -332,3 +338,109 @@ def test_сломанная_зона_не_даёт_трассировку(баз
     assert строка is not None, "прогон не оставил следа при неизвестной зоне"
     # Дата взята по запасной зоне - той же, что server_default колонки.
     assert строка.run_date == СЕГОДНЯ
+
+
+# --- сторож цепочки (Э9, ADR-043) -------------------------------------------
+#
+# Сигнал наружу проверяется тем же способом, что и ping бэкапа: сеть
+# подменяется, а смотрим на то, КОГДА сигнал не уходит. Уходящий ping
+# проверить легко, и он же самый безобидный; цена ошибки - в обратном:
+# сторож, успокоенный после прогона, в котором расписание не доехало.
+
+
+def подменить_сторожа(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Возвращает список имён сигналов, ушедших наружу."""
+    сигналы: list[str] = []
+
+    def отправить(url: str, *, timeout: int, имя: str) -> None:
+        сигналы.append(имя)
+
+    monkeypatch.setattr(heartbeat, "отправить", отправить)
+    return сигналы
+
+
+def test_успешная_цепочка_сигналит_сторожу(база: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    сигналы = подменить_сторожа(monkeypatch)
+
+    выполнить_цепочку(
+        база,
+        настройки(jobs_heartbeat_url="https://hc.test/jobs"),
+        apply=True,
+        now=ПОЛДЕНЬ,
+        шаги=(шаг("раз"),),
+    )
+
+    assert сигналы == ["цепочка календаря"]
+
+
+def test_отказ_шага_оставляет_сторожа_без_сигнала(
+    база: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Сутки без единого удачного прогона - это и есть тот отказ, о котором
+    owner должен узнать письмом. Сигнал после неудачи его бы и скрыл."""
+    сигналы = подменить_сторожа(monkeypatch)
+
+    код = выполнить_цепочку(
+        база,
+        настройки(jobs_heartbeat_url="https://hc.test/jobs"),
+        apply=True,
+        now=ПОЛДЕНЬ,
+        шаги=(шаг("раз", код=1), шаг("два")),
+    )
+
+    assert код == 1
+    assert сигналы == []
+
+
+def test_dry_run_не_сигналит(база: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Прогон на машине разработки не должен гасить тревогу за плату."""
+    сигналы = подменить_сторожа(monkeypatch)
+
+    выполнить_цепочку(
+        база,
+        настройки(jobs_heartbeat_url="https://hc.test/jobs"),
+        apply=False,
+        now=ПОЛДЕНЬ,
+        шаги=(шаг("раз"),),
+    )
+
+    assert сигналы == []
+
+
+def test_молчание_сторожа_не_роняет_цепочку(база: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Работа сделана и записана. Ненулевой код из-за стороннего сервиса
+    означал бы, что догон при следующем старте пойдёт в ИСУ ещё раз."""
+
+    def падение(url: str, *, timeout: int, имя: str) -> None:
+        raise heartbeat.HeartbeatError("ping не дошёл")
+
+    monkeypatch.setattr(heartbeat, "отправить", падение)
+
+    код = выполнить_цепочку(
+        база,
+        настройки(jobs_heartbeat_url="https://hc.test/jobs"),
+        apply=True,
+        now=ПОЛДЕНЬ,
+        шаги=(шаг("раз"),),
+    )
+
+    assert код == 0
+    строка = строка_прогона(база)
+    assert строка is not None and строка.status == "ok"
+
+
+def test_ненастроенный_сторож_не_мешает_прогону(
+    база: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Пустой адрес - рабочее состояние: у бэкапа наоборот (ADR-020, ADR-043)."""
+
+    def запрещено(*a: object, **kw: object) -> None:
+        pytest.fail("пустой адрес не должен доходить до отправки")
+
+    monkeypatch.setattr(heartbeat, "отправить", запрещено)
+
+    код = выполнить_цепочку(
+        база, настройки(jobs_heartbeat_url=""), apply=True, now=ПОЛДЕНЬ, шаги=(шаг("раз"),)
+    )
+
+    assert код == 0

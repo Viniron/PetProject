@@ -323,8 +323,10 @@ class CaptureDraft(Base):
     # Текст, который вставили или надиктовали. Для фото пусто.
     source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Структура, извлечённая моделью: название, дата, время, место,
-    # уверенность. Схема ответа принадлежит слою моделей (Э8), поэтому
+    # уверенность. Схема ответа принадлежит слою моделей (Э12), поэтому
     # здесь jsonb, а не колонки: разложить их сейчас значило бы угадать.
+    # До Э12 поле пустое у всех черновиков, и это не заготовка, а состояние
+    # «не разобрано»: поля события приходят с формы подтверждения (Э8).
     extracted: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     # Разбор не удался - показываем честно (инвариант 9), а не выдумываем
     # правдоподобные поля.
@@ -548,16 +550,20 @@ class FinCategoryRule(Base):
     __table_args__ = (
         UniqueConstraint("rule_type", "pattern", name="uq_fin_category_rules_type_pattern"),
         CheckConstraint(
-            "rule_type in ('mcc', 'bank_category', 'merchant', 'sender')",
+            "rule_type in ('mcc', 'bank_category', 'merchant', 'sender', 'self')",
             name="rule_type_known",
         ),
         CheckConstraint("kind is null or kind in ('income', 'refund')", name="kind_known"),
         # Правило обязано что-то определять. Пустое правило - не безобидная
         # строка: разбор молча проходит мимо него, и причину «почему операция
-        # без категории» потом не найти.
+        # без категории» потом не найти. `self` определяет не категорию
+        # и не `kind`, а то, что этим написанием банк называет самого owner
+        # (ADR-041): категория и вид у такой операции решаются парой концов
+        # либо owner, поэтому обе колонки у неё пусты.
         CheckConstraint(
             "(rule_type = 'sender' and kind is not null)"
-            " or (rule_type <> 'sender' and category_key is not null)",
+            " or (rule_type = 'self' and kind is null and category_key is null)"
+            " or (rule_type not in ('sender', 'self') and category_key is not null)",
             name="rule_decides_something",
         ),
     )
@@ -567,6 +573,12 @@ class FinCategoryRule(Base):
     # Образец: код MCC, название категории банка, имя мерчанта или имя
     # отправителя из колонки «Описание».
     pattern: Mapped[str] = mapped_column(String(MEDIUM))
+    # Кого owner имел в виду. Т-Банк пишет отправителя как «Евгений В.»,
+    # а owner называет его «Вайнтруб Евгений Юрьевич»: сопоставлять надо
+    # с первым, а показывать owner второе. Без этой колонки список родных
+    # в книжке читался бы инициалами, и однофамильца в нём было бы не
+    # разглядеть - ровно ту ошибку, которой это правило и опасно (ADR-041).
+    title: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
     category_key: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
     kind: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
     created_at: Mapped[CreatedAt] = mapped_column()
@@ -626,6 +638,31 @@ class FinTransaction(Base):
             "offsets_transaction_id is null or amount > 0",
             name="offsets_only_incoming",
         ),
+        CheckConstraint(
+            "category_source is null or category_source in"
+            " ('mcc', 'bank_category', 'own_category', 'merchant', 'model', 'manual')",
+            name="category_source_known",
+        ),
+        # Категория обязана знать, откуда она взялась, - иначе переразбор
+        # не отличит ступень от ручной правки и затрёт вторую (§15.4).
+        # Обратное послабление намеренно: `manual` без категории - это
+        # «owner снял категорию руками», и переразбор не вправе вернуть её.
+        CheckConstraint(
+            "(category_id is not null and category_source is not null)"
+            " or (category_id is null and"
+            " (category_source is null or category_source = 'manual'))",
+            name="category_source_shape",
+        ),
+        CheckConstraint(
+            "kind_source in ('sign', 'default', 'sender_rule', 'transfer_pair', 'manual')",
+            name="kind_source_known",
+        ),
+        # Перевод себе - это две строки из двух файлов. Ссылка симметрична,
+        # но симметрию держит сервис: CHECK не видит другой строки.
+        CheckConstraint(
+            "transfer_pair_id is null or transfer_pair_id <> id",
+            name="transfer_pair_not_self",
+        ),
         Index("ix_fin_transactions_occurred_at", "occurred_at"),
         # Гашения расхода читаются при каждом показе строки и при расчёте
         # сальдо месяца - без индекса это перебор всей таблицы на каждую строку.
@@ -664,18 +701,44 @@ class FinTransaction(Base):
     analytics_hint: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     status: Mapped[str] = mapped_column(String(SHORT), server_default=text("'posted'"))
     kind: Mapped[str] = mapped_column(String(SHORT))
+    # Чем `kind` определён. `sign` - провизорно по знаку суммы: так пишет
+    # импорт, пока разбор не сказал большего. `default` - умолчание §15.5
+    # для входящего перевода, под который не нашлось правила отправителя:
+    # такая строка ещё и помечена `needs_review`, потому что «гасит расход»
+    # не должно случаться молча. Различие не косметическое: `expense` по знаку
+    # и `expense` по правилу - разные степени уверенности, и переразбор
+    # вправе переписать первое, но не ручное решение owner.
+    kind_source: Mapped[str] = mapped_column(String(SHORT), server_default=text("'sign'"))
     # Версия категории того месяца, в котором произошла операция (§15.4).
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("fin_categories.id", ondelete="SET NULL"), nullable=True
     )
+    # Ступень разбора, поставившая категорию (§15.4). Ради неё этап и начат:
+    # ручная правка сильнее любого правила и обязана пережить переимпорт,
+    # а отличить её от проставленного правилом больше нечем.
+    category_source: Mapped[str | None] = mapped_column(String(SHORT), nullable=True)
     # RESTRICT, а не CASCADE: §15.3 запрещает удалять операции вовсе -
     # исчезнувшая из выгрузки помечается `reverted`. Если удаление всё же
     # случится, база не даст оставить гашение без расхода.
     offsets_transaction_id: Mapped[int | None] = mapped_column(
         ForeignKey("fin_transactions.id", ondelete="RESTRICT"), nullable=True
     )
+    # Второй конец перевода между своими счетами (ADR-041): списание в одном
+    # банке и зачисление в другом. Хранится, а не пересчитывается: «почему
+    # эта операция transfer» обязано отвечаться строкой, иначе снятие пометки
+    # owner переживёт ровно до следующего разбора.
+    transfer_pair_id: Mapped[int | None] = mapped_column(
+        ForeignKey("fin_transactions.id", ondelete="RESTRICT"), nullable=True
+    )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     excluded: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Очередь «Требует внимания» (§15.3, §15.6): операция не разобрана до
+    # решения owner и в сальдо не входит. Заводится импортом на Ф3 в одном
+    # случае - неоднозначном кандидате на дозревание, когда выбор между
+    # «дозрело» и «вторая настоящая покупка» стоит денег. Отдельной колонкой,
+    # а не пустой категорией: пустая категория на Ф3 у всех операций, и
+    # очередь разбора совпала бы со всей книжкой.
+    needs_review: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
     fingerprint: Mapped[str] = mapped_column(String(64))
     # Номер внутри группы одинаковых операций. Единица - не «первая
     # и единственная», а «первая из сколько-нибудь».
@@ -723,3 +786,102 @@ class FinSummary(Base):
     tokens_out: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
     created_at: Mapped[CreatedAt] = mapped_column()
+
+
+class FinWeekBudget(Base):
+    """Бюджет одной недели и итог её распределения (§15.10, ADR-038).
+
+    **Неделя - понедельник-воскресенье в зоне owner,** и первый день держит
+    CHECK, а не аккуратность вызывающего. Это редкий случай, когда правило
+    выразимо в базе: оно не зависит ни от «сейчас», ни от соседних строк.
+    Неделя, заведённая со среды, дала бы пересечение с соседней и двойной
+    учёт одного дня - тихое искажение лимита, а не падение.
+
+    **`amount` допускает NULL,** потому что строка может существовать ради
+    одной лишь поправки `carry_adjust`, когда бюджет на эту неделю ещё
+    не внесён. «Бюджет не задан» - это отсутствие строки **или** NULL;
+    обе формы дают на экране «бюджет не задан», а не ноль (§10).
+
+    **Переноса от предыдущей недели здесь нет намеренно.** Он равен `to_next`
+    предыдущей строки - одна ссылка назад, производная. Вторая копия
+    разошлась бы с первой ровно в тот момент, когда owner переиграл бы
+    распределение.
+
+    **`settled_spend` - снимок трат недели на момент распределения,**
+    по образцу `fin_summaries.basis`. Гашение расхода задним числом (окно -
+    текущий месяц и предыдущий, §15.5) меняет траты уже закрытой недели.
+    Переигрывать её итог нельзя: решение owner о том, куда девать излишек,
+    уже принято. Поэтому разница между снимком и фактом уходит поправкой
+    в текущую неделю, а снимок сдвигается - иначе одна и та же поправка
+    применялась бы каждую неделю заново.
+    """
+
+    __tablename__ = "fin_week_budgets"
+    __table_args__ = (
+        UniqueConstraint("week_start", name="uq_fin_week_budgets_week_start"),
+        CheckConstraint("extract(isodow from week_start) = 1", name="week_starts_on_monday"),
+        CheckConstraint("amount is null or amount >= 0", name="amount_not_negative"),
+        # Распределение недели - одно событие, а не три поля, заполняемых
+        # по одному. Половина решения (есть `to_next`, нет `settled_at`)
+        # читалась бы как «неделя ещё открыта», и перенос попал бы
+        # в следующую неделю дважды.
+        CheckConstraint(
+            "(settled_at is null) = (to_next is null)"
+            " and (settled_at is null) = (to_savings is null)"
+            " and (settled_at is null) = (settled_spend is null)",
+            name="settled_all_or_nothing",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # Понедельник недели, в зоне owner. `Date`, а не `Timestamp`: это
+    # календарные сутки, а не момент времени, - как `fin_imports.period_start`.
+    week_start: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # Поправка задним числом. Хранится, в отличие от переноса, потому что это
+    # событие: разница между снимком закрытой недели и её пересчитанным фактом.
+    carry_adjust: Mapped[Decimal] = mapped_column(Numeric(12, 2), server_default=text("0"))
+    # Куда ушёл итог недели. Два числа, а не выбор из двух: owner сказал
+    # «распределить», и половину излишка в копилку, половину в следующую
+    # неделю это покрывает без единой лишней строки кода. Отрицательные
+    # значения - перерасход: минусом в следующую неделю либо из копилки.
+    to_next: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    to_savings: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    settled_spend: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    settled_at: Mapped[Timestamp | None] = mapped_column(nullable=True)
+    created_at: Mapped[CreatedAt] = mapped_column()
+    updated_at: Mapped[Timestamp] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class FinDaySpend(Base):
+    """Сумма, внесённая owner за один день (§15.10).
+
+    **Это не операция и не её замена.** Операции приезжают выпиской раз
+    в неделю (§15.1), а лимит нужен каждый вечер - до того, как выписка
+    существует. Поэтому день, ещё не покрытый выпиской, считается по этой
+    строке, а покрытый - по `fin_transactions`.
+
+    **Строка при этом не стирается импортом.** Она остаётся рядом
+    с посчитанной по выписке суммой, и расхождение («вносил 1 200 ₽,
+    в выписке 1 480 ₽») видно на экране. Стереть значило бы потерять
+    единственный признак того, что owner систематически недосчитывает -
+    признак, которого больше взять неоткуда.
+
+    Одна строка на день: повторный ввод правит сумму, а не копит варианты.
+    """
+
+    __tablename__ = "fin_day_spend"
+    __table_args__ = (
+        UniqueConstraint("day", name="uq_fin_day_spend_day"),
+        # Внесённая руками трата неотрицательна. Возврат руками не вносится:
+        # у него есть исходная покупка, и гасит он её привязкой (§15.5),
+        # а не отрицательным днём.
+        CheckConstraint("amount >= 0", name="amount_not_negative"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    day: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[CreatedAt] = mapped_column()
+    updated_at: Mapped[Timestamp] = mapped_column(server_default=func.now(), onupdate=func.now())

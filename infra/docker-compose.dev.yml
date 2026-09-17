@@ -42,3 +42,27 @@ services:
       timeout: 3s
       retries: 10
       start_period: 15s
+
+  # Прогон тестов внутри образа, рядом с эфемерной базой (профиль `test`,
+  # поэтому обычный `up` его не поднимает). Причина существования -
+  # в `Dockerfile.api`, стадия `dev`: на Windows машины owner Smart App
+  # Control блокирует драйвер psycopg, и прогон с базой падает на импорте.
+  api-test:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+      target: dev
+    profiles: ["test"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+    environment:
+      # Имя сервиса, а не 127.0.0.1: изнутри сети compose проброшенный
+      # на хост порт 55432 не существует.
+      TEST_DATABASE_URL: postgresql+psycopg://jarvis:jarvis-test-not-a-secret@db-test:5432/jarvis_test
+    volumes:
+      # Весь репозиторий, а не только `apps/api`: тесты сверяют контракт
+      # в `packages/` и разбирают сам compose в `infra/`. Смонтируешь
+      # одну папку - эти тесты падают с FileNotFoundError, то есть
+      # прогон в контейнере проверял бы меньше, чем прогон на машине.
+      - ..:/app

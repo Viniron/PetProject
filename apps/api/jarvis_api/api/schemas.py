@@ -17,10 +17,13 @@
 """
 
 import datetime as dt
+import uuid
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jarvis_api.domain.calendar import Вид, Источник, СостояниеДавности, СостояниеПортала
+from jarvis_api.domain.capture import ПРЕДЕЛ_МЕСТА, ПРЕДЕЛ_НАЗВАНИЯ, Модальность
 from jarvis_api.domain.day_flags import АВТОПОМЕТКА, ПРЕДЕЛ_ЗАМЕТКИ, ПРЕДЕЛ_ПРИЧИНЫ
 
 
@@ -176,3 +179,145 @@ class DayFlagsOut(BaseModel):
     """
 
     flags: list[DayFlagOut]
+
+
+class CaptureDraftIn(BaseModel):
+    """Тело `POST /api/capture/drafts` (Э8, §8.4).
+
+    Модальность объявлена всеми тремя значениями, хотя принимается одна:
+    контракт обязан показывать, что режимов три, а отказ по фотографии
+    и голосу - назвать причину. Спрятать их из перечисления значило бы
+    описать продукт, которого не задумывали (решение owner 2026-09-17:
+    режимы видны, но погашены).
+    """
+
+    modality: Модальность = Field(default="text", description="Вид входа: текст, фото или голос")
+    text: str | None = Field(
+        default=None,
+        description="Что вставили или напечатали. Обязателен для modality=text",
+    )
+
+    @field_validator("text")
+    @classmethod
+    def _текст_не_пустой(cls, значение: str | None) -> str | None:
+        """Пробелы текстом не считаются.
+
+        Пустой черновик прошёл бы до формы подтверждения и превратился бы
+        в событие из ничего: разбирать нечего, поля пустые, а запись
+        в календарь при этом законна.
+        """
+        if значение is None:
+            return None
+        очищенное = значение.strip()
+        if not очищенное:
+            raise ValueError("текст захвата пуст")
+        return очищенное
+
+    @model_validator(mode="after")
+    def _текстовому_входу_нужен_текст(self) -> "CaptureDraftIn":
+        if self.modality == "text" and self.text is None:
+            raise ValueError("для modality=text поле text обязательно")
+        return self
+
+
+class CaptureDraftOut(BaseModel):
+    """Черновик захвата.
+
+    `extracted` и `error` приходят пустыми до слоя моделей (Э12), и это
+    состояние клиент обязан различать: пустой разбор означает «поля
+    заполняет owner», а не «модель ничего не нашла».
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    modality: Модальность
+    source_text: str | None
+    extracted: dict[str, Any] | None = Field(
+        default=None, description="Структура от модели. До слоя моделей - null"
+    )
+    error: str | None = Field(default=None, description="Разбор не удался - причина")
+    created_at: dt.datetime
+
+
+class CaptureDraftsOut(BaseModel):
+    """Ответ `GET /api/capture/drafts`.
+
+    Объектом, а не голым массивом, по той же причине, что и периоды:
+    массив на верхнем уровне нельзя расширить ни одним полем, не сломав
+    клиента.
+    """
+
+    drafts: list[CaptureDraftOut]
+
+
+class CaptureConfirmIn(BaseModel):
+    """Тело `POST /api/capture/drafts/{id}/confirm` - форма подтверждения.
+
+    Дата и время обязательны и не угадываются. `CLAUDE.md` требует этого
+    прямо: нет даты или низкая уверенность - спросить, а не подставить
+    правдоподобное. Поэтому у полей нет умолчаний вроде «сегодня» и «час
+    от текущего момента»: событие без времени в календарь не попадает.
+    """
+
+    title: str = Field(min_length=1, max_length=ПРЕДЕЛ_НАЗВАНИЯ)
+    starts_at: dt.datetime
+    ends_at: dt.datetime
+    location: str | None = Field(default=None, max_length=ПРЕДЕЛ_МЕСТА)
+    description: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def _название_не_пустое(cls, значение: str) -> str:
+        очищенное = значение.strip()
+        if not очищенное:
+            raise ValueError("название события не может быть пустым")
+        return очищенное
+
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def _время_с_зоной(cls, значение: dt.datetime) -> dt.datetime:
+        """Инвариант 7: наивного времени в системе нет.
+
+        Момент без зоны от клиента - это «17:00 неизвестно где». Принять
+        его значило бы записать событие в UTC и показать owner на три часа
+        раньше; отказ с внятным текстом честнее.
+        """
+        if значение.tzinfo is None:
+            raise ValueError("время без часового пояса (инвариант 7): ожидается ISO со смещением")
+        return значение
+
+    @model_validator(mode="after")
+    def _конец_позже_начала(self) -> "CaptureConfirmIn":
+        """Событие нулевой длины тоже отвергается.
+
+        Смежные события конфликтом не считаются (§8.4), но событие,
+        которое кончается в момент своего начала, - это не расписание,
+        а опечатка в одном из двух полей.
+        """
+        if self.ends_at <= self.starts_at:
+            raise ValueError(
+                f"событие кончается не позже начала: {self.starts_at} .. {self.ends_at}"
+            )
+        return self
+
+
+class CapturedEventOut(BaseModel):
+    """Событие, созданное из черновика: ответ на подтверждение.
+
+    `sync_state` здесь не служебная подробность, а то, что экран показывает
+    словами. Событие принято и лежит в базе (инвариант 1: backend -
+    источник истины), но в Google оно попадает отдельным шагом, и до тех
+    пор честный ответ - «записывается», а не готовое (инвариант 9).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    key: str = Field(description="external_key события: capture:<id черновика>")
+    title: str
+    starts_at: dt.datetime
+    ends_at: dt.datetime
+    location: str | None
+    description: str | None
+    sync_state: str = Field(description="pending - в очереди в Google, synced - записано")
+    synced_at: dt.datetime | None
