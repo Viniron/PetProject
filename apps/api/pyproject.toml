@@ -127,8 +127,16 @@ packages = [
     "jarvis_api.integrations.itmo",
     "jarvis_api.integrations.gcal",
     "jarvis_api.integrations.statements",
+    "jarvis_api.integrations.llm",
     "jarvis_api.jobs",
 ]
+
+# Промпты (Э12а). Не код, но без них слой моделей не работает, а `packages`
+# тянет в дистрибутив только .py - в образе каталог оказался бы пустым,
+# и отказ случился бы на первом живом вызове, а не на сборке. Тот же класс
+# ошибки, что с подпакетами выше, только тише.
+[tool.setuptools.package-data]
+jarvis_api = ["prompts/*.md"]
 
 [tool.ruff]
 target-version = "py312"

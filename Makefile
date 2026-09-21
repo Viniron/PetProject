@@ -38,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show         backup backup-apply restore-check restore-check-apply
+.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply         backup backup-apply restore-check restore-check-apply
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -101,6 +101,10 @@ help:
 	@echo "finance-offset-unlink - drop the link, dry-run: make finance-offset-unlink income=12 (stage F4b)"
 	@echo "finance-offset-unlink-apply - the same, writing (stage F4b)"
 	@echo "finance-offset-show  - show what an expense really cost: make finance-offset-show expense=34 (stage F4b)"
+	@echo "finance-balance      - month balance, saved and left: make finance-balance month=2026-08 (stage F5)"
+	@echo "finance-balance-pi   - the same inside the api container on the Pi (stage F5)"
+	@echo "finance-accounts     - show account roles; with bank=/account=/role= a dry-run of the change (stage F5)"
+	@echo "finance-accounts-apply - the same, writing the role (stage F5)"
 	@echo "web-install   - install frontend dependencies from the lockfile (stage E7)"
 	@echo "web-dev       - run the frontend with reload on :3000 (stage E7)"
 	@echo "web-build     - export the frontend to apps/web/out (stage E7)"
@@ -109,6 +113,8 @@ help:
 	@echo "web-client    - regenerate the API client types from the contract (stage E7)"
 	@echo "tunnel-check     - preflight before switching the tunnel on (stage E7)"
 	@echo "tunnel-check-pi  - the same inside the running stack on the Pi (stage E7)"
+	@echo "llm-routes       - print model assignment parsed from LLM_ROUTING (stage E12a)"
+	@echo "llm-routes-pi    - the same inside the running stack on the Pi (stage E12a)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
@@ -415,6 +421,36 @@ finance-offset-unlink-apply:
 finance-offset-show:
 	$(PY) -m jarvis_api.jobs.finance_offset $(ПОКАЗАТЬ)
 
+# Сальдо месяца, «Отложено» и «Осталось» (Ф5, §15.5). Только чтение:
+# сальдо нигде не хранится, оно пересчитывается из операций при каждом
+# показе - хранимая копия разошлась бы с книжкой в первый же день, когда
+# гашение задним числом пересчитает закрытый месяц.
+#
+# Без month= показывается текущий месяц в зоне owner, поэтому аргумент
+# необязателен, в отличие от гашения: обзор без аргумента осмыслен.
+МЕСЯЦ = $(if $(month),--month $(month),)
+
+finance-balance:
+	$(PY) -m jarvis_api.jobs.finance_balance $(МЕСЯЦ)
+
+finance-balance-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_balance $(МЕСЯЦ)
+
+# Роли своих счетов (Ф5, §15.5). Счета заводит импорт с ролью unknown,
+# роль ставит owner - по ней считается «Отложено» и по ней же разбор
+# отличает перевод себе от перевода человеку (ADR-041).
+#
+# Без аргументов - показ. Разметка требует всех трёх сразу, и это
+# проверяет джоб, а не make: частичные аргументы должны давать внятный
+# отказ, а не молчаливый показ вместо записи.
+СЧЁТ = $(if $(bank),--bank "$(bank)",) $(if $(account),--account "$(account)",) $(if $(role),--role $(role),)
+
+finance-accounts:
+	$(PY) -m jarvis_api.jobs.finance_accounts $(СЧЁТ)
+
+finance-accounts-apply:
+	$(PY) -m jarvis_api.jobs.finance_accounts $(СЧЁТ) --apply
+
 # --- Фронт (Э7) ------------------------------------------------------------
 # ci, а не install: ставится ровно то, что в package-lock.json. Иначе
 # у owner, в образе и в CI оказываются разные версии одной зависимости,
@@ -460,3 +496,16 @@ tunnel-check:
 # каким пойдёт запрос из туннеля.
 tunnel-check-pi:
 	$(DC_PI) exec api python -m jarvis_api.jobs.tunnel_check --api http://127.0.0.1:8000 --web http://web:8080
+
+# Что назначено моделям. Ни строчки наружу и ни одного обращения к базе:
+# отвечает на вопрос «доехал ли LLM_ROUTING до процесса и так ли он разобран»,
+# который иначе проверяется первым живым вызовом. Опечатка в JSON и «задача
+# не назначена» выглядят одинаково, а чинятся по-разному.
+llm-routes:
+	$(PY) -m jarvis_api.jobs.llm_routes
+
+# exec, а не run: важно именно то окружение, которое видит работающий процесс.
+# Одноразовый контейнер прочитал бы .env заново и показал бы не то, чем живёт
+# API, - ровно та подмена, ради обнаружения которой цель и существует.
+llm-routes-pi:
+	$(DC_PI) exec api python -m jarvis_api.jobs.llm_routes
