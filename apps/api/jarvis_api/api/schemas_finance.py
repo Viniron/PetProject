@@ -426,3 +426,170 @@ class ImportOut(BaseModel):
         default=None,
         description="Разбор после записи. null в dry-run: разбирать нечего",
     )
+    corrected_weeks: list[dt.date] = Field(
+        default_factory=list,
+        description=(
+            "Распределённые недели бюджета, чьи траты выписка изменила задним числом"
+            " (§15.10): разница ушла поправкой вперёд. Пусто в dry-run"
+        ),
+    )
+
+
+# --- недельный бюджет (Ф13) -------------------------------------------------
+
+
+class BudgetDayOut(BaseModel):
+    """Один день недели: сколько потрачено и откуда это известно (§15.10)."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    day: dt.date = Field(validation_alias="день")
+    amount: Decimal | None = Field(
+        validation_alias="сумма",
+        description="null - сумма неизвестна. Это не ноль: ноль закрывает день",
+    )
+    source: str = Field(validation_alias="источник", description="statement, manual или unknown")
+    manual: Decimal | None = Field(
+        validation_alias="ручная", description="Что внёс owner, даже если сумма выше из выписки"
+    )
+    discrepancy: Decimal | None = Field(
+        validation_alias="расхождение",
+        description="Выписка минус слова owner. Положительное - потрачено больше, чем он думал",
+    )
+
+
+class LimitOut(BaseModel):
+    """Ответ на вопрос «сколько можно потратить» (§15.10)."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    amount: Decimal | None = Field(
+        validation_alias="сумма",
+        description="null - бюджет не задан либо открытых дней не осталось. Не ноль",
+    )
+    for_day: dt.date | None = Field(
+        validation_alias="на_день",
+        description="День, к которому относится сумма. Экран обязан его подписать",
+    )
+    open_days: int = Field(validation_alias="открытых_дней", description="Делитель лимита")
+    days_without_amount: int = Field(
+        validation_alias="дней_без_суммы",
+        description="Прошедшие дни без суммы: в расчёт идут нулём, и экран обязан их назвать",
+    )
+    budget_set: bool = Field(validation_alias="бюджет_задан")
+    spent: Decimal = Field(validation_alias="потрачено", description="Сумма известных дней")
+    remainder: Decimal = Field(
+        validation_alias="остаток", description="Бюджет с переносом минус траты. Минус - перерасход"
+    )
+
+
+class OutcomeOut(BaseModel):
+    """Итог недели, готовой к распределению."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    week_start: dt.date = Field(validation_alias="начало")
+    amount: Decimal = Field(
+        validation_alias="сумма", description="Плюс - излишек, минус - перерасход"
+    )
+    spent: Decimal = Field(validation_alias="потрачено")
+    settled: bool = Field(validation_alias="распределена")
+
+
+class SettlementOut(BaseModel):
+    """Решение owner о том, куда ушёл итог недели."""
+
+    to_next: Decimal = Field(description="В следующую неделю. Минус - перерасход переносом")
+    to_savings: Decimal = Field(description="В копилку. Минус - покрытие перерасхода из неё")
+    settled_spend: Decimal = Field(
+        description="Снимок трат на момент решения. Расходится с spent - неделю поправили позже"
+    )
+    settled_at: dt.datetime
+
+
+class BudgetWeekOut(BaseModel):
+    """Неделя целиком: бюджет, перенос, семь дней, лимит и итог."""
+
+    week_start: dt.date
+    week_end: dt.date
+    budget: Decimal | None = Field(description="null - бюджет не задан. Не ноль и не среднее")
+    carry: Decimal = Field(description="Итог предыдущей недели плюс поправки задним числом")
+    spent: Decimal = Field(description="Сумма известных дней")
+    settled: bool
+    days: list[BudgetDayOut]
+    limit: LimitOut
+    ready_to_settle: bool = Field(description="Неделя прошла целиком либо все семь дней известны")
+    outcome: OutcomeOut | None = Field(description="null - неделя ещё не готова к распределению")
+    settlement: SettlementOut | None = Field(description="null - owner ещё не распределил итог")
+
+
+class BudgetOut(BaseModel):
+    """Ответ `GET /api/finance/budget` - экран 15 дизайна."""
+
+    week: BudgetWeekOut
+    today: dt.date = Field(description="Сегодня в зоне owner: от него считаются открытые дни")
+    timezone: str
+    covered_through: dt.date | None = Field(
+        description="Последний день, покрытый выписками всех банков. null - покрытия нет"
+    )
+    savings_jar: Decimal = Field(
+        description="«Отложено бюджетом»: виртуальная копилка, сумма решений owner"
+    )
+    saved_real: Decimal | None = Field(
+        description=(
+            "«Отложено» (§15.5) за всё время: настоящие переводы на счета savings."
+            " Разница с savings_jar - напоминание перевести деньги. null - счета не размечены"
+        )
+    )
+
+
+class BudgetWeeksOut(BaseModel):
+    """Ответ `GET /api/finance/budget/weeks`: недели подряд, для ввода вперёд."""
+
+    from_week: dt.date
+    weeks: list[BudgetWeekOut]
+
+
+class WeekBudgetIn(BaseModel):
+    """Тело `PUT /api/finance/budget/weeks/{week_start}`."""
+
+    amount: Decimal = Field(ge=0, description="Бюджет недели. Отрицательного бюджета не бывает")
+
+
+class DaySpendIn(BaseModel):
+    """Тело `PUT /api/finance/budget/days/{day}`.
+
+    Возврат сюда не вносится отрицательной суммой: у него есть исходная
+    покупка, и гасит он её привязкой (§15.5).
+    """
+
+    amount: Decimal = Field(ge=0, description="Сколько потрачено за день")
+    note: str | None = None
+
+
+class DaySpendOut(BaseModel):
+    """Ответ на ввод и снятие суммы дня."""
+
+    day: dt.date
+    amount: Decimal | None = Field(description="null после снятия: день снова «неизвестен»")
+    previous: Decimal | None = Field(description="Что стояло за день до этого")
+    corrected_weeks: list[dt.date] = Field(
+        description=(
+            "Распределённые недели, чей снимок трат разошёлся с фактом:"
+            " поправка ушла в ближайшую нераспределённую"
+        )
+    )
+    week: BudgetWeekOut = Field(description="Неделя после записи: лимит считает сервер, не экран")
+
+
+class SettleIn(BaseModel):
+    """Тело `POST /api/finance/budget/weeks/{week_start}/settle`.
+
+    Два числа, а не выбор из двух: половину излишка в копилку, половину
+    в следующую неделю - законное решение owner. Сумма обязана сойтись
+    с итогом недели, иначе отказ: доложить недостающее молча значило бы
+    решить за него, куда девать его деньги.
+    """
+
+    to_next: Decimal = Field(description="В следующую неделю. Минус - перенос перерасхода")
+    to_savings: Decimal = Field(description="В копилку. Минус - покрытие перерасхода из неё")

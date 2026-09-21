@@ -143,6 +143,248 @@
         "title": "BreakdownOut",
         "type": "object"
       },
+      "BudgetDayOut": {
+        "description": "Один день недели: сколько потрачено и откуда это известно (§15.10).",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - сумма неизвестна. Это не ноль: ноль закрывает день",
+            "title": "Amount"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "discrepancy": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Выписка минус слова owner. Положительное - потрачено больше, чем он думал",
+            "title": "Discrepancy"
+          },
+          "manual": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Что внёс owner, даже если сумма выше из выписки",
+            "title": "Manual"
+          },
+          "source": {
+            "description": "statement, manual или unknown",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "amount",
+          "source",
+          "manual",
+          "discrepancy"
+        ],
+        "title": "BudgetDayOut",
+        "type": "object"
+      },
+      "BudgetOut": {
+        "description": "Ответ `GET /api/finance/budget` - экран 15 дизайна.",
+        "properties": {
+          "covered_through": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Последний день, покрытый выписками всех банков. null - покрытия нет",
+            "title": "Covered Through"
+          },
+          "saved_real": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "«Отложено» (§15.5) за всё время: настоящие переводы на счета savings. Разница с savings_jar - напоминание перевести деньги. null - счета не размечены",
+            "title": "Saved Real"
+          },
+          "savings_jar": {
+            "description": "«Отложено бюджетом»: виртуальная копилка, сумма решений owner",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Savings Jar",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "today": {
+            "description": "Сегодня в зоне owner: от него считаются открытые дни",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "week": {
+            "$ref": "#/components/schemas/BudgetWeekOut"
+          }
+        },
+        "required": [
+          "week",
+          "today",
+          "timezone",
+          "covered_through",
+          "savings_jar",
+          "saved_real"
+        ],
+        "title": "BudgetOut",
+        "type": "object"
+      },
+      "BudgetWeekOut": {
+        "description": "Неделя целиком: бюджет, перенос, семь дней, лимит и итог.",
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - бюджет не задан. Не ноль и не среднее",
+            "title": "Budget"
+          },
+          "carry": {
+            "description": "Итог предыдущей недели плюс поправки задним числом",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Carry",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetDayOut"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "limit": {
+            "$ref": "#/components/schemas/LimitOut"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OutcomeOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - неделя ещё не готова к распределению"
+          },
+          "ready_to_settle": {
+            "description": "Неделя прошла целиком либо все семь дней известны",
+            "title": "Ready To Settle",
+            "type": "boolean"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "settlement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SettlementOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - owner ещё не распределил итог"
+          },
+          "spent": {
+            "description": "Сумма известных дней",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent",
+            "type": "string"
+          },
+          "week_end": {
+            "format": "date",
+            "title": "Week End",
+            "type": "string"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week_start",
+          "week_end",
+          "budget",
+          "carry",
+          "spent",
+          "settled",
+          "days",
+          "limit",
+          "ready_to_settle",
+          "outcome",
+          "settlement"
+        ],
+        "title": "BudgetWeekOut",
+        "type": "object"
+      },
+      "BudgetWeeksOut": {
+        "description": "Ответ `GET /api/finance/budget/weeks`: недели подряд, для ввода вперёд.",
+        "properties": {
+          "from_week": {
+            "format": "date",
+            "title": "From Week",
+            "type": "string"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "from_week",
+          "weeks"
+        ],
+        "title": "BudgetWeeksOut",
+        "type": "object"
+      },
       "CalendarOut": {
         "description": "Сетка календаря на период: ответ `GET /api/calendar`.",
         "properties": {
@@ -656,6 +898,99 @@
         "title": "DayOut",
         "type": "object"
       },
+      "DaySpendIn": {
+        "description": "Тело `PUT /api/finance/budget/days/{day}`.\n\nВозврат сюда не вносится отрицательной суммой: у него есть исходная\nпокупка, и гасит он её привязкой (§15.5).",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "description": "Сколько потрачено за день",
+            "title": "Amount"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "DaySpendIn",
+        "type": "object"
+      },
+      "DaySpendOut": {
+        "description": "Ответ на ввод и снятие суммы дня.",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null после снятия: день снова «неизвестен»",
+            "title": "Amount"
+          },
+          "corrected_weeks": {
+            "description": "Распределённые недели, чей снимок трат разошёлся с фактом: поправка ушла в ближайшую нераспределённую",
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Corrected Weeks",
+            "type": "array"
+          },
+          "day": {
+            "format": "date",
+            "title": "Day",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Что стояло за день до этого",
+            "title": "Previous"
+          },
+          "week": {
+            "$ref": "#/components/schemas/BudgetWeekOut",
+            "description": "Неделя после записи: лимит считает сервер, не экран"
+          }
+        },
+        "required": [
+          "day",
+          "amount",
+          "previous",
+          "corrected_weeks",
+          "week"
+        ],
+        "title": "DaySpendOut",
+        "type": "object"
+      },
       "EditOut": {
         "description": "Ответ на правку: что изменилось и что из этого запомнено правилом.",
         "properties": {
@@ -1060,6 +1395,15 @@
             "title": "Applied",
             "type": "boolean"
           },
+          "corrected_weeks": {
+            "description": "Распределённые недели бюджета, чьи траты выписка изменила задним числом (§15.10): разница ушла поправкой вперёд. Пусто в dry-run",
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Corrected Weeks",
+            "type": "array"
+          },
           "failed": {
             "description": "Файлов отклонено. Остальные файлы захода обработаны",
             "title": "Failed",
@@ -1154,6 +1498,74 @@
           "needs_review"
         ],
         "title": "ImportRowOut",
+        "type": "object"
+      },
+      "LimitOut": {
+        "description": "Ответ на вопрос «сколько можно потратить» (§15.10).",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - бюджет не задан либо открытых дней не осталось. Не ноль",
+            "title": "Amount"
+          },
+          "budget_set": {
+            "title": "Budget Set",
+            "type": "boolean"
+          },
+          "days_without_amount": {
+            "description": "Прошедшие дни без суммы: в расчёт идут нулём, и экран обязан их назвать",
+            "title": "Days Without Amount",
+            "type": "integer"
+          },
+          "for_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "День, к которому относится сумма. Экран обязан его подписать",
+            "title": "For Day"
+          },
+          "open_days": {
+            "description": "Делитель лимита",
+            "title": "Open Days",
+            "type": "integer"
+          },
+          "remainder": {
+            "description": "Бюджет с переносом минус траты. Минус - перерасход",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remainder",
+            "type": "string"
+          },
+          "spent": {
+            "description": "Сумма известных дней",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "for_day",
+          "open_days",
+          "days_without_amount",
+          "budget_set",
+          "spent",
+          "remainder"
+        ],
+        "title": "LimitOut",
         "type": "object"
       },
       "MonthOut": {
@@ -1321,6 +1733,39 @@
           "surplus"
         ],
         "title": "OffsetPartOut",
+        "type": "object"
+      },
+      "OutcomeOut": {
+        "description": "Итог недели, готовой к распределению.",
+        "properties": {
+          "amount": {
+            "description": "Плюс - излишек, минус - перерасход",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "spent": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Spent",
+            "type": "string"
+          },
+          "week_start": {
+            "format": "date",
+            "title": "Week Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week_start",
+          "amount",
+          "spent",
+          "settled"
+        ],
+        "title": "OutcomeOut",
         "type": "object"
       },
       "OverviewOut": {
@@ -1608,6 +2053,79 @@
           "rules"
         ],
         "title": "RulesOut",
+        "type": "object"
+      },
+      "SettleIn": {
+        "description": "Тело `POST /api/finance/budget/weeks/{week_start}/settle`.\n\nДва числа, а не выбор из двух: половину излишка в копилку, половину\nв следующую неделю - законное решение owner. Сумма обязана сойтись\nс итогом недели, иначе отказ: доложить недостающее молча значило бы\nрешить за него, куда девать его деньги.",
+        "properties": {
+          "to_next": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "description": "В следующую неделю. Минус - перенос перерасхода",
+            "title": "To Next"
+          },
+          "to_savings": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "description": "В копилку. Минус - покрытие перерасхода из неё",
+            "title": "To Savings"
+          }
+        },
+        "required": [
+          "to_next",
+          "to_savings"
+        ],
+        "title": "SettleIn",
+        "type": "object"
+      },
+      "SettlementOut": {
+        "description": "Решение owner о том, куда ушёл итог недели.",
+        "properties": {
+          "settled_at": {
+            "format": "date-time",
+            "title": "Settled At",
+            "type": "string"
+          },
+          "settled_spend": {
+            "description": "Снимок трат на момент решения. Расходится с spent - неделю поправили позже",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Settled Spend",
+            "type": "string"
+          },
+          "to_next": {
+            "description": "В следующую неделю. Минус - перерасход переносом",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "To Next",
+            "type": "string"
+          },
+          "to_savings": {
+            "description": "В копилку. Минус - покрытие перерасхода из неё",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "To Savings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to_next",
+          "to_savings",
+          "settled_spend",
+          "settled_at"
+        ],
+        "title": "SettlementOut",
         "type": "object"
       },
       "TransactionCardOut": {
@@ -1988,6 +2506,30 @@
           "transactions"
         ],
         "title": "TransactionsOut",
+        "type": "object"
+      },
+      "WeekBudgetIn": {
+        "description": "Тело `PUT /api/finance/budget/weeks/{week_start}`.",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "description": "Бюджет недели. Отрицательного бюджета не бывает",
+            "title": "Amount"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "WeekBudgetIn",
         "type": "object"
       },
       "jarvis_api__api__schemas__FreshnessOut": {
@@ -2957,6 +3499,550 @@
           }
         },
         "summary": "Роль счёта: расчётный или накопительный",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/budget": {
+      "get": {
+        "description": "Сколько можно потратить и в какой день (§15.10, экран 15 дизайна).\n\nЧитает и только читает: поправки задним числом разносит тот, кто меняет\nтраты, - ввод дня и импорт выписки. Побочная запись в GET сделала бы\nпоказ лимита неповторимым.\n\nКопилка и «Отложено» отдаются вместе и намеренно: это разные цифры,\nи разница между ними - напоминание перевести деньги на самом деле.",
+        "operationId": "бюджет_api_finance_budget_get",
+        "parameters": [
+          {
+            "description": "Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner",
+            "in": "query",
+            "name": "week",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner",
+              "title": "Week"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Неделя бюджета и дневной лимит",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/budget/days/{day}": {
+      "delete": {
+        "description": "Возврат дня в «неизвестно» - единственный способ отменить ошибочный ввод.\n\nПравкой это не чинится: нолём день закрыт так же, как любой суммой, -\nон выходит из делителя и завышает лимит остальных дней.",
+        "operationId": "снять_трату_дня_api_finance_budget_days__day__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaySpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Снять внесённую трату за день",
+        "tags": [
+          "finance"
+        ]
+      },
+      "put": {
+        "description": "Вечерний ввод owner - то, чем книжка живёт до приезда выписки (§15.10).\n\nПоправки в закрытые недели разносятся здесь же: §15.10 поручает разнос\nтому, кто меняет траты, и ввод дня - один из двух таких путей. Второй -\nимпорт выписки.",
+        "operationId": "внести_трату_дня_api_finance_budget_days__day__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DaySpendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaySpendOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Внести трату за день",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/budget/weeks": {
+      "get": {
+        "description": "Список для ввода бюджета вперёд: owner вносит его обычно на месяц.\n\nНедели, которой нет в базе, список не пропускает: «бюджет не задан» -\nэто ответ, а дыра выглядела бы как сбой выборки.",
+        "operationId": "недели_бюджета_api_finance_budget_weeks_get",
+        "parameters": [
+          {
+            "description": "Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Сколько недель отдать подряд",
+            "in": "query",
+            "name": "weeks",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "description": "Сколько недель отдать подряд",
+              "maximum": 26,
+              "minimum": 1,
+              "title": "Weeks",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetWeeksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Недели подряд",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/budget/weeks/{week_start}": {
+      "put": {
+        "description": "Бюджет на неделю вперёд или правка внесённого (§15.10).\n\nПравка распределённой недели разрешена: сумма с опечаткой иначе осталась\nбы в книжке навсегда. Само распределение при этом не трогается - перенос\nравен решению owner, а не пересчитанному итогу, и чтобы новая сумма дошла\nдо следующей недели, owner переигрывает распределение сам.",
+        "operationId": "внести_бюджет_недели_api_finance_budget_weeks__week_start__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "week_start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Week Start",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeekBudgetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetWeekOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Внести бюджет недели",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/budget/weeks/{week_start}/settle": {
+      "post": {
+        "description": "Излишек или перерасход - в следующую неделю и в копилку (§15.10).\n\nПерерасход распределяется так же, как излишек: минусом вперёд либо\nпокрытием из копилки. Симметрия, а не чистый лист с понедельника -\nсистематический перерасход при обнулении становится невидимым.\n\nПовторный вызов переигрывает решение, но меняет только **куда** ушёл\nитог, а не сколько его: сумма берётся из снимка трат. Иначе разница,\nуже ушедшая поправкой вперёд, досталась бы следующей неделе дважды.",
+        "operationId": "распределить_итог_api_finance_budget_weeks__week_start__settle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "week_start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Week Start",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetWeekOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Распределить итог недели",
         "tags": [
           "finance"
         ]

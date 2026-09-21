@@ -43,6 +43,7 @@ from sqlalchemy.orm import Session
 from jarvis_api.config import Settings, get_settings
 from jarvis_api.db.models import FinAccount, FinImport, FinTransaction
 from jarvis_api.db.session import get_sessionmaker
+from jarvis_api.domain.finance_budget import разнести_поправки
 from jarvis_api.domain.finance_import import ПланИмпорта, Существующая, спланировать
 from jarvis_api.integrations.statements import ParsedStatement, StatementError, parse_statement
 from jarvis_api.integrations.statements.base import StatementRow
@@ -283,6 +284,27 @@ def импортировать(
     return отчёт
 
 
+def разнести_поправки_импорта(
+    session: Session, сейчас: dt.datetime, зона: ZoneInfo
+) -> list[dt.date]:
+    """Учесть в бюджете траты, изменившиеся импортом задним числом (§15.10).
+
+    Выписка приезжает раз в неделю и приносит траты недель, итог которых
+    owner уже распределил. Переигрывать их нельзя - решение принято, -
+    поэтому разница между снимком и новым фактом уходит поправкой
+    в ближайшую нераспределённую неделю.
+
+    Импорт - один из двух путей, которым §15.10 поручает разнос; второй -
+    ввод суммы за день. Показу экрана он не поручен намеренно: побочная
+    запись в GET сделала бы показ лимита неповторимым.
+
+    Зовётся и командой, и ручкой `POST /api/finance/import`: одно место,
+    потому что вторая реализация разошлась бы с первой в том, какой день
+    считать «сегодня».
+    """
+    return разнести_поправки(session, сейчас.astimezone(зона).date(), зона)
+
+
 def описать(отчёт: ОтчётФайла, apply: bool) -> list[str]:
     """Человекочитаемый дифф одного файла. Отдельной функцией - её проверяет тест."""
     if отчёт.упал:
@@ -364,9 +386,12 @@ def run_once(
             session.rollback()
             logger.error("операции загружены, но не разобраны: %s", сбой)
             return 1
+        поправлены = разнести_поправки_импорта(session, dt.datetime.now(dt.UTC), зона)
         session.commit()
         for строка in описать_разбор(отчёт_разбора, решения, apply=True):
             logger.info("%s", строка)
+        for неделя in поправлены:
+            logger.info("бюджет: неделя %s поправлена задним числом", неделя.isoformat())
 
     for отчёт in отчёты:
         for строка in описать(отчёт, apply):
