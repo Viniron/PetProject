@@ -1,6 +1,148 @@
 {
   "components": {
     "schemas": {
+      "AccountOut": {
+        "description": "Счёт книжки. Роль ставит owner, имя приносит импорт (§15.5).",
+        "properties": {
+          "bank": {
+            "title": "Bank",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "description": "Одна из: checking, savings, unknown",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bank",
+          "name",
+          "role"
+        ],
+        "title": "AccountOut",
+        "type": "object"
+      },
+      "AccountRoleIn": {
+        "description": "Тело `PUT /api/finance/accounts/{id}/role`.",
+        "properties": {
+          "role": {
+            "description": "Одна из: checking, savings, unknown",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "AccountRoleIn",
+        "type": "object"
+      },
+      "AccountsOut": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/AccountOut"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "all_marked": {
+            "description": "Ни одного счёта с ролью unknown: «Отложено» считается",
+            "title": "All Marked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accounts",
+          "all_marked"
+        ],
+        "title": "AccountsOut",
+        "type": "object"
+      },
+      "Body_finance_import": {
+        "properties": {
+          "files": {
+            "description": "Файлы выписок, по одному с банка",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "Body_finance_import",
+        "type": "object"
+      },
+      "BreakdownOut": {
+        "description": "Сколько расход стоил на самом деле.",
+        "properties": {
+          "amount": {
+            "description": "Своя сумма расхода, без гашений",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "effective": {
+            "description": "Не ниже нуля",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Effective",
+            "type": "string"
+          },
+          "not_counted": {
+            "description": "Привязанные, но в счёт не идущие: отменённые, исключённые, в разборе",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Not Counted",
+            "type": "array"
+          },
+          "offset": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Offset",
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/OffsetPartOut"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "surplus": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Surplus",
+            "type": "string"
+          },
+          "transaction_id": {
+            "title": "Transaction Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "amount",
+          "offset",
+          "effective",
+          "surplus",
+          "parts",
+          "not_counted"
+        ],
+        "title": "BreakdownOut",
+        "type": "object"
+      },
       "CalendarOut": {
         "description": "Сетка календаря на период: ответ `GET /api/calendar`.",
         "properties": {
@@ -13,7 +155,7 @@
             "type": "array"
           },
           "freshness": {
-            "$ref": "#/components/schemas/FreshnessOut"
+            "$ref": "#/components/schemas/jarvis_api__api__schemas__FreshnessOut"
           },
           "period": {
             "$ref": "#/components/schemas/PeriodOut"
@@ -274,6 +416,97 @@
         "title": "CapturedEventOut",
         "type": "object"
       },
+      "CategoriesOut": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOut"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "month": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Месяц фильтра. null - все месяцы",
+            "title": "Month"
+          }
+        },
+        "required": [
+          "month",
+          "categories"
+        ],
+        "title": "CategoriesOut",
+        "type": "object"
+      },
+      "CategoryOut": {
+        "description": "Категория месяца (§15.4).",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "key": {
+            "description": "Стабильный ключ, переживающий смену месяца",
+            "title": "Key",
+            "type": "string"
+          },
+          "level": {
+            "description": "1 - категория, 2 - подкатегория",
+            "title": "Level",
+            "type": "integer"
+          },
+          "origin": {
+            "description": "owner или ai",
+            "title": "Origin",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "period_month": {
+            "format": "date",
+            "title": "Period Month",
+            "type": "string"
+          },
+          "status": {
+            "description": "active, proposed или rejected",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "period_month",
+          "key",
+          "title",
+          "level",
+          "parent_id",
+          "origin",
+          "status"
+        ],
+        "title": "CategoryOut",
+        "type": "object"
+      },
       "DayFlagIn": {
         "description": "Тело `POST /api/day-flags`.\n\nПроверки живут здесь, а не в базе: словарь причин будет меняться, а CHECK\nради нового слова ничего не защищает. В базе остаются два ограничения,\nкоторые пережить нельзя, - порядок дат и уникальность автопометки на день.",
         "properties": {
@@ -421,6 +654,56 @@
           "events"
         ],
         "title": "DayOut",
+        "type": "object"
+      },
+      "EditOut": {
+        "description": "Ответ на правку: что изменилось и что из этого запомнено правилом.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "fields_changed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields Changed",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "rules": {
+            "description": "Заведённые правила",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionCardOut",
+            "description": "Карточка после правки"
+          },
+          "warnings": {
+            "description": "Читает owner: правка прошла, но с оговоркой",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "changed",
+          "fields_changed",
+          "rules",
+          "warnings",
+          "transaction"
+        ],
+        "title": "EditOut",
         "type": "object"
       },
       "ErrorBody": {
@@ -600,7 +883,1114 @@
         "title": "EventOut",
         "type": "object"
       },
-      "FreshnessOut": {
+      "Health": {
+        "description": "Ответ /health. Время отдаётся, чтобы инвариант 7 был проверяем извне.",
+        "properties": {
+          "env": {
+            "title": "Env",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "time": {
+            "format": "date-time",
+            "title": "Time",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "env",
+          "time"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "ImportFileOut": {
+        "description": "Что файл сделал бы или сделал (§15.3).",
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "already_imported": {
+            "description": "Файл с этим sha256 уже загружали: изменений нет",
+            "title": "Already Imported",
+            "type": "boolean"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Файл отклонён целиком, с причиной",
+            "title": "Error"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "new_accounts": {
+            "description": "Новые имена счетов: роль unknown, ждут owner",
+            "items": {
+              "type": "string"
+            },
+            "title": "New Accounts",
+            "type": "array"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "reverted": {
+            "description": "Было в книжке, пропало из выгрузки",
+            "title": "Reverted",
+            "type": "integer"
+          },
+          "rows_added": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Rows Added",
+            "type": "array"
+          },
+          "rows_in_file": {
+            "title": "Rows In File",
+            "type": "integer"
+          },
+          "rows_reverted": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Rows Reverted",
+            "type": "array"
+          },
+          "rows_updated": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowOut"
+            },
+            "title": "Rows Updated",
+            "type": "array"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "to_review": {
+            "title": "To Review",
+            "type": "integer"
+          },
+          "unchanged": {
+            "title": "Unchanged",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "sha256",
+          "bank",
+          "period_start",
+          "period_end",
+          "rows_in_file",
+          "already_imported",
+          "added",
+          "updated",
+          "reverted",
+          "to_review",
+          "unchanged",
+          "new_accounts",
+          "error",
+          "rows_added",
+          "rows_updated",
+          "rows_reverted"
+        ],
+        "title": "ImportFileOut",
+        "type": "object"
+      },
+      "ImportOut": {
+        "description": "Ответ `POST /api/finance/import`.\n\n`applied=false` - это дифф: в базу не записано ничего, и повторный\nзапрос с `apply=true` тем же файлом запишет ровно показанное.",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "failed": {
+            "description": "Файлов отклонено. Остальные файлы захода обработаны",
+            "title": "Failed",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ImportFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "recategorized": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecategorizeOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Разбор после записи. null в dry-run: разбирать нечего"
+          }
+        },
+        "required": [
+          "applied",
+          "files",
+          "failed"
+        ],
+        "title": "ImportOut",
+        "type": "object"
+      },
+      "ImportRowOut": {
+        "description": "Строка диффа импорта: то, что попадёт в книжку или изменится в ней.",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "amount": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null у новой строки: её ещё нет в книжке",
+            "title": "Id"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "needs_review": {
+            "description": "Уйдёт в очередь разбора: кандидат в дубли",
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "amount",
+          "merchant",
+          "account",
+          "needs_review"
+        ],
+        "title": "ImportRowOut",
+        "type": "object"
+      },
+      "MonthOut": {
+        "description": "Сальдо месяца и статьи «Отложено» и «Осталось» (§15.5).",
+        "properties": {
+          "balance": {
+            "description": "Пришло минус ушло",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Balance",
+            "type": "string"
+          },
+          "expense": {
+            "description": "Уменьшен гашениями, не ниже нуля",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Expense",
+            "type": "string"
+          },
+          "income": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Income",
+            "type": "string"
+          },
+          "left": {
+            "description": "Накопленный итог с начала ведения",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Left",
+            "type": "string"
+          },
+          "month": {
+            "description": "Первое число месяца в зоне owner",
+            "format": "date",
+            "title": "Month",
+            "type": "string"
+          },
+          "outside_transfers": {
+            "description": "Строки на накопительных счетах, не опознанные переводом себе",
+            "title": "Outside Transfers",
+            "type": "integer"
+          },
+          "recalculated_later": {
+            "description": "Расход месяца погашен поступлением более позднего месяца",
+            "title": "Recalculated Later",
+            "type": "boolean"
+          },
+          "saved": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Нетто переводов на счета savings. null - счета не размечены, и это не ноль",
+            "title": "Saved"
+          },
+          "transactions": {
+            "description": "Строк, вошедших в сальдо",
+            "title": "Transactions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "month",
+          "income",
+          "expense",
+          "balance",
+          "saved",
+          "left",
+          "transactions",
+          "outside_transfers",
+          "recalculated_later"
+        ],
+        "title": "MonthOut",
+        "type": "object"
+      },
+      "OffsetIn": {
+        "description": "Тело `POST /api/finance/transactions/{id}/offsets`.",
+        "properties": {
+          "income_id": {
+            "description": "Поступление, которое гасит этот расход",
+            "title": "Income Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "income_id"
+        ],
+        "title": "OffsetIn",
+        "type": "object"
+      },
+      "OffsetOut": {
+        "description": "Ответ на привязку и снятие.",
+        "properties": {
+          "breakdown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BreakdownOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Расход после действия: сколько он теперь стоит"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "expense_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expense Id"
+          },
+          "income_id": {
+            "title": "Income Id",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "income_id",
+          "expense_id",
+          "changed",
+          "warnings"
+        ],
+        "title": "OffsetOut",
+        "type": "object"
+      },
+      "OffsetPartOut": {
+        "description": "Один гасящий приход в разбивке расхода (§15.5).",
+        "properties": {
+          "applied": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Applied",
+            "type": "string"
+          },
+          "surplus": {
+            "description": "Что не пошло на расход и стало доходом",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Surplus",
+            "type": "string"
+          },
+          "transaction_id": {
+            "title": "Transaction Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "applied",
+          "surplus"
+        ],
+        "title": "OffsetPartOut",
+        "type": "object"
+      },
+      "OverviewOut": {
+        "description": "Ответ `GET /api/finance/overview`: месяц с оговорками к цифре.",
+        "properties": {
+          "accounts_marked": {
+            "description": "Все счета книжки получили роль от owner",
+            "title": "Accounts Marked",
+            "type": "boolean"
+          },
+          "covered_through": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "То же, что в freshness: повтор для цифры",
+            "title": "Covered Through"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MonthOut"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/jarvis_api__api__schemas_finance__FreshnessOut"
+          },
+          "in_recalc_window": {
+            "description": "Месяц ещё может пересчитаться гашением",
+            "title": "In Recalc Window",
+            "type": "boolean"
+          },
+          "incomplete": {
+            "description": "Выписки дошли не до конца месяца - цифра промежуточная",
+            "title": "Incomplete",
+            "type": "boolean"
+          },
+          "timezone": {
+            "description": "Зона owner, в которой посчитаны границы месяца",
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "timezone",
+          "covered_through",
+          "incomplete",
+          "in_recalc_window",
+          "accounts_marked",
+          "freshness"
+        ],
+        "title": "OverviewOut",
+        "type": "object"
+      },
+      "PeriodOut": {
+        "properties": {
+          "ends_on": {
+            "description": "Включительно",
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "today": {
+            "description": "Сегодня в зоне owner, независимо от периода",
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "view": {
+            "enum": [
+              "day",
+              "week"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "starts_on",
+          "ends_on",
+          "today"
+        ],
+        "title": "PeriodOut",
+        "type": "object"
+      },
+      "RecategorizeOut": {
+        "description": "Ответ `POST /api/finance/recategorize` - тот же дифф, что у команды.",
+        "properties": {
+          "applied": {
+            "description": "false - показан дифф, в базу не записано ничего",
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "categories": {
+            "title": "Categories",
+            "type": "integer"
+          },
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "lines": {
+            "description": "Дифф строками, по одной на изменение: их читает owner",
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "rules": {
+            "title": "Rules",
+            "type": "integer"
+          },
+          "to_review": {
+            "title": "To Review",
+            "type": "integer"
+          },
+          "transactions": {
+            "title": "Transactions",
+            "type": "integer"
+          },
+          "transfers": {
+            "description": "Опознано парой концов",
+            "title": "Transfers",
+            "type": "integer"
+          },
+          "without_category": {
+            "title": "Without Category",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "applied",
+          "transactions",
+          "rules",
+          "categories",
+          "changes",
+          "transfers",
+          "to_review",
+          "without_category",
+          "lines"
+        ],
+        "title": "RecategorizeOut",
+        "type": "object"
+      },
+      "RuleIn": {
+        "description": "Тело `POST /api/finance/rules`.\n\nФорма правила проверяется доменом, а не только здесь: те же проверки\nнужны и флагу «запомнить» на карточке операции, который сюда не заходит.",
+        "properties": {
+          "category_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Key"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Только для sender: income, refund",
+            "title": "Kind"
+          },
+          "pattern": {
+            "description": "Образец: код MCC, мерчант, имя отправителя",
+            "minLength": 1,
+            "title": "Pattern",
+            "type": "string"
+          },
+          "rule_type": {
+            "description": "Одна из: mcc, bank_category, merchant, sender, self",
+            "title": "Rule Type",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "rule_type",
+          "pattern"
+        ],
+        "title": "RuleIn",
+        "type": "object"
+      },
+      "RuleOut": {
+        "description": "Правило разбора (§15.4, §15.5).",
+        "properties": {
+          "category_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Key"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Только у правила отправителя: income, refund",
+            "title": "Kind"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          },
+          "rule_type": {
+            "description": "Одна из ступеней: mcc, bank_category, merchant, sender, self",
+            "title": "Rule Type",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Как owner называет отправителя, а не как пишет банк",
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "rule_type",
+          "pattern",
+          "title",
+          "category_key",
+          "kind"
+        ],
+        "title": "RuleOut",
+        "type": "object"
+      },
+      "RulesOut": {
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/RuleOut"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "title": "RulesOut",
+        "type": "object"
+      },
+      "TransactionCardOut": {
+        "description": "Ответ `GET /api/finance/transactions/{id}` (экран 13 дизайна).",
+        "properties": {
+          "breakdown": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BreakdownOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Только у расхода"
+          },
+          "offsets": {
+            "description": "Поступления, гасящие этот расход",
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "title": "Offsets",
+            "type": "array"
+          },
+          "offsetting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Расход, который гасит сама эта операция"
+          },
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionOut"
+          },
+          "transfer_pair": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Второй конец перевода себе"
+          }
+        },
+        "required": [
+          "transaction",
+          "breakdown",
+          "offsets",
+          "offsetting",
+          "transfer_pair"
+        ],
+        "title": "TransactionCardOut",
+        "type": "object"
+      },
+      "TransactionOut": {
+        "description": "Строка ленты и карточки.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Как в выписке: расход отрицателен",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount",
+            "type": "string"
+          },
+          "amount_rub": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Rub",
+            "type": "string"
+          },
+          "bank": {
+            "title": "Bank",
+            "type": "string"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "category_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Стабильный ключ категории, переживающий месяц",
+            "title": "Category Key"
+          },
+          "category_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Source"
+          },
+          "category_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Title"
+          },
+          "counts": {
+            "description": "Идёт в счёт: не исключена, не отменена, не в очереди разбора",
+            "title": "Counts",
+            "type": "boolean"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Чего расход стоил после гашений. null у прихода - гасить нечего",
+            "title": "Effective"
+          },
+          "entered_manually": {
+            "title": "Entered Manually",
+            "type": "boolean"
+          },
+          "excluded": {
+            "title": "Excluded",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "expense, income, transfer или refund",
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_source": {
+            "description": "sign, default, sender_rule, transfer_pair или manual",
+            "title": "Kind Source",
+            "type": "string"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "needs_review": {
+            "description": "Стоит в очереди разбора и в сальдо не входит",
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "offset": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Сколько из расхода погашено поступлениями",
+            "title": "Offset"
+          },
+          "offsets_transaction_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Расход, который гасит это поступление",
+            "title": "Offsets Transaction Id"
+          },
+          "status": {
+            "description": "posted, pending или reverted",
+            "title": "Status",
+            "type": "string"
+          },
+          "transfer_pair_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Второй конец перевода себе",
+            "title": "Transfer Pair Id"
+          }
+        },
+        "required": [
+          "id",
+          "occurred_at",
+          "bank",
+          "account",
+          "amount",
+          "amount_rub",
+          "currency",
+          "merchant",
+          "message",
+          "kind",
+          "kind_source",
+          "status",
+          "excluded",
+          "needs_review",
+          "entered_manually",
+          "category_id",
+          "category_key",
+          "category_title",
+          "category_source",
+          "offsets_transaction_id",
+          "transfer_pair_id",
+          "effective",
+          "offset",
+          "counts"
+        ],
+        "title": "TransactionOut",
+        "type": "object"
+      },
+      "TransactionPatchIn": {
+        "description": "Тело `PATCH /api/finance/transactions/{id}` - решение owner (§15.4).\n\nПереданными считаются только присланные поля: экран правит одно поле\nкарточки, и умолчание, затирающее заметку при смене категории, стоило бы\nowner ровно того текста, который он туда вписал. Поэтому у полей нет\nзначений по умолчанию в привычном смысле - роутер смотрит\n`model_fields_set`.\n\n`null` при этом - законное значение: снять категорию или заметку.",
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null снимает категорию",
+            "title": "Category Id"
+          },
+          "excluded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Один из: expense, income, transfer, refund",
+            "title": "Kind"
+          },
+          "needs_review": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "false закрывает вопрос разбора",
+            "title": "Needs Review"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "remember": {
+            "default": false,
+            "description": "Запомнить решение правилом. По умолчанию правка разовая",
+            "title": "Remember",
+            "type": "boolean"
+          }
+        },
+        "title": "TransactionPatchIn",
+        "type": "object"
+      },
+      "TransactionsOut": {
+        "description": "Ответ `GET /api/finance/transactions`.\n\nОбъектом, а не голым массивом: массив на верхнем уровне нельзя расширить\nни одним полем, не сломав клиента.",
+        "properties": {
+          "month": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Месяц фильтра. null - вся книжка",
+            "title": "Month"
+          },
+          "needs_review_only": {
+            "title": "Needs Review Only",
+            "type": "boolean"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionOut"
+            },
+            "title": "Transactions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month",
+          "needs_review_only",
+          "transactions"
+        ],
+        "title": "TransactionsOut",
+        "type": "object"
+      },
+      "jarvis_api__api__schemas__FreshnessOut": {
         "description": "Свежесть расписания (§10).\n\nПолосу давности показывает `state`; `portal` только объясняет причину.\nФразу собирает клиент: макет печатает один и тот же момент двумя\nформатами - «от 12 октября, 07:10» в полосе и «от 12.10» на блоке пары.",
         "properties": {
           "covered_from": {
@@ -672,71 +2062,71 @@
         "title": "FreshnessOut",
         "type": "object"
       },
-      "Health": {
-        "description": "Ответ /health. Время отдаётся, чтобы инвариант 7 был проверяем извне.",
+      "jarvis_api__api__schemas_finance__FreshnessOut": {
+        "description": "Свежесть книжки по самому отстающему банку (§15.6).",
         "properties": {
-          "env": {
-            "title": "Env",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "time": {
-            "format": "date-time",
-            "title": "Time",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "version",
-          "env",
-          "time"
-        ],
-        "title": "Health",
-        "type": "object"
-      },
-      "PeriodOut": {
-        "properties": {
-          "ends_on": {
-            "description": "Включительно",
-            "format": "date",
-            "title": "Ends On",
-            "type": "string"
-          },
-          "starts_on": {
-            "format": "date",
-            "title": "Starts On",
-            "type": "string"
-          },
-          "today": {
-            "description": "Сегодня в зоне owner, независимо от периода",
-            "format": "date",
-            "title": "Today",
-            "type": "string"
-          },
-          "view": {
-            "enum": [
-              "day",
-              "week"
+          "covered_through": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "View",
-            "type": "string"
+            "description": "Последний день, покрытый выписками всех банков. null - покрытия нет",
+            "title": "Covered Through"
+          },
+          "days_ago": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Ago"
+          },
+          "lagging_bank": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Банк, по которому книжка отстаёт",
+            "title": "Lagging Bank"
+          },
+          "loaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loaded At"
+          },
+          "stale": {
+            "description": "Срок из FINANCE_STALE_AFTER_DAYS вышел",
+            "title": "Stale",
+            "type": "boolean"
           }
         },
         "required": [
-          "view",
-          "starts_on",
-          "ends_on",
-          "today"
+          "covered_through",
+          "lagging_bank",
+          "loaded_at",
+          "days_ago",
+          "stale"
         ],
-        "title": "PeriodOut",
+        "title": "FreshnessOut",
         "type": "object"
       }
     }
@@ -1414,6 +2804,1212 @@
         "summary": "Убрать период исключений",
         "tags": [
           "day-flags"
+        ]
+      }
+    },
+    "/api/finance/accounts": {
+      "get": {
+        "description": "Счета с ролями. `all_marked=false` - «Отложено» пишет слова, а не сумму.",
+        "operationId": "счета_api_finance_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Счета книжки и их роли",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/accounts/{account_id}/role": {
+      "put": {
+        "description": "Разметка счетов owner (§15.5): по ней считается «Отложено».\n\nСчёт этой ручкой не заводится - он появляется импортом выписки. Поэтому\nадресуется id существующего счёта, а не пара «банк, имя»: разметить\nсчёт, которого нет, значит ошибиться в написании и получить двойника.",
+        "operationId": "роль_счёта_api_finance_accounts__account_id__role_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountRoleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Роль счёта: расчётный или накопительный",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/categories": {
+      "get": {
+        "description": "Набор категорий месяца - тот, из которого выбирают на карточке (§15.4).",
+        "operationId": "категории_месяца_api_finance_categories_get",
+        "parameters": [
+          {
+            "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+              "title": "Month"
+            }
+          },
+          {
+            "description": "Наборы всех месяцев сразу",
+            "in": "query",
+            "name": "all_months",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Наборы всех месяцев сразу",
+              "title": "All Months",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Категории месяца",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/import": {
+      "post": {
+        "description": "Заход книжки: несколько файлов разных банков (§15.3, ADR-030).\n\n**Дифф и запись - один адрес и два прогона одного файла.** Состояния\nмежду шагами нет намеренно (решение owner 2026-09-21): черновик плана\nв базе потребовал бы срока жизни и уборки, а повторная отправка файла\nв килобайты ничего не стоит. От двойной записи защищает не память,\nа `fin_imports.sha256`: тот же файл второй раз добавляет ноль строк.\n\n**Транзакция на файл.** Успешный коммитится сразу, упавший\nоткатывается - отказ восьмого файла не уносит семь разобранных.\nФайл, который банк отдал в изменившемся формате, отклоняется целиком\nи с названной причиной (§15.1); остальные файлы захода идут своим ходом.",
+        "operationId": "finance_import",
+        "parameters": [
+          {
+            "description": "false - показать дифф и не писать ничего",
+            "in": "query",
+            "name": "apply",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "false - показать дифф и не писать ничего",
+              "title": "Apply",
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_finance_import"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Импорт выписок: дифф или запись",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/overview": {
+      "get": {
+        "description": "Сальдо месяца с оговорками, без которых цифру читать нельзя (§15.5).\n\nПустой месяц - нули и накопленный итог предыдущих, а не отсутствие:\nкнижка, в которой этого месяца ещё нет, отвечает на вопрос «сколько\nпотрачено» честным нулём, а не 404.",
+        "operationId": "обзор_месяца_api_finance_overview_get",
+        "parameters": [
+          {
+            "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Обзор месяца: сальдо и статьи",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/recategorize": {
+      "post": {
+        "description": "Применяет правила ко всей книжке (§15.4, ADR-041).\n\nСрез - вся книжка, а не новые строки: перевод себе опознаётся парой\nконцов из двух банков, и второй конец приезжает другим файлом в другой\nдень. Дифф без записи - умолчание: разбор меняет вид операций, то есть\nсальдо месяцев, и делать это молча по нажатию кнопки нельзя.",
+        "operationId": "переразобрать_api_finance_recategorize_post",
+        "parameters": [
+          {
+            "description": "false - показать дифф и не писать ничего",
+            "in": "query",
+            "name": "apply",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "false - показать дифф и не писать ничего",
+              "title": "Apply",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecategorizeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Переразобрать книжку по правилам",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/rules": {
+      "get": {
+        "description": "Все правила: ступени разбора плюс написание owner (`self`).",
+        "operationId": "правила_api_finance_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Правила разбора",
+        "tags": [
+          "finance"
+        ]
+      },
+      "post": {
+        "description": "Правило ступени разбора. Категории этой ручкой не заводятся (§15.4).\n\nДубль по типу и образцу - отказ, а не тихая перезапись: правило меняет\nразбор всей книжки, и перезаписанное молча оно поменяло бы сальдо\nзакрытых месяцев на следующем же разборе.",
+        "operationId": "завести_правило_api_finance_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Завести правило разбора",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/rules/{rule_id}": {
+      "delete": {
+        "description": "Удаляет правило. Разобранные им операции не трогаются до разбора.",
+        "operationId": "убрать_правило_api_finance_rules__rule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Убрать правило разбора",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/transactions": {
+      "get": {
+        "description": "Операции месяца или очередь разбора по всей книжке (§15.7).\n\n`all_months` отдельным флагом, а не пустым `month`: пустой параметр\nозначает «текущий месяц», и клиент, забывший его передать, получил бы\nвместо ленты месяца всю книжку целиком.",
+        "operationId": "лента_операций_api_finance_transactions_get",
+        "parameters": [
+          {
+            "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Месяц в формате YYYY-MM. Не задан - текущий в зоне owner",
+              "title": "Month"
+            }
+          },
+          {
+            "description": "Вся книжка вместо месяца. Осмысленно с needs_review",
+            "in": "query",
+            "name": "all_months",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Вся книжка вместо месяца. Осмысленно с needs_review",
+              "title": "All Months",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Только очередь разбора",
+            "in": "query",
+            "name": "needs_review",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Только очередь разбора",
+              "title": "Needs Review",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Лента операций",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/transactions/{tx_id}": {
+      "get": {
+        "description": "Операция со всем, что к ней привязано: гашения, расход, пара перевода.",
+        "operationId": "карточка_операции_api_finance_transactions__tx_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tx_id",
+            "required": true,
+            "schema": {
+              "title": "Tx Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionCardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Карточка операции",
+        "tags": [
+          "finance"
+        ]
+      },
+      "patch": {
+        "description": "Вид, категория, исключение, заметка и пометка разбора (§15.4).\n\nПрисланными считаются только переданные поля: `PATCH` правит одно поле\nкарточки, а не переприсылает её целиком. `remember=true` заводит правило\nи говорит об этом отдельно - книжка по нему не пересчитывается, это\nотдельное действие.",
+        "operationId": "править_операцию_api_finance_transactions__tx_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tx_id",
+            "required": true,
+            "schema": {
+              "title": "Tx Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransactionPatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Правка операции решением owner",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/transactions/{tx_id}/offsets": {
+      "post": {
+        "description": "Гашение конкретного расхода (§15.5).\n\nОкно - текущий месяц и предыдущий, по обоим концам привязки. Проверяет\nего сервис, а не CHECK: окно зависит от «сейчас».",
+        "operationId": "привязать_гашение_api_finance_transactions__tx_id__offsets_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tx_id",
+            "required": true,
+            "schema": {
+              "title": "Tx Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OffsetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OffsetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Привязать поступление к расходу",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/transactions/{tx_id}/offsets/{income_id}": {
+      "delete": {
+        "description": "Снятие ограничено тем же окном, что и привязка (§15.5).\n\nРасход в пути указан, хотя домену для снятия хватает поступления:\nэкран снимает привязку с карточки расхода, и адрес без него читался бы\nкак «снять всё, что это поступление гасит».",
+        "operationId": "снять_гашение_api_finance_transactions__tx_id__offsets__income_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tx_id",
+            "required": true,
+            "schema": {
+              "title": "Tx Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "income_id",
+            "required": true,
+            "schema": {
+              "title": "Income Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OffsetOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Снять привязку гашения",
+        "tags": [
+          "finance"
         ]
       }
     },

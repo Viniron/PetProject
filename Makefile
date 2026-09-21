@@ -38,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply         backup backup-apply restore-check restore-check-apply
+.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi llm-probe llm-probe-apply llm-probe-pi llm-probe-pi-apply       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply         backup backup-apply restore-check restore-check-apply
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -115,6 +115,8 @@ help:
 	@echo "tunnel-check-pi  - the same inside the running stack on the Pi (stage E7)"
 	@echo "llm-routes       - print model assignment parsed from LLM_ROUTING (stage E12a)"
 	@echo "llm-routes-pi    - the same inside the running stack on the Pi (stage E12a)"
+	@echo "llm-probe        - dry-run of the live model probe: plan only, no network (stage E12b)"
+	@echo "llm-probe-pi-apply - real call per assigned model from the Pi (stage E12b, spends money)"
 
 venv:
 	py -3.12 -m venv $(API)/.venv || python3.12 -m venv $(API)/.venv
@@ -509,3 +511,20 @@ llm-routes:
 # API, - ровно та подмена, ради обнаружения которой цель и существует.
 llm-routes-pi:
 	$(DC_PI) exec api python -m jarvis_api.jobs.llm_routes
+
+# Живая проба назначенных моделей. Без --apply не делает ни одного сетевого
+# вызова - печатает план. Настоящую пробу запускают на плате: проверяется
+# в том числе маршрут выхода наружу (ADR-050), а он есть только там.
+llm-probe:
+	$(PY) -m jarvis_api.jobs.llm_probe
+
+llm-probe-apply:
+	$(PY) -m jarvis_api.jobs.llm_probe --apply
+
+llm-probe-pi:
+	$(DC_PI) exec api python -m jarvis_api.jobs.llm_probe
+
+# Единственная цель этапа, которая тратит деньги owner: по одному вызову
+# на каждую назначенную модель, доли цента, каждый пишется в audit_log.
+llm-probe-pi-apply:
+	$(DC_PI) exec api python -m jarvis_api.jobs.llm_probe --apply
