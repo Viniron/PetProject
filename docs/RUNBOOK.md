@@ -1146,6 +1146,33 @@ docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
 Google отклонил событие, причина в `last_error`. Оба состояния джоб
 пробует заново; `synced` он не трогает вовсе.
 
+### Напоминание о выписках
+
+По воскресеньям, если на этой неделе загружены не все банки, в
+`JARVIS · События` встаёт «Загрузить выписки» на 18:00 (ADR-053). Ставит его
+планировщик сам — на воскресных слотах цепочки и при старте процесса;
+руками команда нужна, только чтобы посмотреть решение.
+
+```bash
+make finance-remind-pi          # решение и текст события, наружу не пишет ничего
+make finance-remind-pi-apply    # записать
+```
+
+В будни dry-run отвечает «не воскресенье» — это не отказ. Встало ли событие
+и почему нет:
+
+```bash
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "select external_key, starts_at, sync_state, last_error
+     from calendar_events where source='finance' order by starts_at desc limit 5;"
+docker exec -i jarvis-db-1 psql -U jarvis -d jarvis -c \
+  "select * from job_runs where job='finance_reminder' order by run_date desc limit 5;"
+```
+
+Строки в `job_runs` появляются только по воскресеньям. `failed` с причиной —
+Google отказал; следующий слот того же дня попробует снова и, если 18:00
+уже прошло, поставит событие на ближайшую четверть часа.
+
 ### Убрать брошенные черновики
 
 Черновик живёт от захвата до подтверждения или отмены. Тот, к которому не

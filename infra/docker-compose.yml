@@ -121,6 +121,12 @@ services:
       # ничего видимого: плашка просто зажигается по умолчанию из config.py,
       # а не по сроку, который owner вписал в .env.
       FINANCE_STALE_AFTER_DAYS: ${FINANCE_STALE_AFTER_DAYS:-}
+      # Воскресное напоминание о выписках (Ф8), тот же формат. Забытая
+      # проброска тоже тихая: событие встанет, но на время из config.py,
+      # а не на то, что owner вписал в .env.
+      FINANCE_REMINDER_AT: ${FINANCE_REMINDER_AT:-}
+      FINANCE_REMINDER_MINUTES: ${FINANCE_REMINDER_MINUTES:-}
+      FINANCE_REMINDER_ROUND_MINUTES: ${FINANCE_REMINDER_ROUND_MINUTES:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,

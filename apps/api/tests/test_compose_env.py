@@ -90,7 +90,14 @@ COMPOSE_PI = REPO_ROOT / "infra" / "docker-compose.pi.yml"
 # прочих ровно так же: умолчания в коде рабочие, и книжка разберётся -
 # просто окно поиска пары и срок плашки будут не те, которые owner задал
 # в .env.
-ПЕРЕМЕННЫЕ_КНИЖКИ = ("FINANCE_TRANSFER_WINDOW_DAYS", "FINANCE_STALE_AFTER_DAYS")
+ПЕРЕМЕННЫЕ_КНИЖКИ = (
+    "FINANCE_TRANSFER_WINDOW_DAYS",
+    "FINANCE_STALE_AFTER_DAYS",
+    # Ф8: время и длина воскресного напоминания.
+    "FINANCE_REMINDER_AT",
+    "FINANCE_REMINDER_MINUTES",
+    "FINANCE_REMINDER_ROUND_MINUTES",
+)
 
 # Живучесть (Э9, ADR-043). Забытая проброска здесь самая тихая из всех:
 # стек работает, расписание доезжает, молчит только наблюдатель - и пропажа

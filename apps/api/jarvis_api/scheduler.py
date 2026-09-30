@@ -33,7 +33,7 @@ from apscheduler.triggers.date import DateTrigger
 
 from jarvis_api.config import Settings, разобрать_слоты
 from jarvis_api.db.session import get_sessionmaker
-from jarvis_api.jobs import runner
+from jarvis_api.jobs import finance_remind, runner
 from jarvis_api.jobs.common import FALLBACK_TIMEZONE, зона_без_падения
 
 logger = logging.getLogger("jarvis.scheduler")
@@ -54,6 +54,25 @@ def собрать_расписание(settings: Settings, зона: ZoneInfo) 
             )
         )
     return расписание
+
+
+def собрать_расписание_напоминания(settings: Settings, зона: ZoneInfo) -> list[tuple[str, Any]]:
+    """Воскресные слоты напоминания о выписках (Ф8, ADR-053).
+
+    Те же времена, что у цепочки, но только по воскресеньям и отдельными
+    заданиями: первый слот ставит событие, остальные - повтор после отказа
+    Google, а после удачной записи они только читают базу. Своих времён
+    у джоба нет намеренно: второе расписание, которое можно проредить
+    независимо от первого, - лишнее место, где напоминание перестанет
+    ставиться молча.
+    """
+    return [
+        (
+            f"{finance_remind.JOB_NAME}@sun-{слот:%H:%M}",
+            CronTrigger(day_of_week="sun", hour=слот.hour, minute=слот.minute, timezone=зона),
+        )
+        for слот in разобрать_слоты(settings.scheduler_daily_times)
+    ]
 
 
 def создать_планировщик(settings: Settings) -> Any:
@@ -122,8 +141,16 @@ def поднять(планировщик: Any, settings: Settings) -> None:
             args=[settings],
             replace_existing=True,
         )
+    for идентификатор, триггер in собрать_расписание_напоминания(settings, зона):
+        планировщик.add_job(
+            _напоминание_по_расписанию,
+            trigger=триггер,
+            id=идентификатор,
+            args=[settings],
+            replace_existing=True,
+        )
     logger.info(
-        "расписание джобов: %s (зона %s)",
+        "расписание джобов: %s (зона %s); напоминание о выписках - по воскресеньям в те же слоты",
         settings.scheduler_daily_times,
         зона.key,
     )
@@ -135,6 +162,12 @@ def поднять(планировщик: Any, settings: Settings) -> None:
         # расписание, которое к этому моменту уже стоит.
         logger.exception("догоняющий запуск не выполнен")
 
+    # Догон напоминания - просто прогон: решения «нужен ли» у него нет,
+    # потому что джоб сам знает, воскресенье ли сегодня и стоит ли уже
+    # событие, а в ИСУ не ходит - остывать ему не от чего. После цепочки,
+    # а не до: воркер один, и расписание важнее напоминания.
+    _напоминание_по_расписанию(settings)
+
 
 def _прогон_по_расписанию(settings: Settings) -> None:
     """Тело слота. Тот же runner, что у догона (§11.2: runner один)."""
@@ -145,6 +178,16 @@ def _прогон_по_расписанию(settings: Settings) -> None:
         # логгер и не роняет процесс - но наш след нагляднее, а главное,
         # он в нашем логгере, который настроен и виден в `docker logs`.
         logger.exception("прогон по расписанию не выполнен")
+
+
+def _напоминание_по_расписанию(settings: Settings) -> None:
+    """Тело воскресного слота напоминания и его догона при старте."""
+    try:
+        finance_remind.run(settings, apply=True)
+    except Exception:
+        # Та же причина, что у цепочки: наш след в нашем логгере, а отказ
+        # напоминания не должен ронять ни планировщик, ни подъём.
+        logger.exception("напоминание о выписках не выполнено")
 
 
 def запустить(settings: Settings) -> Any:

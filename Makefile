@@ -38,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi llm-probe llm-probe-apply llm-probe-pi llm-probe-pi-apply       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply         backup backup-apply restore-check restore-check-apply
+.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi llm-probe llm-probe-apply llm-probe-pi llm-probe-pi-apply       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply finance-remind finance-remind-apply finance-remind-pi finance-remind-pi-apply         backup backup-apply restore-check restore-check-apply
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -105,6 +105,10 @@ help:
 	@echo "finance-balance-pi   - the same inside the api container on the Pi (stage F5)"
 	@echo "finance-accounts     - show account roles; with bank=/account=/role= a dry-run of the change (stage F5)"
 	@echo "finance-accounts-apply - the same, writing the role (stage F5)"
+	@echo "finance-remind       - Sunday statements reminder, dry-run (stage F8)"
+	@echo "finance-remind-apply - the same, writing the event to the calendar (stage F8)"
+	@echo "finance-remind-pi    - dry-run inside the api container on the Pi (stage F8)"
+	@echo "finance-remind-pi-apply - the same, writing on the Pi (stage F8)"
 	@echo "web-install   - install frontend dependencies from the lockfile (stage E7)"
 	@echo "web-dev       - run the frontend with reload on :3000 (stage E7)"
 	@echo "web-build     - export the frontend to apps/web/out (stage E7)"
@@ -452,6 +456,21 @@ finance-accounts:
 
 finance-accounts-apply:
 	$(PY) -m jarvis_api.jobs.finance_accounts $(СЧЁТ) --apply
+
+# Воскресное напоминание о выписках (Ф8, ADR-053). Обычно его ставит
+# планировщик на воскресных слотах; цель - чтобы посмотреть решение руками.
+# В будни dry-run так и отвечает: «не воскресенье».
+finance-remind:
+	$(PY) -m jarvis_api.jobs.finance_remind
+
+finance-remind-apply:
+	$(PY) -m jarvis_api.jobs.finance_remind --apply
+
+finance-remind-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_remind
+
+finance-remind-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_remind --apply
 
 # --- Фронт (Э7) ------------------------------------------------------------
 # ci, а не install: ставится ровно то, что в package-lock.json. Иначе

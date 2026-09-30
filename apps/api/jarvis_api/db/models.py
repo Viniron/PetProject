@@ -171,7 +171,8 @@ class CalendarEvent(Base):
         # Три календаря JARVIS перечислены в CLAUDE.md; событие обязано лежать
         # в одном из них, иначе удаление курса «по префиксу» промахнётся.
         CheckConstraint("calendar in ('itmo', 'study', 'events')", name="calendar_known"),
-        CheckConstraint("source in ('itmo', 'capture')", name="source_known"),
+        # `finance` - воскресное напоминание о выписках (Ф8, ADR-053).
+        CheckConstraint("source in ('itmo', 'capture', 'finance')", name="source_known"),
         CheckConstraint("sync_state in ('pending', 'synced', 'failed')", name="sync_state_known"),
         Index("ix_calendar_events_starts_at", "starts_at"),
         # По этому индексу джоб находит то, что осталось рассинхронизированным
