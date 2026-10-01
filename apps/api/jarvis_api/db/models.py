@@ -88,6 +88,12 @@ class Setting(Base):
     gcal_itmo_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
     gcal_study_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
     gcal_events_id: Mapped[str | None] = mapped_column(String(MEDIUM), nullable=True)
+    # Месяц, на который модель уже предложила набор категорий (Ф10). Тоже
+    # результат работы: ответ «менять нечего» не оставляет в `fin_categories`
+    # ни строки, и без отметки каждый импорт месяца платил бы за тот же вопрос.
+    # Пусто - не спрашивали; отказ модели отметку не ставит, и следующий
+    # импорт спросит снова.
+    finance_proposed_month: Mapped[date | None] = mapped_column(Date, nullable=True)
     updated_at: Mapped[Timestamp] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
@@ -490,6 +496,9 @@ class FinCategory(Base):
         ),
         CheckConstraint("origin in ('owner', 'ai')", name="origin_known"),
         CheckConstraint("status in ('active', 'proposed', 'rejected')", name="status_known"),
+        # Модель предлагает набор основных категорий (§15.4): подкатегория
+        # уходит вместе с родителем, и «убрать» у неё не бывает.
+        CheckConstraint("not remove_proposed or level = 1", name="remove_main_only"),
         # Уникальность ключа внутри месяца - двумя частичными индексами,
         # а не одним UNIQUE по (period_month, parent_id, key). Причина
         # в NULL: в Postgres два NULL не равны друг другу, и обычный UNIQUE
@@ -524,9 +533,19 @@ class FinCategory(Base):
     # Кто её создал. Различие не косметическое: набор основных категорий
     # owner утверждает сам, а созданное моделью живёт один месяц.
     origin: Mapped[str] = mapped_column(String(SHORT))
-    # `proposed` - предложение модели на новый месяц, ждущее owner.
-    # В разбор такие не участвуют, пока не станут `active`.
+    # `proposed` - предложение модели добавить категорию на новый месяц,
+    # ждущее owner. В разбор такие не участвуют, пока не станут `active`.
+    # `rejected` - вне набора: отклонённое предложение или категория,
+    # которую owner убрал из месяца, приняв предложение модели (Ф10).
     status: Mapped[str] = mapped_column(String(SHORT), server_default=text("'active'"))
+    # Модель предлагает убрать унаследованную категорию (Ф10, ADR-056).
+    # Признаком на самой строке, а не второй строкой: ключ в месяце один,
+    # и до решения owner категория работает как прежде (§15.4).
+    remove_proposed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Почему модель предлагает добавить или убрать - словами для owner.
+    # Остаётся и после решения: «почему у меня есть категория X» без неё
+    # неотвечаемо.
+    proposal_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[CreatedAt] = mapped_column()
 
 

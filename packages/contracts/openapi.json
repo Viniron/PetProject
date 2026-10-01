@@ -830,8 +830,25 @@
             "title": "Period Month",
             "type": "string"
           },
+          "proposal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель предлагает добавить или убрать. null - не предложение",
+            "title": "Proposal Reason"
+          },
+          "remove_proposed": {
+            "description": "Модель предлагает убрать категорию; до решения owner она работает (Ф10)",
+            "title": "Remove Proposed",
+            "type": "boolean"
+          },
           "status": {
-            "description": "active, proposed или rejected",
+            "description": "active, proposed (модель предлагает добавить) или rejected (вне набора: отклонена или убрана owner)",
             "title": "Status",
             "type": "string"
           },
@@ -848,7 +865,9 @@
           "level",
           "parent_id",
           "origin",
-          "status"
+          "status",
+          "remove_proposed",
+          "proposal_reason"
         ],
         "title": "CategoryOut",
         "type": "object"
@@ -1093,6 +1112,46 @@
           "week"
         ],
         "title": "DaySpendOut",
+        "type": "object"
+      },
+      "DecisionIn": {
+        "description": "Решение owner по предложению модели (Ф10, §15.4).",
+        "properties": {
+          "accept": {
+            "description": "true - принять, false - отклонить",
+            "title": "Accept",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accept"
+        ],
+        "title": "DecisionIn",
+        "type": "object"
+      },
+      "DecisionOut": {
+        "description": "Итог решения: категория после него и что стало с операциями.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/CategoryOut"
+          },
+          "cleared": {
+            "description": "Операций, с которых снята убранная категория. Разложит их переразбор книжки: сам он не запускается (§15.7)",
+            "title": "Cleared",
+            "type": "integer"
+          },
+          "kept_manual": {
+            "description": "Ручных правок в убранной категории - они остаются, как решил owner",
+            "title": "Kept Manual",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "cleared",
+          "kept_manual"
+        ],
+        "title": "DecisionOut",
         "type": "object"
       },
       "EditOut": {
@@ -1520,6 +1579,17 @@
             "title": "Files",
             "type": "array"
           },
+          "month_transition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MonthTransitionOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Наследование набора и предложение модели перед разбором. null в dry-run"
+          },
           "recategorized": {
             "anyOf": [
               {
@@ -1672,6 +1742,33 @@
         "title": "LimitOut",
         "type": "object"
       },
+      "MonthOpenedOut": {
+        "properties": {
+          "categories": {
+            "description": "Категорий перенесено",
+            "title": "Categories",
+            "type": "integer"
+          },
+          "inherited_from": {
+            "format": "date",
+            "title": "Inherited From",
+            "type": "string"
+          },
+          "month": {
+            "description": "Месяц, получивший набор с этим импортом",
+            "format": "date",
+            "title": "Month",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month",
+          "inherited_from",
+          "categories"
+        ],
+        "title": "MonthOpenedOut",
+        "type": "object"
+      },
       "MonthOut": {
         "description": "Сальдо месяца и статьи «Отложено» и «Осталось» (§15.5).",
         "properties": {
@@ -1745,6 +1842,90 @@
           "recalculated_later"
         ],
         "title": "MonthOut",
+        "type": "object"
+      },
+      "MonthTransitionOut": {
+        "description": "Переход месяца в записи импорта (Ф10): наследование и предложение.",
+        "properties": {
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "opened": {
+            "items": {
+              "$ref": "#/components/schemas/MonthOpenedOut"
+            },
+            "title": "Opened",
+            "type": "array"
+          },
+          "proposal_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель не ответила. Работает унаследованный набор",
+            "title": "Proposal Error"
+          },
+          "proposal_month": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Месяц, на который спрашивали набор",
+            "title": "Proposal Month"
+          },
+          "proposal_rejected": {
+            "description": "Пункты ответа, отброшенные проверкой",
+            "items": {
+              "type": "string"
+            },
+            "title": "Proposal Rejected",
+            "type": "array"
+          },
+          "proposal_skipped": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель не звали - не отказ",
+            "title": "Proposal Skipped"
+          },
+          "proposed_add": {
+            "title": "Proposed Add",
+            "type": "integer"
+          },
+          "proposed_remove": {
+            "title": "Proposed Remove",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "opened",
+          "proposal_month",
+          "proposed_add",
+          "proposed_remove",
+          "proposal_rejected",
+          "proposal_skipped",
+          "proposal_error",
+          "lines"
+        ],
+        "title": "MonthTransitionOut",
         "type": "object"
       },
       "OffsetIn": {
@@ -4344,6 +4525,109 @@
           }
         },
         "summary": "Категории месяца",
+        "tags": [
+          "finance"
+        ]
+      }
+    },
+    "/api/finance/categories/{category_id}/decision": {
+      "post": {
+        "description": "Принять или отклонить одно предложение набора месяца (Ф10, §15.4).\n\nРешение пишется сразу, без диффа: оно касается одной категории, и owner\nпринимает его, читая причину на экране. Принятое удаление снимает\nкатегорию с операций месяца, разобранных автоматикой, но книжку не\nпереразбирает - это отдельная ручка, как у правила и роли счёта (§15.7).",
+        "operationId": "решить_предложение_api_finance_categories__category_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category_id",
+            "required": true,
+            "schema": {
+              "title": "Category Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Операции, счёта или правила с таким id нет"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Действие противоречит состоянию книжки"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Решение owner по предложению модели",
         "tags": [
           "finance"
         ]

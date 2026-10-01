@@ -319,7 +319,39 @@ class CategoryOut(BaseModel):
     level: int = Field(description="1 - категория, 2 - подкатегория")
     parent_id: int | None
     origin: str = Field(description="owner или ai")
-    status: str = Field(description="active, proposed или rejected")
+    status: str = Field(
+        description=(
+            "active, proposed (модель предлагает добавить) или rejected"
+            " (вне набора: отклонена или убрана owner)"
+        )
+    )
+    remove_proposed: bool = Field(
+        description="Модель предлагает убрать категорию; до решения owner она работает (Ф10)"
+    )
+    proposal_reason: str | None = Field(
+        description="Почему модель предлагает добавить или убрать. null - не предложение"
+    )
+
+
+class DecisionIn(BaseModel):
+    """Решение owner по предложению модели (Ф10, §15.4)."""
+
+    accept: bool = Field(description="true - принять, false - отклонить")
+
+
+class DecisionOut(BaseModel):
+    """Итог решения: категория после него и что стало с операциями."""
+
+    category: CategoryOut
+    cleared: int = Field(
+        description=(
+            "Операций, с которых снята убранная категория. Разложит их"
+            " переразбор книжки: сам он не запускается (§15.7)"
+        )
+    )
+    kept_manual: int = Field(
+        description="Ручных правок в убранной категории - они остаются, как решил owner"
+    )
 
 
 class CategoriesOut(BaseModel):
@@ -430,6 +462,27 @@ class ImportFileOut(BaseModel):
     rows_reverted: list[ImportRowOut]
 
 
+class MonthOpenedOut(BaseModel):
+    month: dt.date = Field(description="Месяц, получивший набор с этим импортом")
+    inherited_from: dt.date
+    categories: int = Field(description="Категорий перенесено")
+
+
+class MonthTransitionOut(BaseModel):
+    """Переход месяца в записи импорта (Ф10): наследование и предложение."""
+
+    opened: list[MonthOpenedOut]
+    proposal_month: dt.date | None = Field(description="Месяц, на который спрашивали набор")
+    proposed_add: int
+    proposed_remove: int
+    proposal_rejected: list[str] = Field(description="Пункты ответа, отброшенные проверкой")
+    proposal_skipped: str | None = Field(description="Почему модель не звали - не отказ")
+    proposal_error: str | None = Field(
+        description="Почему модель не ответила. Работает унаследованный набор"
+    )
+    lines: list[str]
+
+
 class ImportOut(BaseModel):
     """Ответ `POST /api/finance/import`.
 
@@ -443,6 +496,10 @@ class ImportOut(BaseModel):
     recategorized: RecategorizeOut | None = Field(
         default=None,
         description="Разбор после записи. null в dry-run: разбирать нечего",
+    )
+    month_transition: MonthTransitionOut | None = Field(
+        default=None,
+        description="Наследование набора и предложение модели перед разбором. null в dry-run",
     )
     corrected_weeks: list[dt.date] = Field(
         default_factory=list,

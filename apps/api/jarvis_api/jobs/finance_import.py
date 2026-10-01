@@ -51,6 +51,8 @@ from jarvis_api.integrations.statements.base import StatementRow
 from jarvis_api.jobs.common import OwnerZoneError, owner_timezone, границы_окна
 from jarvis_api.jobs.finance_categorize import описать as описать_разбор
 from jarvis_api.jobs.finance_categorize import разобрать_книжку
+from jarvis_api.jobs.finance_proposals import описать as описать_переход
+from jarvis_api.jobs.finance_proposals import перейти as перейти_месяц
 
 logger = logging.getLogger("jarvis.finance_import")
 
@@ -385,16 +387,24 @@ def run_once(
     # в базу не легло, а разбор уже лежащего показал бы дифф, к этому
     # заходу не относящийся.
     if apply:
+        settings = get_settings()
+        сейчас = dt.datetime.now(dt.UTC)
         try:
+            # Переход месяца - до разбора (Ф10): месяц, впервые пришедший
+            # с этой выпиской, получает унаследованный набор, и разбор
+            # раскладывает его по нему, а не пропускает как «без набора».
+            переход = перейти_месяц(session, settings, адаптеры=адаптеры, сейчас=сейчас)
             отчёт_разбора, решения = разобрать_книжку(
-                session, get_settings(), apply=True, адаптеры=адаптеры
+                session, settings, apply=True, адаптеры=адаптеры, сейчас=сейчас
             )
         except OwnerZoneError as сбой:
             session.rollback()
             logger.error("операции загружены, но не разобраны: %s", сбой)
             return 1
-        поправлены = разнести_поправки_импорта(session, dt.datetime.now(dt.UTC), зона)
+        поправлены = разнести_поправки_импорта(session, сейчас, зона)
         session.commit()
+        for строка in описать_переход(переход):
+            logger.info("%s", строка)
         for строка in описать_разбор(отчёт_разбора, решения, apply=True):
             logger.info("%s", строка)
         for неделя in поправлены:

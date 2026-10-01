@@ -48,13 +48,17 @@ from jarvis_api.api.schemas_finance import (
     CategoryOut,
     DaySpendIn,
     DaySpendOut,
+    DecisionIn,
+    DecisionOut,
     EditOut,
     FreshnessOut,
     ImportFileOut,
     ImportOut,
     ImportRowOut,
     LimitOut,
+    MonthOpenedOut,
     MonthOut,
+    MonthTransitionOut,
     OffsetIn,
     OffsetOut,
     OutcomeOut,
@@ -73,7 +77,13 @@ from jarvis_api.api.schemas_finance import (
 )
 from jarvis_api.config import Settings
 from jarvis_api.db.models import FinAccount, FinTransaction
-from jarvis_api.domain import finance_budget, finance_edit, finance_feed, finance_rules
+from jarvis_api.domain import (
+    finance_budget,
+    finance_edit,
+    finance_feed,
+    finance_proposals,
+    finance_rules,
+)
 from jarvis_api.domain.finance_balance import (
     ОшибкаРоли,
     назначить_роль,
@@ -94,6 +104,9 @@ from jarvis_api.jobs.finance_categorize import описать as описать_
 from jarvis_api.jobs.finance_categorize import разобрать_книжку
 from jarvis_api.jobs.finance_import import импортировать
 from jarvis_api.jobs.finance_import import разнести_поправки_импорта as импорт_поправок
+from jarvis_api.jobs.finance_proposals import ОтчётПерехода
+from jarvis_api.jobs.finance_proposals import описать as описать_переход
+from jarvis_api.jobs.finance_proposals import перейти as перейти_месяц
 
 маршрутизатор = APIRouter(prefix="/api/finance", tags=["finance"])
 
@@ -471,6 +484,33 @@ def убрать_правило(сессия: Сессия, rule_id: int) -> Non
     сессия.commit()
 
 
+@маршрутизатор.post(
+    "/categories/{category_id}/decision",
+    responses=ОТКАЗЫ | НЕ_НАЙДЕНО | КОНФЛИКТ,
+    summary="Решение owner по предложению модели",
+)
+def решить_предложение(сессия: Сессия, category_id: int, тело: DecisionIn) -> DecisionOut:
+    """Принять или отклонить одно предложение набора месяца (Ф10, §15.4).
+
+    Решение пишется сразу, без диффа: оно касается одной категории, и owner
+    принимает его, читая причину на экране. Принятое удаление снимает
+    категорию с операций месяца, разобранных автоматикой, но книжку не
+    переразбирает - это отдельная ручка, как у правила и роли счёта (§15.7).
+    """
+    try:
+        решение = finance_proposals.решить(сессия, category_id, принять=тело.accept)
+    except finance_proposals.ОшибкаРешения as сбой:
+        статус = 404 if сбой.код == "нет_категории" else 409
+        code = "not_found" if статус == 404 else сбой.код
+        raise ОтказAPI(статус=статус, code=code, message=str(сбой)) from сбой
+    сессия.commit()
+    return DecisionOut(
+        category=CategoryOut.model_validate(решение.категория),
+        cleared=решение.снято,
+        kept_manual=решение.оставлено_ручных,
+    )
+
+
 # --- разбор и импорт --------------------------------------------------------
 
 
@@ -669,8 +709,16 @@ def импорт_выписок(
             сессия.rollback()
 
     разбор = None
+    переход = None
     поправлены: list[dt.date] = []
     if apply and any(отчёт.error is None for отчёт in отчёты):
+        # Переход месяца - до разбора (Ф10): месяц, впервые пришедший
+        # с выпиской, получает унаследованный набор, иначе разбор пропустил
+        # бы его как «без набора». Настройки короткие, как у разбора:
+        # owner ждёт ответа экрана.
+        переход = _переход(
+            перейти_месяц(сессия, короткие_настройки(настройки), адаптеры=адаптеры, сейчас=момент)
+        )
         # Разбор - после всех файлов и один раз: перевод себе опознаётся
         # парой концов из двух банков, и до загрузки второго файла пары
         # ещё нет. В dry-run не запускается вовсе - разбирать нечего.
@@ -686,7 +734,26 @@ def импорт_выписок(
         files=отчёты,
         failed=sum(1 for отчёт in отчёты if отчёт.error is not None),
         recategorized=разбор,
+        month_transition=переход,
         corrected_weeks=поправлены,
+    )
+
+
+def _переход(отчёт: ОтчётПерехода) -> MonthTransitionOut:
+    """Переход месяца - тем же диффом, что печатает команда импорта."""
+    п = отчёт.предложение
+    return MonthTransitionOut(
+        opened=[
+            MonthOpenedOut(month=месяц, inherited_from=откуда, categories=сколько)
+            for месяц, откуда, сколько in отчёт.открыты
+        ],
+        proposal_month=п.месяц,
+        proposed_add=п.добавить,
+        proposed_remove=п.убрать,
+        proposal_rejected=п.отклонено,
+        proposal_skipped=п.пропуск,
+        proposal_error=п.отказ,
+        lines=описать_переход(отчёт),
     )
 
 

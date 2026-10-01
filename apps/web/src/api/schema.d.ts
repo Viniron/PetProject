@@ -408,6 +408,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/categories/{category_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Решение owner по предложению модели
+         * @description Принять или отклонить одно предложение набора месяца (Ф10, §15.4).
+         *
+         *     Решение пишется сразу, без диффа: оно касается одной категории, и owner
+         *     принимает его, читая причину на экране. Принятое удаление снимает
+         *     категорию с операций месяца, разобранных автоматикой, но книжку не
+         *     переразбирает - это отдельная ручка, как у правила и роли счёта (§15.7).
+         */
+        post: operations["\u0440\u0435\u0448\u0438\u0442\u044C_\u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435_api_finance_categories__category_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/finance/import": {
         parameters: {
             query?: never;
@@ -1105,8 +1130,18 @@ export interface components {
              */
             period_month: string;
             /**
+             * Proposal Reason
+             * @description Почему модель предлагает добавить или убрать. null - не предложение
+             */
+            proposal_reason: string | null;
+            /**
+             * Remove Proposed
+             * @description Модель предлагает убрать категорию; до решения owner она работает (Ф10)
+             */
+            remove_proposed: boolean;
+            /**
              * Status
-             * @description active, proposed или rejected
+             * @description active, proposed (модель предлагает добавить) или rejected (вне набора: отклонена или убрана owner)
              */
             status: string;
             /** Title */
@@ -1249,6 +1284,34 @@ export interface components {
             previous: string | null;
             /** @description Неделя после записи: лимит считает сервер, не экран */
             week: components["schemas"]["BudgetWeekOut"];
+        };
+        /**
+         * DecisionIn
+         * @description Решение owner по предложению модели (Ф10, §15.4).
+         */
+        DecisionIn: {
+            /**
+             * Accept
+             * @description true - принять, false - отклонить
+             */
+            accept: boolean;
+        };
+        /**
+         * DecisionOut
+         * @description Итог решения: категория после него и что стало с операциями.
+         */
+        DecisionOut: {
+            category: components["schemas"]["CategoryOut"];
+            /**
+             * Cleared
+             * @description Операций, с которых снята убранная категория. Разложит их переразбор книжки: сам он не запускается (§15.7)
+             */
+            cleared: number;
+            /**
+             * Kept Manual
+             * @description Ручных правок в убранной категории - они остаются, как решил owner
+             */
+            kept_manual: number;
         };
         /**
          * EditOut
@@ -1453,6 +1516,8 @@ export interface components {
             failed: number;
             /** Files */
             files: components["schemas"]["ImportFileOut"][];
+            /** @description Наследование набора и предложение модели перед разбором. null в dry-run */
+            month_transition?: components["schemas"]["MonthTransitionOut"] | null;
             /** @description Разбор после записи. null в dry-run: разбирать нечего */
             recategorized?: components["schemas"]["RecategorizeOut"] | null;
         };
@@ -1521,6 +1586,25 @@ export interface components {
              */
             spent: string;
         };
+        /** MonthOpenedOut */
+        MonthOpenedOut: {
+            /**
+             * Categories
+             * @description Категорий перенесено
+             */
+            categories: number;
+            /**
+             * Inherited From
+             * Format: date
+             */
+            inherited_from: string;
+            /**
+             * Month
+             * Format: date
+             * @description Месяц, получивший набор с этим импортом
+             */
+            month: string;
+        };
         /**
          * MonthOut
          * @description Сальдо месяца и статьи «Отложено» и «Осталось» (§15.5).
@@ -1569,6 +1653,40 @@ export interface components {
              * @description Строк, вошедших в сальдо
              */
             transactions: number;
+        };
+        /**
+         * MonthTransitionOut
+         * @description Переход месяца в записи импорта (Ф10): наследование и предложение.
+         */
+        MonthTransitionOut: {
+            /** Lines */
+            lines: string[];
+            /** Opened */
+            opened: components["schemas"]["MonthOpenedOut"][];
+            /**
+             * Proposal Error
+             * @description Почему модель не ответила. Работает унаследованный набор
+             */
+            proposal_error: string | null;
+            /**
+             * Proposal Month
+             * @description Месяц, на который спрашивали набор
+             */
+            proposal_month: string | null;
+            /**
+             * Proposal Rejected
+             * @description Пункты ответа, отброшенные проверкой
+             */
+            proposal_rejected: string[];
+            /**
+             * Proposal Skipped
+             * @description Почему модель не звали - не отказ
+             */
+            proposal_skipped: string | null;
+            /** Proposed Add */
+            proposed_add: number;
+            /** Proposed Remove */
+            proposed_remove: number;
         };
         /**
          * OffsetIn
@@ -3232,6 +3350,86 @@ export interface operations {
             };
             /** @description Токен принадлежит не owner */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0440\u0435\u0448\u0438\u0442\u044C_\u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435_api_finance_categories__category_id__decision_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

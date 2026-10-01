@@ -38,7 +38,7 @@ DC_DEV := docker compose --env-file infra/dev.env -f $(COMPOSE) -f $(COMPOSE_DEV
 # поэтому цель работает из корня репозитория, а не только из apps/api.
 ALEMBIC := $(PY) -m alembic -c $(API)/alembic.ini
 
-.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi llm-probe llm-probe-apply llm-probe-pi llm-probe-pi-apply       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply finance-remind finance-remind-apply finance-remind-pi finance-remind-pi-apply         backup backup-apply restore-check restore-check-apply
+.PHONY: help venv dev test test-docker lint format compose-check up down logs         db-up db-down build migrate migrate-pi revision contract         web-install web-dev web-build web-lint web-test web-client tunnel-check tunnel-check-pi llm-routes llm-routes-pi llm-probe llm-probe-apply llm-probe-pi llm-probe-pi-apply       sync-itmo sync-itmo-apply sync-itmo-pi sync-itmo-pi-apply         gcal-setup gcal-setup-apply gcal-setup-pi gcal-setup-pi-apply         sync-gcal sync-gcal-apply sync-gcal-pi sync-gcal-pi-apply sync-capture sync-capture-apply sync-capture-pi sync-capture-pi-apply capture-cleanup capture-cleanup-apply capture-cleanup-pi capture-cleanup-pi-apply         daily daily-apply daily-pi daily-pi-apply plan-today         finance-import finance-import-apply finance-import-pi finance-import-pi-apply         finance-taxonomy finance-taxonomy-apply finance-inherit finance-inherit-apply         finance-categorize finance-categorize-apply finance-categorize-pi finance-categorize-pi-apply finance-proposals finance-proposals-apply finance-proposals-pi finance-proposals-pi-apply \n        finance-offset finance-offset-apply finance-offset-unlink finance-offset-unlink-apply finance-offset-show \n        finance-balance finance-balance-pi finance-accounts finance-accounts-apply finance-remind finance-remind-apply finance-remind-pi finance-remind-pi-apply         backup backup-apply restore-check restore-check-apply
 
 help:
 	@echo "venv          - create apps/api/.venv and install dev extras"
@@ -96,6 +96,9 @@ help:
 	@echo "finance-inherit      - copy a month category set forward: make finance-inherit from=2026-08 to=2026-09 (stage F4a)"
 	@echo "finance-categorize   - apply the rules to the book, dry-run (stage F4a)"
 	@echo "finance-categorize-apply - the same, writing kind and category (stage F4a)"
+	@echo "finance-proposals    - model proposals for the month category set: list, accept=<id>, reject=<id> (stage F10)"
+	@echo "finance-proposals-apply - the same, writing the decision (stage F10)"
+	@echo "finance-proposals-pi - the same inside the api container on the Pi; -pi-apply writes (stage F10)"
 	@echo "finance-offset       - link an incoming payment to an expense, dry-run: make finance-offset income=12 expense=34 (stage F4b)"
 	@echo "finance-offset-apply - the same, writing the link (stage F4b)"
 	@echo "finance-offset-unlink - drop the link, dry-run: make finance-offset-unlink income=12 (stage F4b)"
@@ -375,9 +378,10 @@ finance-taxonomy:
 finance-taxonomy-apply:
 	$(PY) -m jarvis_api.jobs.finance_taxonomy $(НАБОР) --apply
 
-# Наследование набора на новый месяц (§15.4). Отдельной целью, а не флагом
-# импорта: месяц наследуется один раз, и случиться это должно по решению
-# owner, а не побочным эффектом загрузки выписки.
+# Наследование набора на новый месяц (§15.4) руками. С Ф10 импорт делает
+# это сам (решение owner 2026-10-01, ADR-056): месяц с операциями и без
+# набора получает набор прошлого. Цель остаётся для месяца, который нужно
+# открыть не от ближайшего прошлого, - и в заполненный месяц она не лезет.
 МЕСЯЦЫ = $(if $(from),,$(error укажи from=ГГГГ-ММ))$(if $(to),,$(error укажи to=ГГГГ-ММ))--inherit-from $(from) --month $(to)
 
 finance-inherit:
@@ -400,6 +404,24 @@ finance-categorize-pi:
 
 finance-categorize-pi-apply:
 	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_categorize --apply
+
+# Предложения модели по набору месяца (Ф10, §15.4): без аргументов - список
+# на текущий месяц (month=ГГГГ-ММ - на другой), с accept=<id> или reject=<id>
+# - решение по одному пункту. Пишет только -apply: принятое удаление снимает
+# категорию с операций, и это стоит увидеть до записи.
+РЕШЕНИЕ = $(if $(month),--month $(month))$(if $(accept), --accept $(accept))$(if $(reject), --reject $(reject))
+
+finance-proposals:
+	$(PY) -m jarvis_api.jobs.finance_proposals $(РЕШЕНИЕ)
+
+finance-proposals-apply:
+	$(PY) -m jarvis_api.jobs.finance_proposals $(РЕШЕНИЕ) --apply
+
+finance-proposals-pi:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_proposals $(РЕШЕНИЕ)
+
+finance-proposals-pi-apply:
+	$(DC_PI) run --rm api python -m jarvis_api.jobs.finance_proposals $(РЕШЕНИЕ) --apply
 
 # Гашение расхода поступлением (Ф4б, §15.5). Экрана для него ещё нет - он
 # приезжает на Ф7, - а разбирать входящие переводы owner хочет раньше.

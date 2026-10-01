@@ -169,6 +169,16 @@ class Settings(BaseSettings):
     # это минуты; из терминала команда идёт с общими настройками слоя.
     finance_categorize_timeout_seconds: int = 30
 
+    # --- Ф10: предложение набора категорий месяца ------------------------------
+    # Сколько прошлых месяцев видит модель, предлагая набор (§15.4). Три -
+    # чтобы разовая трата одного месяца не выглядела привычкой, и не больше:
+    # набор owner меняется, и полугодовая история спорила бы с ним прежним.
+    finance_proposal_history_months: int = 3
+    # Сколько самых дорогих неразобранных мерчантов месяца уходит в историю.
+    # Это повод предложить новую категорию; длинный хвост разовых покупок
+    # повода не даёт, а токены и данные owner у провайдера тратит.
+    finance_proposal_merchants: int = 10
+
     # --- Э5: планировщик -----------------------------------------------------
     # Рубильник. Включён по умолчанию (решение owner): выключенный по умолчанию
     # планировщик означает продукт, который молча не работает, если строчку
@@ -426,6 +436,8 @@ class Settings(BaseSettings):
         "finance_reminder_round_minutes",
         "finance_categorize_chunk",
         "finance_categorize_timeout_seconds",
+        "finance_proposal_history_months",
+        "finance_proposal_merchants",
         "restore_scratch_db",
         "restore_max_dump_age_hours",
         "llm_monthly_cap_usd",
@@ -497,7 +509,12 @@ class Settings(BaseSettings):
             raise ValueError(f"{info.field_name}: ожидалось число минут больше нуля")
         return значение
 
-    @field_validator("finance_categorize_chunk", "finance_categorize_timeout_seconds")
+    @field_validator(
+        "finance_categorize_chunk",
+        "finance_categorize_timeout_seconds",
+        "finance_proposal_history_months",
+        "finance_proposal_merchants",
+    )
     @classmethod
     def _положительно(cls, значение: int, info: ValidationInfo) -> int:
         """Ноль падает при старте, а не на первом импорте.

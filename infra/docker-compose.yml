@@ -136,6 +136,9 @@ services:
       # порция и таймаут возьмутся из config.py, а не из .env.
       FINANCE_CATEGORIZE_CHUNK: ${FINANCE_CATEGORIZE_CHUNK:-}
       FINANCE_CATEGORIZE_TIMEOUT_SECONDS: ${FINANCE_CATEGORIZE_TIMEOUT_SECONDS:-}
+      # Предложение набора категорий (Ф10): глубина истории и число мерчантов.
+      FINANCE_PROPOSAL_HISTORY_MONTHS: ${FINANCE_PROPOSAL_HISTORY_MONTHS:-}
+      FINANCE_PROPOSAL_MERCHANTS: ${FINANCE_PROPOSAL_MERCHANTS:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,
