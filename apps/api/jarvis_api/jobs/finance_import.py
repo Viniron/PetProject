@@ -31,7 +31,7 @@ import argparse
 import datetime as dt
 import hashlib
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -45,6 +45,7 @@ from jarvis_api.db.models import FinAccount, FinImport, FinTransaction
 from jarvis_api.db.session import get_sessionmaker
 from jarvis_api.domain.finance_budget import разнести_поправки
 from jarvis_api.domain.finance_import import ПланИмпорта, Существующая, спланировать
+from jarvis_api.integrations import llm
 from jarvis_api.integrations.statements import ParsedStatement, StatementError, parse_statement
 from jarvis_api.integrations.statements.base import StatementRow
 from jarvis_api.jobs.common import OwnerZoneError, owner_timezone, границы_окна
@@ -340,12 +341,16 @@ def run_once(
     файлы: Sequence[tuple[str, bytes]],
     *,
     apply: bool,
+    адаптеры: Mapping[str, llm.Адаптер] | None = None,
 ) -> int:
     """Заход целиком поверх готовой сессии. Возвращает код возврата процесса.
 
     Транзакция на файл: успешный файл коммитится сразу, упавший
     откатывается - и следующий начинает с чистой сессии. Иначе отказ
     восьмого файла унёс бы семь уже разобранных.
+
+    `адаптеры` - провайдеры для ступени 5 разбора (Ф9). Без них разбор
+    идёт правилами, а модель не зовётся: так импорт гоняют тесты.
     """
     try:
         зона = owner_timezone(session)
@@ -381,7 +386,9 @@ def run_once(
     # заходу не относящийся.
     if apply:
         try:
-            отчёт_разбора, решения = разобрать_книжку(session, get_settings(), apply=True)
+            отчёт_разбора, решения = разобрать_книжку(
+                session, get_settings(), apply=True, адаптеры=адаптеры
+            )
         except OwnerZoneError as сбой:
             session.rollback()
             logger.error("операции загружены, но не разобраны: %s", сбой)
@@ -422,8 +429,10 @@ def run(settings: Settings, пути: Sequence[Path], apply: bool) -> int:
     except ОшибкаФайла as сбой:
         logger.error("импорт не выполнен: %s", сбой)
         return 1
+    # Адаптеры только для записи: в dry-run разбора нет вовсе (см. run_once).
+    адаптеры = llm.собрать_адаптеры(settings) if apply else None
     with get_sessionmaker()() as session:
-        return run_once(session, файлы, apply=apply)
+        return run_once(session, файлы, apply=apply, адаптеры=адаптеры)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

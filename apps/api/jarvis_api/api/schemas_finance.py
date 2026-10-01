@@ -376,6 +376,24 @@ class RecategorizeOut(BaseModel):
     transfers: int = Field(validation_alias="переводов", description="Опознано парой концов")
     to_review: int = Field(validation_alias="в_разбор")
     without_category: int = Field(validation_alias="без_категории")
+    model_pending: int = Field(
+        description=(
+            "Расходов без категории после правил - то, что берёт модель (§15.4, ступень 5)."
+            " При apply=false модель не зовётся, и это число - сколько ушло бы ей"
+        )
+    )
+    by_model: int = Field(
+        description="Получили категорию на ступени 5: ответом модели или повтором по мерчанту"
+    )
+    model_categories_created: int = Field(
+        description="Новых категорий и подкатегорий, заведённых моделью (origin = ai)"
+    )
+    model_error: str | None = Field(
+        description=(
+            "Почему модель не дала категорий - словами для owner. null - не звали или ответила."
+            " Разбор правилами при этом записан, операции видны как неразобранные (§15.6)"
+        )
+    )
     lines: list[str] = Field(description="Дифф строками, по одной на изменение: их читает owner")
 
 

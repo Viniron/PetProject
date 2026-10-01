@@ -1700,6 +1700,11 @@ export interface components {
              * @description false - показан дифф, в базу не записано ничего
              */
             applied: boolean;
+            /**
+             * By Model
+             * @description Получили категорию на ступени 5: ответом модели или повтором по мерчанту
+             */
+            by_model: number;
             /** Categories */
             categories: number;
             /** Changes */
@@ -1709,6 +1714,21 @@ export interface components {
              * @description Дифф строками, по одной на изменение: их читает owner
              */
             lines: string[];
+            /**
+             * Model Categories Created
+             * @description Новых категорий и подкатегорий, заведённых моделью (origin = ai)
+             */
+            model_categories_created: number;
+            /**
+             * Model Error
+             * @description Почему модель не дала категорий - словами для owner. null - не звали или ответила. Разбор правилами при этом записан, операции видны как неразобранные (§15.6)
+             */
+            model_error: string | null;
+            /**
+             * Model Pending
+             * @description Расходов без категории после правил - то, что берёт модель (§15.4, ступень 5). При apply=false модель не зовётся, и это число - сколько ушло бы ей
+             */
+            model_pending: number;
             /** Rules */
             rules: number;
             /** To Review */

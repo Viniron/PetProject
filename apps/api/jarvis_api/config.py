@@ -157,6 +157,18 @@ class Settings(BaseSettings):
     # событие в календаре читалось как назначенное, а не как сбой.
     finance_reminder_round_minutes: int = 15
 
+    # --- Ф9: категоризация моделью --------------------------------------------
+    # Сколько операций уходит модели одним вызовом. Ответ растёт с числом
+    # операций, а `max_tokens` маршрута - нет: порция больше, чем помещается
+    # в потолок ответа, обрывалась бы на середине и шла на повтор целиком.
+    # Сорок строк ответа - около двух тысяч токенов; неделя owner - десятки
+    # операций, из которых модели достаётся меньшая часть.
+    finance_categorize_chunk: int = 40
+    # Таймаут вызова при импорте с экрана, секунды. Запрос держит owner перед
+    # «Загружаю…», а общие шестьдесят секунд с повторами на двух маршрутах -
+    # это минуты; из терминала команда идёт с общими настройками слоя.
+    finance_categorize_timeout_seconds: int = 30
+
     # --- Э5: планировщик -----------------------------------------------------
     # Рубильник. Включён по умолчанию (решение owner): выключенный по умолчанию
     # планировщик означает продукт, который молча не работает, если строчку
@@ -412,6 +424,8 @@ class Settings(BaseSettings):
         "finance_reminder_at",
         "finance_reminder_minutes",
         "finance_reminder_round_minutes",
+        "finance_categorize_chunk",
+        "finance_categorize_timeout_seconds",
         "restore_scratch_db",
         "restore_max_dump_age_hours",
         "llm_monthly_cap_usd",
@@ -481,6 +495,18 @@ class Settings(BaseSettings):
         """
         if значение <= 0:
             raise ValueError(f"{info.field_name}: ожидалось число минут больше нуля")
+        return значение
+
+    @field_validator("finance_categorize_chunk", "finance_categorize_timeout_seconds")
+    @classmethod
+    def _положительно(cls, значение: int, info: ValidationInfo) -> int:
+        """Ноль падает при старте, а не на первом импорте.
+
+        Нулевая порция - бесконечный цикл без единого вызова, нулевой
+        таймаут - отказ каждого вызова, похожий на недоступную модель.
+        """
+        if значение <= 0:
+            raise ValueError(f"{info.field_name}: ожидалось число больше нуля")
         return значение
 
 

@@ -243,3 +243,9 @@ def test_пример_из_env_example_разбирается() -> None:
     assert разбор.fallback, "фолбэк внутри одного аккаунта не спасает от отказа аккаунта"
     assert разбор.provider != разбор.fallback[0].provider
     assert разбор.price_in > 0 and разбор.price_out > 0
+
+    # Категоризация книжки (Ф9): обычный вызов, а не пачка (ADR-055) -
+    # пачка отвечает часами, а категории нужны в конце того же импорта.
+    категории = маршруты[Задача.КНИЖКА_КАТЕГОРИЯ]
+    assert категории.batch is False
+    assert категории.fallback and категории.provider != категории.fallback[0].provider

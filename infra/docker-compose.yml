@@ -132,6 +132,10 @@ services:
       FINANCE_REMINDER_AT: ${FINANCE_REMINDER_AT:-}
       FINANCE_REMINDER_MINUTES: ${FINANCE_REMINDER_MINUTES:-}
       FINANCE_REMINDER_ROUND_MINUTES: ${FINANCE_REMINDER_ROUND_MINUTES:-}
+      # Категоризация моделью (Ф9), тот же формат. Забытая проброска тихая:
+      # порция и таймаут возьмутся из config.py, а не из .env.
+      FINANCE_CATEGORIZE_CHUNK: ${FINANCE_CATEGORIZE_CHUNK:-}
+      FINANCE_CATEGORIZE_TIMEOUT_SECONDS: ${FINANCE_CATEGORIZE_TIMEOUT_SECONDS:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,

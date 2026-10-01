@@ -21,6 +21,8 @@
 журнала - импорт оставляет `fin_imports` с sha256 файла, ручная правка
 ставит `manual` источником решения, привязка гашения - ссылку с обеих
 сторон. Строка `audit_log` добавила бы к ним четвёртую правду о том же.
+Исключение одно и не из книжки: вызов модели на ступени 5 разбора (Ф9)
+пишет аудит сам, в слое моделей, - этого требует инвариант 8.
 """
 
 import datetime as dt
@@ -28,7 +30,7 @@ import re
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from jarvis_api.api.deps import Настройки, Сейчас, Сессия
@@ -85,6 +87,7 @@ from jarvis_api.domain.finance_edit import НЕ_ЗАДАНО, ОшибкаПра
 from jarvis_api.domain.finance_import import ПланИмпорта
 from jarvis_api.domain.finance_offsets import ОшибкаПривязки, привязать, разбивка, снять
 from jarvis_api.domain.finance_rules import ОшибкаПравила
+from jarvis_api.integrations import llm
 from jarvis_api.integrations.statements import StatementError
 from jarvis_api.jobs.common import owner_timezone
 from jarvis_api.jobs.finance_categorize import описать as описать_разбор
@@ -105,6 +108,31 @@ from jarvis_api.jobs.finance_import import разнести_поправки_и�
 КОНФЛИКТ: dict[int | str, dict[str, Any]] = {
     409: {"model": ErrorBody, "description": "Действие противоречит состоянию книжки"}
 }
+
+
+def короткие_настройки(настройки: Settings) -> Settings:
+    """Настройки слоя моделей для разбора внутри запроса (Ф9).
+
+    Запрос держит owner перед экраном, а через туннель - ещё и под таймаутом
+    Cloudflare. Одна попытка на маршрут и свой таймаут: недоступный провайдер
+    сразу уступает резерву, худший случай - два таймаута подряд. Тот же
+    приём, что у разбора захвата (ADR-054).
+    """
+    return настройки.model_copy(
+        update={
+            "llm_retries": 1,
+            "llm_timeout_seconds": настройки.finance_categorize_timeout_seconds,
+        }
+    )
+
+
+def адаптеры_книжки(настройки: Настройки) -> dict[str, llm.Адаптер]:
+    """Провайдеры для ступени 5 разбора. Зависимостью - тесты её подменяют,
+    и сеть в прогоне не трогается ни разу (`CLAUDE.md`)."""
+    return llm.собрать_адаптеры(короткие_настройки(настройки))
+
+
+Адаптеры = Annotated[dict[str, llm.Адаптер], Depends(адаптеры_книжки)]
 
 
 def _месяц(значение: str | None, момент: dt.datetime, зона: ZoneInfo) -> dt.date:
@@ -446,9 +474,26 @@ def убрать_правило(сессия: Сессия, rule_id: int) -> Non
 # --- разбор и импорт --------------------------------------------------------
 
 
-def _разбор(сессия: Session, настройки: Settings, *, apply: bool) -> RecategorizeOut:
-    """Разбор книжки целиком: тот же домен и тот же дифф, что у команды."""
-    отчёт, решения = разобрать_книжку(сессия, настройки, apply=apply)
+def _разбор(
+    сессия: Session,
+    настройки: Settings,
+    *,
+    apply: bool,
+    адаптеры: dict[str, llm.Адаптер],
+    момент: dt.datetime,
+) -> RecategorizeOut:
+    """Разбор книжки целиком: тот же домен и тот же дифф, что у команды.
+
+    Модель зовётся только при записи (Ф9): дифф без записи, тратящий
+    деньги, перестал бы быть безопасным повтором.
+    """
+    отчёт, решения = разобрать_книжку(
+        сессия,
+        короткие_настройки(настройки),
+        apply=apply,
+        адаптеры=адаптеры if apply else None,
+        сейчас=момент,
+    )
     return RecategorizeOut(
         applied=apply,
         transactions=отчёт.операций,
@@ -458,6 +503,10 @@ def _разбор(сессия: Session, настройки: Settings, *, apply:
         transfers=отчёт.переводов,
         to_review=отчёт.в_разбор,
         without_category=отчёт.без_категории,
+        model_pending=отчёт.модель.ждут,
+        by_model=отчёт.модель.назначено,
+        model_categories_created=отчёт.модель.новых_категорий,
+        model_error=отчёт.модель.отказ,
         lines=описать_разбор(отчёт, решения, apply=apply),
     )
 
@@ -470,6 +519,8 @@ def _разбор(сессия: Session, настройки: Settings, *, apply:
 def переразобрать(
     сессия: Сессия,
     настройки: Настройки,
+    адаптеры: Адаптеры,
+    момент: Сейчас,
     apply: Annotated[bool, Query(description="false - показать дифф и не писать ничего")] = False,
 ) -> RecategorizeOut:
     """Применяет правила ко всей книжке (§15.4, ADR-041).
@@ -479,7 +530,7 @@ def переразобрать(
     день. Дифф без записи - умолчание: разбор меняет вид операций, то есть
     сальдо месяцев, и делать это молча по нажатию кнопки нельзя.
     """
-    ответ = _разбор(сессия, настройки, apply=apply)
+    ответ = _разбор(сессия, настройки, apply=apply, адаптеры=адаптеры, момент=момент)
     if apply:
         сессия.commit()
     else:
@@ -559,6 +610,7 @@ def импорт_выписок(
     сессия: Сессия,
     настройки: Настройки,
     момент: Сейчас,
+    адаптеры: Адаптеры,
     files: Annotated[list[UploadFile], File(description="Файлы выписок, по одному с банка")],
     apply: Annotated[bool, Query(description="false - показать дифф и не писать ничего")] = False,
 ) -> ImportOut:
@@ -622,7 +674,7 @@ def импорт_выписок(
         # Разбор - после всех файлов и один раз: перевод себе опознаётся
         # парой концов из двух банков, и до загрузки второго файла пары
         # ещё нет. В dry-run не запускается вовсе - разбирать нечего.
-        разбор = _разбор(сессия, настройки, apply=True)
+        разбор = _разбор(сессия, настройки, apply=True, адаптеры=адаптеры, момент=момент)
         # Выписка принесла траты недель, итог которых owner уже распределил
         # (§15.10). Разнос - после разбора: он меняет вид операций, то есть
         # и сами траты, и поправка по неразобранным строкам была бы не та.

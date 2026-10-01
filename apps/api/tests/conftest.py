@@ -27,6 +27,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from jarvis_api.api.deps import сейчас as зависимость_сейчас
+from jarvis_api.api.routes_finance import адаптеры_книжки
 from jarvis_api.config import Settings, get_settings
 from jarvis_api.db.session import get_engine, get_sessionmaker, session_scope
 from jarvis_api.main import app
@@ -195,6 +196,11 @@ def стенд(сессия: Session) -> Iterator[Стенд]:
 
     **Подмены снимаются через `pop`, а не `clear()`.** Объект `app` один на
     весь прогон, и `clear()` унёс бы чужие подмены вместе со своими.
+
+    **Провайдеров моделей у книжки нет по умолчанию.** Импорт и разбор
+    зовут модель (Ф9), а настоящий реестр собрал бы адаптеры из ключей
+    окружения - и тест ушёл бы в сеть, будь ключ задан. Тест, которому
+    модель нужна, подменяет `адаптеры_книжки` подставной.
     """
     стенд = Стенд(
         клиент=TestClient(app),
@@ -212,10 +218,11 @@ def стенд(сессия: Session) -> Iterator[Стенд]:
     app.dependency_overrides[session_scope] = подменить_сессию
     app.dependency_overrides[зависимость_сейчас] = lambda: стенд.сейчас
     app.dependency_overrides[get_settings] = lambda: стенд.настройки
+    app.dependency_overrides[адаптеры_книжки] = lambda: {}
     try:
         yield стенд
     finally:
-        for зависимость in (session_scope, зависимость_сейчас, get_settings):
+        for зависимость in (session_scope, зависимость_сейчас, get_settings, адаптеры_книжки):
             app.dependency_overrides.pop(зависимость, None)
 
 

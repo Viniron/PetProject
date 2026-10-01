@@ -102,6 +102,9 @@ COMPOSE_PI = REPO_ROOT / "infra" / "docker-compose.pi.yml"
     "FINANCE_REMINDER_AT",
     "FINANCE_REMINDER_MINUTES",
     "FINANCE_REMINDER_ROUND_MINUTES",
+    # Ф9: порция операций на вызов модели и таймаут вызова с экрана.
+    "FINANCE_CATEGORIZE_CHUNK",
+    "FINANCE_CATEGORIZE_TIMEOUT_SECONDS",
 )
 
 # Живучесть (Э9, ADR-043). Забытая проброска здесь самая тихая из всех:

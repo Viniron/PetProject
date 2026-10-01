@@ -1972,6 +1972,11 @@
             "title": "Applied",
             "type": "boolean"
           },
+          "by_model": {
+            "description": "Получили категорию на ступени 5: ответом модели или повтором по мерчанту",
+            "title": "By Model",
+            "type": "integer"
+          },
           "categories": {
             "title": "Categories",
             "type": "integer"
@@ -1987,6 +1992,28 @@
             },
             "title": "Lines",
             "type": "array"
+          },
+          "model_categories_created": {
+            "description": "Новых категорий и подкатегорий, заведённых моделью (origin = ai)",
+            "title": "Model Categories Created",
+            "type": "integer"
+          },
+          "model_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель не дала категорий - словами для owner. null - не звали или ответила. Разбор правилами при этом записан, операции видны как неразобранные (§15.6)",
+            "title": "Model Error"
+          },
+          "model_pending": {
+            "description": "Расходов без категории после правил - то, что берёт модель (§15.4, ступень 5). При apply=false модель не зовётся, и это число - сколько ушло бы ей",
+            "title": "Model Pending",
+            "type": "integer"
           },
           "rules": {
             "title": "Rules",
@@ -2019,6 +2046,10 @@
           "transfers",
           "to_review",
           "without_category",
+          "model_pending",
+          "by_model",
+          "model_categories_created",
+          "model_error",
           "lines"
         ],
         "title": "RecategorizeOut",
