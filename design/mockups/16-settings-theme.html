@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 16 — выбор темы · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета. Продуктовые детали — ниже, в блоке «выбор темы».
+   Здесь только обрамление: заголовки, панели, подписи к состояниям. */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 78ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 78ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2 { grid-template-columns: 1fr; } }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+.pad { padding: var(--space-5); background: var(--bg); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 03-capture.html, раздел 7:
+   одна капсула на все экраны, копия здесь только ради показа. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; height: 640px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--bg); }
+.app--phone { display: block; height: 100%; min-height: 0;
+              padding: var(--space-4); padding-bottom: 104px; overflow: hidden; }
+.app--phone .content-col { max-width: none; }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+
+/* Компоненты выбора темы (.set-head, .set-hint, .set-text, .theme-opts,
+   .theme-opt*, .mini*, фокус) утверждены owner 2026-10-01 и переехали
+   в tokens.css. Здесь остаётся только то, что не компонент продукта,
+   а деталь именно этой страницы разбора. */
+
+/* Статичный показ наведения и фокуса в разделе 3 — чтобы состояние было
+   видно без мыши и клавиатуры. */
+.theme-opts.is-hover .theme-opt-name { opacity: .7; }
+.theme-opts.is-hover .theme-opt.is-hover .theme-opt-name { opacity: 1; }
+.theme-opt.is-focus { outline: 2px solid var(--text-muted); outline-offset: 4px; }
+
+/* Телефон: две карточки в ряд по ~175 px, на всю ширину колонки.
+   В продукте эту роль играет shell-mobile.css. */
+.app--phone .theme-opts { max-width: none; gap: var(--space-2); }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>Этап 16 — выбор темы</h1>
+  <p>
+    Тем две с этапа 0 (<code>tokens.css</code>), но выбрать светлую негде: страница
+    не ставит <code>data-theme</code> и берёт настройку системы, поэтому в тёмной
+    Windows JARVIS тёмный всегда. Экран даёт выбор <b>Светлая / Тёмная</b>
+    на вкладке <code>Settings</code> (<code>SPEC.md</code> §8.1). Код — Э10.
+  </p>
+  <p>
+    <b>Решено owner 2026-10-01:</b> карточки с миниатюрой на обоих устройствах,
+    варианта «Как в системе» нет, выбор хранится <b>на устройстве</b> — телефон
+    и ПК могут стоять на разных темах. Тема применяется <b>сразу по нажатию</b>,
+    кнопки «Сохранить» нет.
+  </p>
+  <div class="note"><span class="fiction-note">Макет. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК</h2>
+  <p>
+    Две карточки с миниатюрой экрана в своей теме. Наведите курсор на карточки:
+    гаснет подпись соседней, миниатюры не меняются.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Выбрана «Светлая»</b><span>data-theme="light"</span></div>
+    <div class="app" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content">
+        <div class="content-col">
+          <div class="screen-title">Settings</div>
+          <div class="screen-sub">Оформление и то, что настраивается на плате</div>
+
+          <div class="set-head">Тема</div>
+          <div class="theme-opts" role="radiogroup" aria-label="Тема">
+            <button class="theme-opt is-active" role="radio" aria-checked="true">
+              <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+              <div class="theme-opt-name">Светлая</div>
+            </button>
+            <button class="theme-opt" role="radio" aria-checked="false">
+              <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+              <div class="theme-opt-name">Тёмная</div>
+            </button>
+          </div>
+          <div class="set-hint">Выбор действует на этом устройстве.</div>
+
+          <div class="set-head">Остальное</div>
+          <div class="set-text">Часовой пояс, окно забора расписания и ключи живут на плате — в <code>.env</code> и таблице <code>settings</code>. Меняются там, а не здесь.</div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Миниатюра — тот же экран в своей теме</b>, а не цветной кружок:
+      темы различаются всей палитрой, и кружок не показал бы, как будут выглядеть
+      капсула и текст.</p>
+    <p class="mark">Выбранная карточка — <b>граница акцентом и галочка</b>. Ни тени, ни
+      цветной заливки (рамка owner): галочка дублирует границу знаком.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Выбрана «Тёмная»</b><span>data-theme="dark"</span></div>
+    <div class="app" data-theme="dark">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content">
+        <div class="content-col">
+          <div class="screen-title">Settings</div>
+          <div class="screen-sub">Оформление и то, что настраивается на плате</div>
+
+          <div class="set-head">Тема</div>
+          <div class="theme-opts" role="radiogroup" aria-label="Тема">
+            <button class="theme-opt" role="radio" aria-checked="false">
+              <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+              <div class="theme-opt-name">Светлая</div>
+            </button>
+            <button class="theme-opt is-active" role="radio" aria-checked="true">
+              <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+              <div class="theme-opt-name">Тёмная</div>
+            </button>
+          </div>
+          <div class="set-hint">Выбор действует на этом устройстве.</div>
+
+          <div class="set-head">Остальное</div>
+          <div class="set-text">Часовой пояс, окно забора расписания и ключи живут на плате — в <code>.env</code> и таблице <code>settings</code>. Меняются там, а не здесь.</div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Первое открытие на устройстве</b> — выбора ещё нет: выбрана
+      карточка той темы, что даёт система. Так JARVIS ведёт себя сегодня, и выкатка
+      не перекрашивает экран без спроса. Первое нажатие запоминает выбор.</p>
+    <p class="mark"><b>Применяется до первой отрисовки</b> (§8.1): выбор читается
+      с устройства строкой в <code>&lt;head&gt;</code> до появления страницы — мигания
+      чужой палитры нет. Чистка данных браузера возвращает к теме системы.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Телефон</h2>
+  <p>
+    Вкладка <code>Settings</code> на телефоне та же, что на ПК (ADR-039 убирает
+    с телефона календарь, а не настройки). Рамка — установленное приложение
+    (ADR-040): без адресной строки, капсула поверх контента. Круглой кнопки
+    на вкладке нет: создавать здесь нечего.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Выбрана «Тёмная»</b><span>390 × 640 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Settings</div>
+            <div class="screen-sub">Оформление и то, что настраивается на плате</div>
+            <div class="set-head">Тема</div>
+            <div class="theme-opts" role="radiogroup" aria-label="Тема">
+              <button class="theme-opt" role="radio" aria-checked="false">
+                <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+                <div class="theme-opt-name">Светлая</div>
+              </button>
+              <button class="theme-opt is-active" role="radio" aria-checked="true">
+                <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+                <div class="theme-opt-name">Тёмная</div>
+              </button>
+            </div>
+            <div class="set-hint">Выбор действует на этом устройстве.</div>
+            <div class="set-head">Остальное</div>
+            <div class="set-text">Часовой пояс, окно забора расписания и ключи живут на плате. Меняются там, а не здесь.</div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Две карточки в ряд</b>, по ~175 px: миниатюра той же высоты,
+      что на ПК, карточка — под палец целиком, а не только подпись.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Выбрана «Светлая»</b><span>390 × 640 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Settings</div>
+            <div class="screen-sub">Оформление и то, что настраивается на плате</div>
+            <div class="set-head">Тема</div>
+            <div class="theme-opts" role="radiogroup" aria-label="Тема">
+              <button class="theme-opt is-active" role="radio" aria-checked="true">
+                <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+                <div class="theme-opt-name">Светлая</div>
+              </button>
+              <button class="theme-opt" role="radio" aria-checked="false">
+                <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+                <div class="theme-opt-name">Тёмная</div>
+              </button>
+            </div>
+            <div class="set-hint">Выбор действует на этом устройстве.</div>
+            <div class="set-head">Остальное</div>
+            <div class="set-text">Часовой пояс, окно забора расписания и ключи живут на плате. Меняются там, а не здесь.</div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Наведения на телефоне нет</b> — палец не зависает над экраном,
+      поэтому подписи не гаснут. Нажатие сразу перекрашивает экран.</p>
+  </section>
+
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Наведение и фокус</h2>
+  <p>
+    Оба состояния показаны статично, чтобы их было видно без мыши и клавиатуры.
+    В разделе 1 наведение живое.
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Наведение на «Тёмную», выбрана «Светлая»</b><span>hover</span></div>
+    <div class="pad" data-theme="light">
+      <div class="theme-opts is-hover" role="radiogroup" aria-label="Тема">
+        <button class="theme-opt is-active" role="radio" aria-checked="true">
+          <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+          <div class="theme-opt-name">Светлая</div>
+        </button>
+        <button class="theme-opt is-hover" role="radio" aria-checked="false">
+          <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+          <div class="theme-opt-name">Тёмная</div>
+        </button>
+      </div>
+    </div>
+    <p class="mark"><b>Гаснет только подпись соседней карточки</b>, и слабо — до 70 %
+      своего цвета, а не в серый. Миниатюры и рамка выбора не меняются: картинка —
+      образец темы, приглушённая она показывала бы не ту палитру.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Фокус на «Тёмной», выбрана «Светлая»</b><span>Tab, затем ← →</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="theme-opts" role="radiogroup" aria-label="Тема">
+        <button class="theme-opt is-active" role="radio" aria-checked="true">
+          <div class="mini" data-theme="light"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+          <div class="theme-opt-name">Светлая</div>
+        </button>
+        <button class="theme-opt is-focus" role="radio" aria-checked="false">
+          <div class="mini" data-theme="dark"><div class="mini-rail"><i></i><i></i><i></i></div><div class="mini-body"><i></i><i></i><i></i><i></i></div></div>
+          <div class="theme-opt-name">Тёмная</div>
+        </button>
+      </div>
+    </div>
+    <p class="mark"><b>Выбор и фокус — разные знаки.</b> Выбор — граница акцентом
+      вплотную и галочка, фокус — серое кольцо с зазором снаружи. Это первое
+      правило фокуса в <code>tokens.css</code>.</p>
+    <p class="mark">Группа — <code>radiogroup</code>: Tab входит в неё одним шагом,
+      стрелки двигают выбор и сразу применяют тему, как нажатие.</p>
+  </section>
+
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>
