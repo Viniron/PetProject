@@ -84,6 +84,11 @@ COMPOSE_PI = REPO_ROOT / "infra" / "docker-compose.pi.yml"
     "CAPTURE_DRAFT_TTL_HOURS",
     "CAPTURE_TEXT_MAX_CHARS",
     "CAPTURE_PUSH_TIMEOUT_SECONDS",
+    "CAPTURE_PARSE_TIMEOUT_SECONDS",
+    "CAPTURE_IMAGE_MAX_BYTES",
+    "CAPTURE_PDF_MAX_PAGES",
+    "CAPTURE_DEFAULT_DURATION_MINUTES",
+    "CAPTURE_CONFIDENCE_THRESHOLD",
 )
 
 # Разбор книжки (Ф4а) и давность её данных (Ф6). Забытая проброска тише

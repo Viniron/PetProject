@@ -9,13 +9,19 @@ Google здесь недоступен намеренно и ни разу не 
 """
 
 import datetime as dt
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from conftest import Стенд
 from sqlalchemy import func, select
+from test_capture_domain import pdf
+from test_capture_parse import НАЗНАЧЕНИЕ, Подставной, ответ
 
-from jarvis_api.db.models import CalendarEvent, CaptureDraft
+from jarvis_api.api.routes_capture import адаптеры_захвата
+from jarvis_api.db.models import AuditLogEntry, CalendarEvent, CaptureBlob, CaptureDraft
+from jarvis_api.integrations import llm
+from jarvis_api.main import app
 
 НАЧАЛО = "2026-10-21T17:00:00+03:00"
 КОНЕЦ = "2026-10-21T18:00:00+03:00"
@@ -40,6 +46,36 @@ def без_google(стенд: Стенд) -> None:
     стенд.настройки = стенд.настройки.model_copy(update={"google_sa_json": ""})
 
 
+@pytest.fixture(autouse=True)
+def модели(стенд: Стенд) -> Iterator[dict[str, llm.Адаптер]]:
+    """Провайдеры захвата подменены всегда, и по умолчанию их нет вовсе.
+
+    По той же причине, что и Google выше: окружение прогона может нести
+    настоящие ключи и `LLM_ROUTING`, и тогда «Извлечь» ушло бы к живой
+    модели за деньги. Тест, которому модель нужна, кладёт сюда подставную.
+    """
+    стенд.настройки = стенд.настройки.model_copy(update={"llm_routing": ""})
+    подключённые: dict[str, llm.Адаптер] = {}
+    app.dependency_overrides[адаптеры_захвата] = lambda: подключённые
+    try:
+        yield подключённые
+    finally:
+        app.dependency_overrides.pop(адаптеры_захвата, None)
+
+
+def с_моделью(
+    стенд: Стенд, модели: dict[str, llm.Адаптер], *сценарий: llm.Ответ | Exception
+) -> Подставной:
+    стенд.настройки = стенд.настройки.model_copy(update={"llm_routing": НАЗНАЧЕНИЕ})
+    основной = Подставной("провайдер-а", list(сценарий))
+    модели[основной.имя] = основной
+    return основной
+
+
+# Самые короткие файлы, которые опознаются форматом: сигнатура и немного байт.
+JPEG = bytes.fromhex("ffd8ffe0") + b"JFIF" + bytes(32)
+
+
 def завести(стенд: Стенд, текст: str = "встреча с куратором в четверг") -> str:
     ответ = стенд.клиент.post("/api/capture/drafts", json={"modality": "text", "text": текст})
     assert ответ.status_code == 201, ответ.text
@@ -58,22 +94,18 @@ def test_черновик_заводится_и_виден_в_списке(ст�
     assert ответ.status_code == 200
     черновики = ответ.json()["drafts"]
     assert [строка["id"] for строка in черновики] == [идентификатор]
-    # До слоя моделей разбора нет, и клиент обязан это видеть.
+    # Модель не назначена: разбора нет, причина названа, и клиент это видит.
     assert черновики[0]["extracted"] is None
+    assert черновики[0]["error"] == "модель для разбора не назначена"
     assert черновики[0]["modality"] == "text"
+    assert черновики[0]["timezone"] == "Europe/Moscow"
 
 
-@pytest.mark.parametrize("modality", ["image", "audio"])
-def test_фото_и_голос_отвергаются_с_причиной(стенд: Стенд, modality: str) -> None:
-    """Режимы видны в контракте, но погашены (решение owner 2026-09-17).
-
-    Молчаливый приём сырья был бы хуже отказа: байты легли бы в базу,
-    уехали в ночной дамп и удалились по сроку, так и не став событием.
-    """
-    ответ = стенд.клиент.post("/api/capture/drafts", json={"modality": modality})
+def test_фото_текстовой_ручкой_не_принимается(стенд: Стенд) -> None:
+    """Фото идёт multipart своей ручкой, а не base64 внутри JSON."""
+    ответ = стенд.клиент.post("/api/capture/drafts", json={"modality": "image", "text": "x"})
 
     assert ответ.status_code == 422
-    assert ответ.json()["code"] == "capture_modality_unavailable"
     assert строк(стенд, CaptureDraft) == 0
 
 
@@ -198,3 +230,173 @@ def test_событие_приведено_к_utc(стенд: Стенд) -> Non
     строка = стенд.сессия.scalars(select(CalendarEvent)).one()
     assert строка.starts_at == dt.datetime(2026, 10, 21, 14, 0, tzinfo=dt.UTC)
     assert строка.ends_at == dt.datetime(2026, 10, 21, 15, 0, tzinfo=dt.UTC)
+
+
+# --- Э12в: разбор моделью -----------------------------------------------------
+
+
+def test_разбор_моделью_приходит_в_зоне_owner(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    """Модель ответила местным временем, экран видит его с зоной owner (§8.4)."""
+    с_моделью(стенд, модели, ответ())
+
+    тело = стенд.клиент.post(
+        "/api/capture/drafts", json={"text": "встреча с куратором в четверг после физики"}
+    ).json()
+
+    assert тело["error"] is None
+    разбор = тело["extracted"]
+    assert разбор["title"] == "Встреча с куратором"
+    assert разбор["starts_at"] == "2026-10-22T17:00:00+03:00"
+    assert разбор["ends_at"] == "2026-10-22T18:00:00+03:00"
+    assert разбор["time_uncertain"] is False
+    assert разбор["duration_assumed"] is False
+
+
+def test_разбор_виден_и_в_списке(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    с_моделью(стенд, модели, ответ(ends_at=None))
+    завести(стенд)
+
+    черновик = стенд.клиент.get("/api/capture/drafts").json()["drafts"][0]
+
+    assert черновик["extracted"]["ends_at"] == "2026-10-22T18:00:00+03:00"
+    assert черновик["extracted"]["duration_assumed"] is True
+
+
+def test_отказ_модели_не_отменяет_черновика(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    """Геоблок на плате (до Э12г) - это форма для ручного ввода, а не 500."""
+    с_моделью(стенд, модели, llm.ВыходЗаблокирован("403 Request not allowed"))
+
+    ответ_ = стенд.клиент.post("/api/capture/drafts", json={"text": "зубной в пятницу"})
+
+    assert ответ_.status_code == 201, ответ_.text
+    assert ответ_.json()["extracted"] is None
+    assert ответ_.json()["error"] == "модели недоступны из сети платы"
+    assert строк(стенд, CaptureDraft) == 1
+
+
+def test_голос_приходит_расшифровкой(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели, ответ())
+
+    тело = стенд.клиент.post(
+        "/api/capture/drafts", json={"modality": "audio", "text": "в среду в три в деканат"}
+    ).json()
+
+    assert тело["modality"] == "audio"
+    assert тело["source_text"] == "в среду в три в деканат"
+    assert "надиктована" in основной.запросы[0].переменная_часть
+    assert строк(стенд, CaptureBlob) == 0, "звука у сервера нет - хранить нечего"
+
+
+def test_вызов_модели_в_аудите(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    с_моделью(стенд, модели, ответ())
+    завести(стенд)
+
+    записи = list(
+        стенд.сессия.scalars(select(AuditLogEntry).where(AuditLogEntry.kind == "llm_call"))
+    )
+    assert [(з.status, з.provider, з.model) for з in записи] == [("ok", "провайдер-а", "модель-1")]
+    assert записи[0].cost_usd is not None
+
+
+def test_фото_разбирается_и_байты_ложатся_в_базу(
+    стенд: Стенд, модели: dict[str, llm.Адаптер]
+) -> None:
+    основной = с_моделью(стенд, модели, ответ(title="Открытая лекция"))
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file",
+        # Заголовок клиента нарочно врёт: формат определяется по байтам.
+        files={"file": ("IMG_2041.png", JPEG, "image/png")},
+    )
+
+    assert ответ_.status_code == 201, ответ_.text
+    тело = ответ_.json()
+    assert тело["modality"] == "image"
+    assert тело["source_text"] is None
+    assert тело["extracted"]["title"] == "Открытая лекция"
+    assert основной.запросы[0].изображения == (llm.Изображение("image/jpeg", JPEG),)
+    сырьё = стенд.сессия.scalars(select(CaptureBlob)).one()
+    assert (сырьё.mime_type, сырьё.size_bytes) == ("image/jpeg", len(JPEG))
+
+
+def test_подтверждение_фото_уносит_снимок(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    с_моделью(стенд, модели, ответ())
+    идентификатор = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("a.jpg", JPEG, "image/jpeg")}
+    ).json()["id"]
+
+    ответ_ = стенд.клиент.post(f"/api/capture/drafts/{идентификатор}/confirm", json=ПОДТВЕРЖДЕНИЕ)
+
+    assert ответ_.status_code == 200, ответ_.text
+    assert строк(стенд, CaptureBlob) == 0, "снимок не живёт дольше черновика"
+
+
+def test_не_картинка_отвергается_до_модели(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели)
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("a.jpg", b"GIF89a....", "image/jpeg")}
+    )
+
+    assert ответ_.status_code == 422
+    assert ответ_.json()["code"] == "capture_file_unsupported"
+    assert основной.запросы == [], "отвергнутый файл не стоит денег"
+    assert строк(стенд, CaptureDraft) == 0
+
+
+def test_большое_фото_отвергается_до_модели(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели)
+    стенд.настройки = стенд.настройки.model_copy(update={"capture_image_max_bytes": 16})
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("a.jpg", JPEG, "image/jpeg")}
+    )
+
+    assert ответ_.status_code == 422
+    assert ответ_.json()["code"] == "capture_file_too_large"
+    assert основной.запросы == []
+    assert строк(стенд, CaptureDraft) == 0
+
+
+def test_pdf_разбирается_документом(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели, ответ(title="Лекция"))
+    файл = pdf(2)
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("afisha.pdf", файл, "application/pdf")}
+    )
+
+    assert ответ_.status_code == 201, ответ_.text
+    # Модальность та же, что у фото (решение owner): различие - в типе сырья.
+    assert ответ_.json()["modality"] == "image"
+    assert основной.запросы[0].изображения == (llm.Изображение("application/pdf", файл),)
+    assert "PDF-документ" in основной.запросы[0].переменная_часть
+    assert стенд.сессия.scalars(select(CaptureBlob)).one().mime_type == "application/pdf"
+
+
+def test_длинный_pdf_отвергается_до_модели(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели)
+    стенд.настройки = стенд.настройки.model_copy(update={"capture_pdf_max_pages": 5})
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("a.pdf", pdf(6), "application/pdf")}
+    )
+
+    assert ответ_.status_code == 422
+    assert ответ_.json()["code"] == "capture_pdf_too_long"
+    assert "6 страниц" in ответ_.json()["message"]
+    assert основной.запросы == []
+    assert строк(стенд, CaptureDraft) == 0
+
+
+def test_битый_pdf_отвергается_до_модели(стенд: Стенд, модели: dict[str, llm.Адаптер]) -> None:
+    основной = с_моделью(стенд, модели)
+
+    ответ_ = стенд.клиент.post(
+        "/api/capture/drafts/file", files={"file": ("a.pdf", b"%PDF-1.7 ...", "application/pdf")}
+    )
+
+    assert ответ_.status_code == 422
+    assert ответ_.json()["code"] == "capture_file_unreadable"
+    assert основной.запросы == []
+    assert строк(стенд, CaptureDraft) == 0

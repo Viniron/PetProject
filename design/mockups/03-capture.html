@@ -62,6 +62,65 @@ body { background: #e8e8ea; color: #1a1a1c; }
    контур, доказывающий, что модалка стоит НАД чем-то, а не на пустом месте. */
 .ghost-screen { margin-top: var(--space-5); height: 420px; border-radius: var(--radius-lg);
                 border: 1px solid var(--border); background: var(--surface-2); }
+
+/* Компоненты разделов 5 и 6 (сообщение системы, превью файла, миниатюры,
+   идущая запись, итог записи, файл над формой) утверждены owner 2026-09-30
+   и переехали в tokens.css. */
+
+/* === Раздел 7 — телефон =====================================================
+   Рамка устройства и капсула — те же, что в догоне оболочки (01-shell.html,
+   раздел 5): одна капсула на все экраны, копия здесь только ради показа. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; height: 800px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--bg); }
+.app--phone { display: block; height: 100%; min-height: 0;
+              padding: var(--space-4); padding-bottom: 104px; overflow: hidden; }
+.app--phone .content-col { max-width: none; }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); background: var(--surface); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+
+/* Захват — содержимое вкладки, а не модалка (ADR-039): ни скрима, ни рамки
+   окна, ни крестика — закрывать нечего, это и есть экран. Шапка формы
+   остаётся: она говорит, что именно сейчас заводится. */
+.capture--phone { max-width: none; border: 0; border-radius: 0; background: none;
+                  overflow: visible; margin-top: var(--space-4); }
+.capture--phone .capture-head { padding: 0 0 var(--space-3); }
+.capture--phone .capture-body { padding: var(--space-4) 0; }
+/* Подвал закреплён над капсулой: главное действие видно без прокрутки,
+   сколько бы полей ни было выше, — форма прокручивается над ним. Кнопки
+   в строку, а не столбцом: столбец съедал бы по высоте ещё одну кнопку
+   у экрана, где и так тесно. «Отмена» слева и узкая, главная — справа,
+   под большим пальцем, на всю остальную ширину. */
+.capture--phone .capture-foot { position: absolute; left: 0; right: 0; bottom: 88px;
+                                padding: var(--space-3) var(--space-4);
+                                background: var(--bg); flex-wrap: wrap; gap: var(--space-2); }
+.capture--phone .capture-foot-actions { flex: 1; display: flex; flex-direction: column;
+                                        align-items: stretch; gap: 6px; margin-left: 0; }
+.capture--phone .capture-foot .btn { justify-content: center; padding: 12px 15px; }
+.capture--phone .capture-block-hint { text-align: center; }
+.capture--phone .capture-foot { align-items: flex-end; }
+/* Запас снизу под капсулу и закреплённый подвал: последняя строка формы
+   доезжает до места, где её ничто не закрывает. */
+.app--phone.has-foot { padding-bottom: 196px; }
+.capture--phone .rec-btn { padding: 14px var(--space-3); }
+.btn-pair { display: flex; gap: var(--space-2); }
+.btn-pair .rec-btn { flex: 1; }
 </style>
 </head>
 <body>
@@ -127,7 +186,7 @@ body { background: #e8e8ea; color: #1a1a1c; }
         </div>
         <div class="capture-body">
           <div class="seg seg--flat" style="align-self: flex-start">
-            <button class="is-active">Текст</button><button>Фото</button><button>Голос</button>
+            <button class="is-active">Текст</button><button>Файл</button><button>Голос</button>
           </div>
           <div class="field">
             <label class="field-label">Что вставили или написали</label>
@@ -177,7 +236,7 @@ body { background: #e8e8ea; color: #1a1a1c; }
         </div>
         <div class="capture-body">
           <div class="seg seg--flat" style="align-self: flex-start">
-            <button class="is-active">Текст</button><button>Фото</button><button>Голос</button>
+            <button class="is-active">Текст</button><button>Файл</button><button>Голос</button>
           </div>
           <div class="field">
             <label class="field-label">Что вставили или написали</label>
@@ -195,7 +254,7 @@ body { background: #e8e8ea; color: #1a1a1c; }
 
 <!-- ====================================================================== -->
 <div class="section-head">
-  <h2>2 · Фото и голос — то же место панели</h2>
+  <h2>2 · Файл и голос — то же место панели</h2>
   <p>
     Переключение режима меняет только область под <code>.seg</code>; шапка
     и место модалки не двигаются. Ниже — обе альтернативы к тексту из раздела 1,
@@ -205,17 +264,17 @@ body { background: #e8e8ea; color: #1a1a1c; }
 <div class="wrap"><div class="grid2">
 
   <section class="pane">
-    <div class="pane-label"><b>Фото</b><span>light</span></div>
+    <div class="pane-label"><b>Файл</b><span>light</span></div>
     <div class="pad" data-theme="light">
       <div class="capture" style="max-width: none">
         <div class="capture-body">
           <div class="seg seg--flat" style="align-self: flex-start">
-            <button>Текст</button><button class="is-active">Фото</button><button>Голос</button>
+            <button>Текст</button><button class="is-active">Файл</button><button>Голос</button>
           </div>
           <div class="drop">
             <div class="drop-icon">▣</div>
-            <div><b style="color: var(--text)">Перетащите фото</b> или выберите файл</div>
-            <div>Расписание, афиша, скриншот переписки</div>
+            <div><b style="color: var(--text)">Перетащите фото или PDF</b> или выберите файл</div>
+            <div>Расписание, афиша, скриншот переписки, PDF до 5 страниц</div>
           </div>
         </div>
       </div>
@@ -231,7 +290,7 @@ body { background: #e8e8ea; color: #1a1a1c; }
       <div class="capture" style="max-width: none">
         <div class="capture-body">
           <div class="seg seg--flat" style="align-self: flex-start">
-            <button>Текст</button><button>Фото</button><button class="is-active">Голос</button>
+            <button>Текст</button><button>Файл</button><button class="is-active">Голос</button>
           </div>
           <button class="rec-btn"><span class="rec-dot"></span>Начать запись</button>
           <div class="field-hint" style="justify-content: center">Скажите: что, когда, во сколько</div>
@@ -575,6 +634,1098 @@ body { background: #e8e8ea; color: #1a1a1c; }
       обязан означать ровно то же, что в разделе 3, а не «поле формы вообще».</p>
   </section>
 
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>5 · Состояния разбора и записи — на рассмотрении (Э12в)</h2>
+  <p>
+    Разделы 1–4 утверждены 2026-08-18 и не меняются. Здесь то, без чего экран
+    нельзя собрать с живой моделью: ожидание ответа, отказ модели, неполный
+    и неуверенный разбор, фото и голос в работе, итог записи. Новых приёмов нет:
+    пунктир по-прежнему значит «модель ответила, но это не факт», погашенная
+    кнопка — «рано», подсказка под полем — «почему».
+  </p>
+</div>
+
+<!-- 5.1 · ожидание и отказ -->
+<div class="wrap"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Извлекаю</b><span>light · после «Извлечь»</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button class="is-active">Текст</button><button>Файл</button><button>Голос</button>
+          </div>
+          <div class="field">
+            <label class="field-label">Что вставили или написали</label>
+            <textarea class="field-input" readonly>встреча с куратором в четверг после физики, где-то на час</textarea>
+          </div>
+          <button class="btn" style="align-self: flex-start" disabled>Извлекаю…</button>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Спиннера нет — меняется подпись кнопки.</b> Текст остаётся
+      на месте и не правится, пока идёт разбор: owner видит, что именно ушло
+      модели. Ожидание ограничено сервером (короткий бюджет вызова), поэтому
+      «вечного» состояния у этого экрана нет — через несколько секунд либо
+      черновик, либо панель справа.</p>
+    <p class="mark">Крестик работает и здесь: закрыть форму можно в любой
+      момент, недоразобранный черновик уберёт джоб по сроку.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Разобрать не вышло</b><span>light · модель недоступна</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+          <div class="capture-note"><b>Разобрать не вышло:</b> модели сейчас
+            недоступны. Заполните поля сами — событие запишется так же.</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" placeholder="Что это">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" placeholder="День">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" placeholder="—">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" placeholder="—">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <span class="capture-block-hint">Укажите название и дату</span>
+            <button class="btn" disabled>Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Поля пустые, но без пунктира.</b> Пунктир — это «модель
+      ответила, но не факт». Здесь модель не ответила вовсе, и помечать её
+      «неуверенность» значило бы соврать о происхождении поля. Отказ сказан
+      один раз, сверху, а не под каждым полем.</p>
+    <p class="mark">Вторая половина фразы зависит от причины и приходит
+      с сервера: «модели сейчас недоступны», «месячный лимит на модели
+      исчерпан», «модель для разбора не назначена». Итог один — форма
+      остаётся рабочей, выдумки нет (инвариант 9).</p>
+  </section>
+
+</div></div>
+
+<!-- 5.2 · неполный и неуверенный разбор -->
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Длительность не названа</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">стоматолог в пятницу в 16:30</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Стоматолог">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="16 октября, пт">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="16:30">
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">До</label>
+              <input class="field-input" value="17:30">
+            </div>
+          </div>
+          <div class="field-hint">Длительность не названа — поставлен час. Поправьте, если дольше.</div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Единственное поле, которое заполняет не модель, а правило.</b>
+      Час подставляет код (настройка, а не число в вёрстке), и поле честно
+      помечено: это не факт из текста. Кнопка доступна — событие без названной
+      длительности законно, owner видит, что именно подставлено.</p>
+    <p class="mark">Подсказка стоит под всем рядом, а не внутри колонки «До»:
+      в трети ширины формы фраза ломалась бы на пять строк.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Модель не уверена в дне</b><span>light · confidence &lt; 0.5</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">созвон с Лёшей в пятницу или в субботу вечером</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Созвон с Лёшей">
+          </div>
+          <div class="field-row">
+            <div class="field field--warn">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="16 октября, пт">
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">С</label>
+              <input class="field-input" value="19:00">
+            </div>
+            <div class="field field--warn">
+              <label class="field-label">До</label>
+              <input class="field-input" value="20:00">
+            </div>
+          </div>
+          <div class="field-hint">Модель не уверена в дне и времени — проверьте, прежде чем записать.</div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" placeholder="Не указано">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Дата найдена, но это не факт.</b> Раздел 3 показывал
+      только «даты нет»; здесь она есть, и поля заполнены — но в пунктире.
+      Неуверенность касается того, когда, а не что: название рядом без
+      пометки, как и в разделе 3.</p>
+    <p class="mark">Кнопка доступна: вопрос задан формой, ответ owner —
+      поправить поле или подтвердить как есть. Заблокирована она только
+      там, где подтверждать нечего, — когда дня нет вовсе (раздел 3).</p>
+  </section>
+
+</div></div>
+
+<!-- 5.3 · фото -->
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Фото выбрано</b><span>light · до «Извлечь»</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · фото</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button>Текст</button><button class="is-active">Файл</button><button>Голос</button>
+          </div>
+          <div class="capture-file">
+            <div class="capture-thumb"></div>
+            <div class="capture-file-meta">
+              <b>IMG_2041.jpg</b>
+              <span>1,4 МБ</span>
+              <button class="link-btn">Выбрать другое</button>
+            </div>
+          </div>
+          <button class="btn" style="align-self: flex-start">Извлечь</button>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Зона из раздела 2 уступает место превью.</b> Снимок
+      с телефона весит несколько мегабайт; перед отправкой он ужимается
+      в браузере, а подпись показывает размер того, что уйдёт на самом деле.</p>
+    <p class="mark">Не картинка или слишком большой файл — зона остаётся,
+      под ней подсказка с причиной: «Принимаются JPEG, PNG и WebP».
+      Разбор не запускается, деньги не тратятся.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Черновик из фото</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · фото</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote source-quote--photo">
+            <div class="capture-thumb"></div>
+            <span>Фото · IMG_2041.jpg</span>
+          </div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Открытая лекция: квантовые вычисления">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="22 октября, чт">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="18:30">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="20:00">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label>
+            <input class="field-input" value="Кронверкский пр., 49, ауд. 2337">
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Цитата исходника остаётся, но это миниатюра.</b> Правило
+      раздела 3 то же: owner сверяет поля с тем, из чего они получены, а не
+      с воздухом. Дальше черновик ничем не отличается от текстового —
+      пунктиры и блокировки работают так же.</p>
+  </section>
+
+</div></div>
+
+<!-- 5.4 · голос -->
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Идёт запись</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · голос</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button>Текст</button><button>Файл</button><button class="is-active">Голос</button>
+          </div>
+          <button class="rec-btn is-live"><span class="rec-dot"></span>Остановить · 0:07</button>
+          <div class="field">
+            <label class="field-label">Распознано</label>
+            <textarea class="field-input">в среду в три часа зайти в деканат за справкой</textarea>
+          </div>
+          <button class="btn" style="align-self: flex-start" disabled>Извлечь</button>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Распознаёт браузер, а не модель</b> (ADR-046): текст
+      появляется по ходу речи. После «Остановить» он правится как обычный
+      текст раздела 1, и «Извлечь» становится доступна — в разбор уходит
+      то, что owner видит, а не звук.</p>
+    <p class="mark">Точка записи залита цветом текста, а не красным:
+      декоративных цветов нет, «идёт» говорят слово и таймер.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Браузер не распознаёт речь</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · голос</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="seg seg--flat" style="align-self: flex-start">
+            <button>Текст</button><button>Файл</button><button class="is-active">Голос</button>
+          </div>
+          <div class="capture-note"><b>Этот браузер не распознаёт речь.</b>
+            Надиктуйте в режиме «Текст» — микрофон на клавиатуре телефона
+            делает то же самое.</div>
+          <button class="rec-btn" disabled><span class="rec-dot"></span>Начать запись</button>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Режим виден, но погашен — и объясняет почему.</b> Тот же
+      подход, что у кнопки захвата до этого этапа: осознанная деградация, а не
+      исчезнувший пункт. Запрещённый доступ к микрофону — та же панель
+      с другой фразой: «Нет доступа к микрофону — разрешите его в настройках
+      браузера».</p>
+  </section>
+
+</div></div>
+
+<!-- 5.5 · после подтверждения -->
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Записано</b><span>light · sync_state = synced</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Событие записано</h3>
+            <p>JARVIS · События</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="capture-summary">
+            <b>Встреча с куратором</b>
+            <span>Четверг, 22 октября · 17:00–18:00</span>
+          </div>
+          <p class="capture-status">Уже в Google Calendar.</p>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Ещё событие</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Готово</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Итог показывает, что ушло, а не «успешно».</b> Одна
+      строка названия и одна — времени: сверить с тем, что owner имел
+      в виду, за секунду.</p>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Записывается</b><span>light · sync_state = pending</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Событие сохранено</h3>
+            <p>Записывается в JARVIS · События</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="capture-summary">
+            <b>Встреча с куратором</b>
+            <span>Четверг, 22 октября · 17:00–18:00</span>
+          </div>
+          <p class="capture-status">Google пока не ответил. Событие допишется
+            само при ближайшей синхронизации — повторять не нужно.</p>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Ещё событие</button>
+          <div class="capture-foot-actions">
+            <button class="btn">Готово</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>«Сохранено», а не «ошибка».</b> Решение owner уже
+      в базе (ADR-042); отказ Google — задержка, а не потеря, и экран
+      говорит ровно это.</p>
+  </section>
+
+</div></div>
+
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Не отправилось</b><span>light · нет связи</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+        <div class="capture-head">
+          <div>
+            <h3>Новое событие</h3>
+            <p>Захват · текст</p>
+          </div>
+          <button class="capture-close">✕</button>
+        </div>
+        <div class="capture-body">
+          <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" value="Встреча с куратором">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Дата</label>
+              <input class="field-input" value="22 октября, чт">
+            </div>
+            <div class="field">
+              <label class="field-label">С</label>
+              <input class="field-input" value="17:00">
+            </div>
+            <div class="field">
+              <label class="field-label">До</label>
+              <input class="field-input" value="18:00">
+            </div>
+          </div>
+        </div>
+        <div class="capture-foot">
+          <button class="btn btn--ghost">Отмена</button>
+          <div class="capture-foot-actions">
+            <span class="capture-block-hint">Нет связи — нажмите ещё раз</span>
+            <button class="btn">Подтвердить и записать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="mark"><b>Форма не закрывается и не сбрасывается.</b> Повтор
+      безопасен: ключ события выводится из захвата, и второе нажатие отдаёт
+      то же событие, а не второе (ADR-042).</p>
+  </section>
+
+
+  <section class="pane">
+    <div class="pane-label"><b>Идёт запись · итог</b><span>dark</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-body">
+          <button class="rec-btn is-live"><span class="rec-dot"></span>Остановить · 0:07</button>
+          <div class="capture-summary">
+            <b>Встреча с куратором</b>
+            <span>Четверг, 22 октября · 17:00–18:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div></div>
+
+<!-- 5.6 · тёмная тема: состояния с новыми деталями -->
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+
+  <section class="pane">
+    <div class="pane-label"><b>Разобрать не вышло</b><span>dark</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-body">
+          <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+          <div class="capture-note"><b>Разобрать не вышло:</b> месячный лимит
+            на модели исчерпан. Заполните поля сами — событие запишется так же.</div>
+          <div class="field">
+            <label class="field-label">Название</label>
+            <input class="field-input" placeholder="Что это">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pane">
+    <div class="pane-label"><b>Фото выбрано</b><span>dark</span></div>
+    <div class="pad" data-theme="dark">
+      <div class="capture" style="max-width: none">
+        <div class="capture-body">
+          <div class="capture-file">
+            <div class="capture-thumb"></div>
+            <div class="capture-file-meta">
+              <b>IMG_2041.jpg</b>
+              <span>1,4 МБ</span>
+              <button class="link-btn">Выбрать другое</button>
+            </div>
+          </div>
+          <div class="source-quote source-quote--photo">
+            <div class="capture-thumb"></div>
+            <span>Фото · IMG_2041.jpg</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+</div></div>
+
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>6 · Перетаскивание и PDF — ПК, на рассмотрении</h2>
+  <p>
+    Решение owner 2026-09-30: файл можно не только выбрать кнопкой, но и
+    перетащить курсором из другого места, и файлом бывает не только фото,
+    но и PDF. Отсюда режим «Файл» вместо «Фото» во всех разделах выше.
+    На телефоне перетаскивания нет — там файл берётся кнопками (раздел 7).
+  </p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Файл над формой</b><span>light · перетаскивание</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+          <div class="capture-head">
+            <div>
+              <h3>Новое событие</h3>
+              <p>Захват · текст</p>
+            </div>
+            <button class="capture-close">✕</button>
+          </div>
+          <div class="capture-body">
+            <div class="seg seg--flat" style="align-self: flex-start"><button class="is-active">Текст</button><button>Файл</button><button>Голос</button></div>
+            <div class="drop-over">
+              <b>Отпустите — файл уйдёт на разбор</b>
+              <div>Фото, скриншот или PDF до 5 страниц</div>
+            </div>
+          </div>
+      </div>
+    </div>
+    <p class="mark"><b>Принимает вся форма, а не только зона раздела 2.</b> Файл, притащенный из проводника или с рабочего стола, можно отпустить над любым местом окна — целиться в прямоугольник не нужно. Пока файл над формой, её содержимое уступает место этой подсказке; увёл курсор — форма вернулась как была.</p>
+    <p class="mark">Режим здесь «Текст» намеренно: бросить файл можно из любого режима, и форма переключится на «Файл» сама (панель справа). Напечатанный текст при этом не теряется — вернулся на «Текст», он на месте.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Брошен PDF</b><span>light · до «Извлечь»</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+          <div class="capture-head">
+            <div>
+              <h3>Новое событие</h3>
+              <p>Захват · файл</p>
+            </div>
+            <button class="capture-close">✕</button>
+          </div>
+          <div class="capture-body">
+            <div class="seg seg--flat" style="align-self: flex-start"><button>Текст</button><button class="is-active">Файл</button><button>Голос</button></div>
+            <div class="capture-file">
+              <div class="capture-thumb capture-thumb--pdf">PDF</div>
+              <div class="capture-file-meta">
+                <b>afisha_itmo_oktyabr.pdf</b>
+                <span>2 страницы · 380 КБ</span>
+                <button class="link-btn">Выбрать другой</button>
+              </div>
+            </div>
+            <button class="btn" style="align-self: flex-start">Извлечь</button>
+          </div>
+      </div>
+    </div>
+    <p class="mark"><b>Разбор не начинается сам.</b> Брошенный файл встаёт в превью, а «Извлечь» нажимает owner — как и у текста: промахнулся файлом, взял другой, и за неверный файл ничего не заплачено.</p>
+    <p class="mark">У PDF в превью число страниц: именно оно, а не размер, решает, пройдёт ли файл, и видеть его нужно до нажатия.</p>
+  </section>
+</div></div>
+<div class="wrap" style="margin-top: 20px"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Слишком длинный PDF</b><span>light · отказ до модели</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+          <div class="capture-head">
+            <div>
+              <h3>Новое событие</h3>
+              <p>Захват · файл</p>
+            </div>
+            <button class="capture-close">✕</button>
+          </div>
+          <div class="capture-body">
+            <div class="seg seg--flat" style="align-self: flex-start"><button>Текст</button><button class="is-active">Файл</button><button>Голос</button></div>
+            <div class="drop">
+              <div class="drop-icon">▣</div>
+              <div><b style="color: var(--text)">Перетащите фото или PDF</b> или выберите файл</div>
+              <div>Расписание, афиша, скриншот переписки, PDF до 5 страниц</div>
+            </div>
+            <div class="field-hint">В файле 12 страниц, а разбираются PDF до 5. Сохраните нужные страницы отдельным файлом.</div>
+          </div>
+      </div>
+    </div>
+    <p class="mark"><b>Отказ до модели и до черновика:</b> файл не ложится в базу и не стоит денег. Зона остаётся на месте — следующий файл можно бросить сразу.</p>
+    <p class="mark">Та же панель с другой фразой для остальных отказов: «Файл не картинка и не PDF: принимаются JPEG, PNG, WebP и PDF», «PDF защищён паролем — снимите защиту или сделайте скриншот». Брошена ссылка, а не файл (картинка, перетащенная со страницы сайта): «Перетащите сам файл — по ссылкам JARVIS не ходит».</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Черновик из PDF</b><span>light</span></div>
+    <div class="pad" data-theme="light">
+      <div class="capture" style="max-width: none">
+          <div class="capture-head">
+            <div>
+              <h3>Новое событие</h3>
+              <p>Захват · файл</p>
+            </div>
+            <button class="capture-close">✕</button>
+          </div>
+          <div class="capture-body">
+            <div class="source-quote source-quote--photo"><div class="capture-thumb capture-thumb--pdf">PDF</div><span>PDF · afisha_itmo_oktyabr.pdf · 2 стр.</span></div>
+            <div class="field"><label class="field-label">Название</label><input class="field-input" value="Лекция: история вычислительной техники"></div>
+            <div class="field-row">
+              <div class="field"><label class="field-label">Дата</label><input class="field-input" value="27 октября, вт"></div>
+              <div class="field"><label class="field-label">С</label><input class="field-input" value="19:00"></div>
+              <div class="field field--warn"><label class="field-label">До</label><input class="field-input" value="20:00"></div>
+            </div>
+            <div class="field-hint">Длительность не названа — поставлен час. Поправьте, если дольше.</div>
+            <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" value="Кронверкский пр., 49, актовый зал"></div>
+          </div>
+          <div class="capture-foot">
+            <button class="btn btn--ghost">Отмена</button>
+            <div class="capture-foot-actions"><button class="btn">Подтвердить и записать</button></div>
+          </div>
+      </div>
+    </div>
+    <p class="mark"><b>Дальше PDF ничем не отличается от фото.</b> Цитата исходника — миниатюра с именем и числом страниц; пунктиры и блокировки те же, что в разделах 3 и 5. На афише из нескольких событий модель берёт одно и занижает уверенность — второе заводится вторым захватом.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>7 · Телефон — на рассмотрении</h2>
+  <p>
+    На телефоне вкладка <code>Calendar</code> — это захват (ADR-039): сетки
+    нет, форма открыта сразу, а не всплывает окном. Состояния те же, что
+    на ПК, и в том же порядке; меняется раскладка под палец и способ взять
+    файл. Рамка — установленное приложение (ADR-040): без адресной строки,
+    капсула поверх контента.
+  </p>
+</div>
+<div class="wrap"><div class="grid3">
+  <section class="pane">
+    <div class="pane-label"><b>Вариант А · вход, круглой кнопки нет</b><span>390 × 800 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="seg seg--flat" style="align-self: flex-start"><button class="is-active">Текст</button><button>Файл</button><button>Голос</button></div>
+                <div class="field">
+                  <label class="field-label">Что вставили или написали</label>
+                  <textarea class="field-input" style="min-height: 120px">встреча с куратором в четверг после физики, где-то на час</textarea>
+                </div>
+                <button class="btn" style="justify-content: center; padding: 12px 15px">Извлечь</button>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Захват — это сама вкладка</b> (ADR-039): ни скрима, ни окна, ни крестика. Открыл JARVIS на ходу — поле ввода уже перед тобой.</p>
+    <p class="mark"><b>Круглой кнопки на этой вкладке нет.</b> Её смысл по §8.1 — «добавить событие», а форма добавления и так открыта: кнопка повторяла бы экран. На вкладке курса она остаётся («начать занятие»).</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Вариант Б · кнопка «＋» остаётся</b><span>390 × 800 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="seg seg--flat" style="align-self: flex-start"><button class="is-active">Текст</button><button>Файл</button><button>Голос</button></div>
+                <div class="field">
+                  <label class="field-label">Что вставили или написали</label>
+                  <textarea class="field-input" style="min-height: 120px">встреча с куратором в четверг после физики, где-то на час</textarea>
+                </div>
+                <button class="btn" style="justify-content: center; padding: 12px 15px">Извлечь</button>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action" aria-label="Новое событие"><div class="tab-icon">＋</div><div class="tab-text">Event</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Кнопка есть и значит «начать заново»:</b> сбрасывает форму к пустому вводу с любого шага. Плюс — единое место кнопки на всех вкладках; минус — на первом шаге она ничего не делает, а на остальных дублирует «Отмена».</p>
+    <p class="mark">Выбор между А и Б — за owner (открытый вопрос <code>design/PROGRESS.md</code>). Остальные артборды нарисованы по варианту А.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Файл</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · файл</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="seg seg--flat" style="align-self: flex-start"><button>Текст</button><button class="is-active">Файл</button><button>Голос</button></div>
+                <div class="btn-pair">
+                  <button class="rec-btn">Снять фото</button>
+                  <button class="rec-btn">Выбрать файл</button>
+                </div>
+                <div class="field-hint" style="justify-content: center">Фото, скриншот или PDF до 5 страниц</div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Перетаскивания на телефоне нет</b> — файл берётся двумя кнопками. «Снять фото» открывает камеру сразу, «Выбрать файл» — галерею и «Файлы», где лежат PDF. Одна кнопка «Загрузить» прятала бы камеру за лишним шагом, а доску фотографируют именно на ходу.</p>
+  </section>
+</div></div>
+<div class="wrap" style="margin-top: 20px"><div class="grid3">
+  <section class="pane">
+    <div class="pane-label"><b>Голос · идёт запись</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · голос</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="seg seg--flat" style="align-self: flex-start"><button>Текст</button><button>Файл</button><button class="is-active">Голос</button></div>
+                <button class="rec-btn is-live"><span class="rec-dot"></span>Остановить · 0:07</button>
+                <div class="field">
+                  <label class="field-label">Распознано</label>
+                  <textarea class="field-input" style="min-height: 96px">в среду в три часа зайти в деканат за справкой</textarea>
+                </div>
+                <button class="btn" style="justify-content: center; padding: 12px 15px" disabled>Извлечь</button>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Как на ПК: распознаёт браузер, текст появляется по ходу речи и правится перед «Извлечь». Кнопка записи во всю ширину — в неё попадают, не глядя.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Черновик · уверенно</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+                <div class="field"><label class="field-label">Название</label><input class="field-input" value="Встреча с куратором"></div>
+                <div class="field"><label class="field-label">Дата</label><input class="field-input" value="22 октября, чт"></div>
+                <div class="field-row"><div class="field"><label class="field-label">С</label><input class="field-input" value="17:00"></div><div class="field"><label class="field-label">До</label><input class="field-input" value="18:00"></div></div>
+                <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" placeholder="Не указано"></div>
+              </div>
+              <div class="capture-foot">
+                <button class="btn btn--ghost">Отмена</button>
+                <div class="capture-foot-actions"><button class="btn">Подтвердить и записать</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Дата отдельной строкой, «С» и «До» — рядом.</b> В трёх колонках на 390 px «22 октября, чт» не помещается. Поля открывают системные выбор даты и времени, а не клавиатуру.</p>
+    <p class="mark"><b>Подвал закреплён над капсулой:</b> «Подтвердить» видно без прокрутки, сколько бы полей ни было выше. Главная кнопка справа и широкая — под большим пальцем, «Отмена» слева и узкая.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Черновик · нет даты</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="source-quote">не забыть перенести встречу с зубным</div>
+                <div class="field"><label class="field-label">Название</label><input class="field-input" value="Встреча с зубным"></div>
+                <div class="field field--warn"><label class="field-label">Дата</label><input class="field-input" placeholder="Не указано — впишите сами"></div>
+                <div class="field-row"><div class="field field--warn"><label class="field-label">С</label><input class="field-input" placeholder="—"></div><div class="field field--warn"><label class="field-label">До</label><input class="field-input" placeholder="—"></div></div>
+                <div class="field-hint">В тексте нет даты. Модель не угадывает — укажите день сами.</div>
+                <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" placeholder="Не указано"></div>
+              </div>
+              <div class="capture-foot">
+                <button class="btn btn--ghost">Отмена</button>
+                <div class="capture-foot-actions"><span class="capture-block-hint">Укажите дату, чтобы продолжить</span><button class="btn" disabled>Подтвердить и записать</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Правило раздела 3 без изменений: пунктир, подсказка, кнопка погашена и объясняет почему — над собой, а не сбоку: сбоку ей негде поместиться.</p>
+  </section>
+</div></div>
+<div class="wrap" style="margin-top: 20px"><div class="grid3">
+  <section class="pane">
+    <div class="pane-label"><b>Черновик из фото</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · файл</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="source-quote source-quote--photo"><div class="capture-thumb"></div><span>Фото · IMG_2041.jpg</span></div>
+                <div class="field"><label class="field-label">Название</label><input class="field-input" value="Открытая лекция: квантовые вычисления"></div>
+                <div class="field"><label class="field-label">Дата</label><input class="field-input" value="22 октября, чт"></div>
+                <div class="field-row"><div class="field"><label class="field-label">С</label><input class="field-input" value="18:30"></div><div class="field"><label class="field-label">До</label><input class="field-input" value="20:00"></div></div>
+                <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" placeholder="Не указано"></div>
+              </div>
+              <div class="capture-foot">
+                <button class="btn btn--ghost">Отмена</button>
+                <div class="capture-foot-actions"><button class="btn">Подтвердить и записать</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Цитата исходника — миниатюра, как на ПК (раздел 5). PDF выглядит так же, с надписью PDF вместо снимка (раздел 6).</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Разобрать не вышло</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+                <div class="capture-note"><b>Разобрать не вышло:</b> модели недоступны из сети платы. Заполните поля сами — событие запишется так же.</div>
+                <div class="field"><label class="field-label">Название</label><input class="field-input" placeholder="Что это"></div>
+                <div class="field"><label class="field-label">Дата</label><input class="field-input" placeholder="День"></div>
+                <div class="field-row"><div class="field"><label class="field-label">С</label><input class="field-input" placeholder="—"></div><div class="field"><label class="field-label">До</label><input class="field-input" placeholder="—"></div></div>
+                <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" placeholder="Не указано"></div>
+              </div>
+              <div class="capture-foot">
+                <button class="btn btn--ghost">Отмена</button>
+                <div class="capture-foot-actions"><span class="capture-block-hint">Укажите название и дату</span><button class="btn" disabled>Подтвердить и записать</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Та же фраза, что на ПК (раздел 5): отказ сказан один раз сверху, поля без пунктира. На плате до Э12г это обычный вид захвата.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Записано</b><span>light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Событие записано</h3>
+                  <p>JARVIS · События</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="capture-summary">
+                  <b>Встреча с куратором</b>
+                  <span>Четверг, 22 октября · 17:00–18:00</span>
+                </div>
+                <p class="capture-status">Уже в Google Calendar.</p>
+              </div>
+              <div class="capture-foot">
+                <div class="capture-foot-actions"><button class="btn">Ещё событие</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>«Готово» здесь нет:</b> закрывать нечего, это вкладка. Остаётся одно действие — «Ещё событие», которое возвращает пустой ввод. При «записывается» строка ниже итога меняется так же, как на ПК.</p>
+  </section>
+</div></div>
+<div class="wrap" style="margin-top: 20px"><div class="grid3">
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная · черновик</b><span>dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone has-foot">
+          <div class="content"><div class="content-col">
+            <div class="screen-title">Calendar</div>
+            <div class="capture capture--phone">
+              <div class="capture-head">
+                <div>
+                  <h3>Новое событие</h3>
+                  <p>Захват · текст</p>
+                </div>
+              </div>
+              <div class="capture-body">
+                <div class="source-quote">встреча с куратором в четверг после физики, где-то на час</div>
+                <div class="field"><label class="field-label">Название</label><input class="field-input" value="Встреча с куратором"></div>
+                <div class="field"><label class="field-label">Дата</label><input class="field-input" value="22 октября, чт"></div>
+                <div class="field-row"><div class="field"><label class="field-label">С</label><input class="field-input" value="17:00"></div><div class="field"><label class="field-label">До</label><input class="field-input" value="18:00"></div></div>
+                <div class="field"><label class="field-label">Место <span style="text-transform:none; font-weight:400">(необязательно)</span></label><input class="field-input" placeholder="Не указано"></div>
+              </div>
+              <div class="capture-foot">
+                <button class="btn btn--ghost">Отмена</button>
+                <div class="capture-foot-actions"><button class="btn">Подтвердить и записать</button></div>
+              </div>
+            </div>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab is-active"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark">Тёмная тема — те же токены, без отдельных правил.</p>
+  </section>
 </div></div>
 
 <div class="tail"></div>

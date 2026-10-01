@@ -241,6 +241,22 @@ def test_anthropic_картинка_перед_текстом() -> None:
     assert содержимое[-1]["type"] == "text"
 
 
+def test_anthropic_pdf_уходит_документом() -> None:
+    """У Anthropic PDF - блок `document`, а не `image` (ADR-054)."""
+    перехват = Перехват([ответ_anthropic()])
+    кадр = Изображение(media_type="application/pdf", данные=b"%PDF-1.4")
+    собрать_anthropic(перехват).выполнить(запрос(изображения=(кадр,)))
+
+    содержимое = перехват.тело["messages"][0]["content"]
+    assert содержимое[0]["type"] == "document"
+    assert содержимое[0]["source"] == {
+        "type": "base64",
+        "media_type": "application/pdf",
+        "data": "JVBERi0xLjQ=",
+    }
+    assert содержимое[-1]["type"] == "text"
+
+
 def test_anthropic_без_инструмента_это_отказ() -> None:
     """Инструмент был принудительным: его отсутствие - потолок или фильтр."""
     перехват = Перехват([httpx2.Response(200, json={"content": [{"type": "text", "text": "нет"}]})])

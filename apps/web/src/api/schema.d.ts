@@ -48,15 +48,39 @@ export interface paths {
         get: operations["\u0441\u043F\u0438\u0441\u043E\u043A_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A\u043E\u0432_api_capture_drafts_get"];
         put?: never;
         /**
-         * Завести черновик захвата
-         * @description Принять вход и вернуть черновик.
+         * Завести черновик из текста или расшифровки голоса
+         * @description Принять напечатанное или надиктованное, разобрать моделью, вернуть черновик.
          *
-         *     Фотография и голос отвергаются с названной причиной, а не принимаются
-         *     молча: разбирать их до Э12 нечем, и принятое сырьё осталось бы байтами
-         *     в базе, которые уезжают в каждый ночной дамп и удаляются по сроку, так
-         *     и не став событием. Отказ с объяснением честнее обещания (инвариант 9).
+         *     201 и черновик приходят и тогда, когда модель отказала: причина лежит
+         *     в `error`, поля заполняет owner. Отказ всего запроса значил бы, что
+         *     недоступный провайдер теряет то, что owner успел написать.
          */
         post: operations["\u0437\u0430\u0432\u0435\u0441\u0442\u0438_\u0447\u0435\u0440\u043D\u043E\u0432\u0438\u043A_api_capture_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/capture/drafts/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Завести черновик из фото, скриншота или PDF
+         * @description Принять файл, разобрать моделью, вернуть черновик.
+         *
+         *     Формат, размер и число страниц PDF проверяются **до** черновика и до
+         *     модели: отвергнутый файл не должен ни лечь в базу, ни стоить денег.
+         *     Формат определяется по байтам, а не по заголовку клиента -
+         *     см. `capture.тип_файла`.
+         */
+        post: operations["capture_file"];
         delete?: never;
         options?: never;
         head?: never;
@@ -186,6 +210,432 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Счета книжки и их роли
+         * @description Счета с ролями. `all_marked=false` - «Отложено» пишет слова, а не сумму.
+         */
+        get: operations["\u0441\u0447\u0435\u0442\u0430_api_finance_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/accounts/{account_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Роль счёта: расчётный или накопительный
+         * @description Разметка счетов owner (§15.5): по ней считается «Отложено».
+         *
+         *     Счёт этой ручкой не заводится - он появляется импортом выписки. Поэтому
+         *     адресуется id существующего счёта, а не пара «банк, имя»: разметить
+         *     счёт, которого нет, значит ошибиться в написании и получить двойника.
+         */
+        put: operations["\u0440\u043E\u043B\u044C_\u0441\u0447\u0451\u0442\u0430_api_finance_accounts__account_id__role_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Неделя бюджета и дневной лимит
+         * @description Сколько можно потратить и в какой день (§15.10, экран 15 дизайна).
+         *
+         *     Читает и только читает: поправки задним числом разносит тот, кто меняет
+         *     траты, - ввод дня и импорт выписки. Побочная запись в GET сделала бы
+         *     показ лимита неповторимым.
+         *
+         *     Копилка и «Отложено» отдаются вместе и намеренно: это разные цифры,
+         *     и разница между ними - напоминание перевести деньги на самом деле.
+         */
+        get: operations["\u0431\u044E\u0434\u0436\u0435\u0442_api_finance_budget_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/days/{day}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Внести трату за день
+         * @description Вечерний ввод owner - то, чем книжка живёт до приезда выписки (§15.10).
+         *
+         *     Поправки в закрытые недели разносятся здесь же: §15.10 поручает разнос
+         *     тому, кто меняет траты, и ввод дня - один из двух таких путей. Второй -
+         *     импорт выписки.
+         */
+        put: operations["\u0432\u043D\u0435\u0441\u0442\u0438_\u0442\u0440\u0430\u0442\u0443_\u0434\u043D\u044F_api_finance_budget_days__day__put"];
+        post?: never;
+        /**
+         * Снять внесённую трату за день
+         * @description Возврат дня в «неизвестно» - единственный способ отменить ошибочный ввод.
+         *
+         *     Правкой это не чинится: нолём день закрыт так же, как любой суммой, -
+         *     он выходит из делителя и завышает лимит остальных дней.
+         */
+        delete: operations["\u0441\u043D\u044F\u0442\u044C_\u0442\u0440\u0430\u0442\u0443_\u0434\u043D\u044F_api_finance_budget_days__day__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/weeks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Недели подряд
+         * @description Список для ввода бюджета вперёд: owner вносит его обычно на месяц.
+         *
+         *     Недели, которой нет в базе, список не пропускает: «бюджет не задан» -
+         *     это ответ, а дыра выглядела бы как сбой выборки.
+         */
+        get: operations["\u043D\u0435\u0434\u0435\u043B\u0438_\u0431\u044E\u0434\u0436\u0435\u0442\u0430_api_finance_budget_weeks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/weeks/{week_start}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Внести бюджет недели
+         * @description Бюджет на неделю вперёд или правка внесённого (§15.10).
+         *
+         *     Распределённая неделя не правится: её итог уже разошёлся по двум адресам,
+         *     и новой сумме бюджета неоткуда взяться. Отказ 409 вместо тихой записи,
+         *     которая разошлась бы с деньгами.
+         */
+        put: operations["\u0432\u043D\u0435\u0441\u0442\u0438_\u0431\u044E\u0434\u0436\u0435\u0442_\u043D\u0435\u0434\u0435\u043B\u0438_api_finance_budget_weeks__week_start__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/budget/weeks/{week_start}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Распределить итог недели
+         * @description Излишек или перерасход - в следующую неделю и в копилку (§15.10).
+         *
+         *     Перерасход распределяется так же, как излишек: минусом вперёд либо
+         *     покрытием из копилки. Симметрия, а не чистый лист с понедельника -
+         *     систематический перерасход при обнулении становится невидимым.
+         *
+         *     Повторный вызов переигрывает решение, но меняет только **куда** ушёл
+         *     итог, а не сколько его: сумма берётся у прошлого решения. Пересчёт
+         *     по сегодняшнему факту отдал бы вперёд второй раз ту разницу, что уже
+         *     ушла поправкой.
+         */
+        post: operations["\u0440\u0430\u0441\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C_\u0438\u0442\u043E\u0433_api_finance_budget_weeks__week_start__settle_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Категории месяца
+         * @description Набор категорий месяца - тот, из которого выбирают на карточке (§15.4).
+         */
+        get: operations["\u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438_\u043C\u0435\u0441\u044F\u0446\u0430_api_finance_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Импорт выписок: дифф или запись
+         * @description Заход книжки: несколько файлов разных банков (§15.3, ADR-030).
+         *
+         *     **Дифф и запись - один адрес и два прогона одного файла.** Состояния
+         *     между шагами нет намеренно (решение owner 2026-09-21): черновик плана
+         *     в базе потребовал бы срока жизни и уборки, а повторная отправка файла
+         *     в килобайты ничего не стоит. От двойной записи защищает не память,
+         *     а `fin_imports.sha256`: тот же файл второй раз добавляет ноль строк.
+         *
+         *     **Транзакция на файл.** Успешный коммитится сразу, упавший
+         *     откатывается - отказ восьмого файла не уносит семь разобранных.
+         *     Файл, который банк отдал в изменившемся формате, отклоняется целиком
+         *     и с названной причиной (§15.1); остальные файлы захода идут своим ходом.
+         */
+        post: operations["finance_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Обзор месяца: сальдо и статьи
+         * @description Сальдо месяца с оговорками, без которых цифру читать нельзя (§15.5).
+         *
+         *     Пустой месяц - нули и накопленный итог предыдущих, а не отсутствие:
+         *     книжка, в которой этого месяца ещё нет, отвечает на вопрос «сколько
+         *     потрачено» честным нулём, а не 404.
+         */
+        get: operations["\u043E\u0431\u0437\u043E\u0440_\u043C\u0435\u0441\u044F\u0446\u0430_api_finance_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/recategorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Переразобрать книжку по правилам
+         * @description Применяет правила ко всей книжке (§15.4, ADR-041).
+         *
+         *     Срез - вся книжка, а не новые строки: перевод себе опознаётся парой
+         *     концов из двух банков, и второй конец приезжает другим файлом в другой
+         *     день. Дифф без записи - умолчание: разбор меняет вид операций, то есть
+         *     сальдо месяцев, и делать это молча по нажатию кнопки нельзя.
+         */
+        post: operations["\u043F\u0435\u0440\u0435\u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C_api_finance_recategorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Правила разбора
+         * @description Все правила: ступени разбора плюс написание owner (`self`).
+         */
+        get: operations["\u043F\u0440\u0430\u0432\u0438\u043B\u0430_api_finance_rules_get"];
+        put?: never;
+        /**
+         * Завести правило разбора
+         * @description Правило ступени разбора. Категории этой ручкой не заводятся (§15.4).
+         *
+         *     Дубль по типу и образцу - отказ, а не тихая перезапись: правило меняет
+         *     разбор всей книжки, и перезаписанное молча оно поменяло бы сальдо
+         *     закрытых месяцев на следующем же разборе.
+         */
+        post: operations["\u0437\u0430\u0432\u0435\u0441\u0442\u0438_\u043F\u0440\u0430\u0432\u0438\u043B\u043E_api_finance_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Убрать правило разбора
+         * @description Удаляет правило. Разобранные им операции не трогаются до разбора.
+         */
+        delete: operations["\u0443\u0431\u0440\u0430\u0442\u044C_\u043F\u0440\u0430\u0432\u0438\u043B\u043E_api_finance_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Лента операций
+         * @description Операции месяца или очередь разбора по всей книжке (§15.7).
+         *
+         *     `all_months` отдельным флагом, а не пустым `month`: пустой параметр
+         *     означает «текущий месяц», и клиент, забывший его передать, получил бы
+         *     вместо ленты месяца всю книжку целиком.
+         */
+        get: operations["\u043B\u0435\u043D\u0442\u0430_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439_api_finance_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{tx_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Карточка операции
+         * @description Операция со всем, что к ней привязано: гашения, расход, пара перевода.
+         */
+        get: operations["\u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0438_api_finance_transactions__tx_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Правка операции решением owner
+         * @description Вид, категория, исключение, заметка и пометка разбора (§15.4).
+         *
+         *     Присланными считаются только переданные поля: `PATCH` правит одно поле
+         *     карточки, а не переприсылает её целиком. `remember=true` заводит правило
+         *     и говорит об этом отдельно - книжка по нему не пересчитывается, это
+         *     отдельное действие.
+         */
+        patch: operations["\u043F\u0440\u0430\u0432\u0438\u0442\u044C_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E_api_finance_transactions__tx_id__patch"];
+        trace?: never;
+    };
+    "/api/finance/transactions/{tx_id}/offsets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Привязать поступление к расходу
+         * @description Гашение конкретного расхода (§15.5).
+         *
+         *     Окно - текущий месяц и предыдущий, по обоим концам привязки. Проверяет
+         *     его сервис, а не CHECK: окно зависит от «сейчас».
+         */
+        post: operations["\u043F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C_\u0433\u0430\u0448\u0435\u043D\u0438\u0435_api_finance_transactions__tx_id__offsets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/transactions/{tx_id}/offsets/{income_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Снять привязку гашения
+         * @description Снятие ограничено тем же окном, что и привязка (§15.5).
+         *
+         *     Расход в пути указан, хотя домену для снятия хватает поступления:
+         *     экран снимает привязку с карточки расхода, и адрес без него читался бы
+         *     как «снять всё, что это поступление гасит».
+         */
+        delete: operations["\u0441\u043D\u044F\u0442\u044C_\u0433\u0430\u0448\u0435\u043D\u0438\u0435_api_finance_transactions__tx_id__offsets__income_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -215,6 +665,208 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AccountOut
+         * @description Счёт книжки. Роль ставит owner, имя приносит импорт (§15.5).
+         */
+        AccountOut: {
+            /** Bank */
+            bank: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @description Одна из: checking, savings, unknown
+             */
+            role: string;
+        };
+        /**
+         * AccountRoleIn
+         * @description Тело `PUT /api/finance/accounts/{id}/role`.
+         */
+        AccountRoleIn: {
+            /**
+             * Role
+             * @description Одна из: checking, savings, unknown
+             */
+            role: string;
+        };
+        /** AccountsOut */
+        AccountsOut: {
+            /** Accounts */
+            accounts: components["schemas"]["AccountOut"][];
+            /**
+             * All Marked
+             * @description Ни одного счёта с ролью unknown: «Отложено» считается
+             */
+            all_marked: boolean;
+        };
+        /** Body_capture_file */
+        Body_capture_file: {
+            /**
+             * File
+             * @description Фото или скриншот (JPEG, PNG, WebP) или PDF
+             */
+            file: string;
+        };
+        /** Body_finance_import */
+        Body_finance_import: {
+            /**
+             * Files
+             * @description Файлы выписок, по одному с банка
+             */
+            files: string[];
+        };
+        /**
+         * BreakdownOut
+         * @description Сколько расход стоил на самом деле.
+         */
+        BreakdownOut: {
+            /**
+             * Amount
+             * @description Своя сумма расхода, без гашений
+             */
+            amount: string;
+            /**
+             * Effective
+             * @description Не ниже нуля
+             */
+            effective: string;
+            /**
+             * Not Counted
+             * @description Привязанные, но в счёт не идущие: отменённые, исключённые, в разборе
+             */
+            not_counted: number[];
+            /** Offset */
+            offset: string;
+            /** Parts */
+            parts: components["schemas"]["OffsetPartOut"][];
+            /** Surplus */
+            surplus: string;
+            /** Transaction Id */
+            transaction_id: number;
+        };
+        /**
+         * BudgetDayOut
+         * @description Один день недели: сколько потрачено и откуда это известно (§15.10).
+         */
+        BudgetDayOut: {
+            /**
+             * Amount
+             * @description null - сумма неизвестна. Это не ноль: ноль закрывает день
+             */
+            amount: string | null;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Discrepancy
+             * @description Выписка минус слова owner. Положительное - потрачено больше, чем он думал
+             */
+            discrepancy: string | null;
+            /**
+             * Manual
+             * @description Что внёс owner, даже если сумма выше из выписки
+             */
+            manual: string | null;
+            /**
+             * Source
+             * @description statement, manual или unknown
+             */
+            source: string;
+        };
+        /**
+         * BudgetOut
+         * @description Ответ `GET /api/finance/budget` - экран 15 дизайна.
+         */
+        BudgetOut: {
+            /**
+             * Covered Through
+             * @description Последний день, покрытый выписками всех банков. null - покрытия нет
+             */
+            covered_through: string | null;
+            /**
+             * Saved Real
+             * @description «Отложено» (§15.5) за всё время: настоящие переводы на счета savings. Разница с savings_jar - напоминание перевести деньги. null - счета не размечены
+             */
+            saved_real: string | null;
+            /**
+             * Savings Jar
+             * @description «Отложено бюджетом»: виртуальная копилка, сумма решений owner
+             */
+            savings_jar: string;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Today
+             * Format: date
+             * @description Сегодня в зоне owner: от него считаются открытые дни
+             */
+            today: string;
+            week: components["schemas"]["BudgetWeekOut"];
+        };
+        /**
+         * BudgetWeekOut
+         * @description Неделя целиком: бюджет, перенос, семь дней, лимит и итог.
+         */
+        BudgetWeekOut: {
+            /**
+             * Budget
+             * @description null - бюджет не задан. Не ноль и не среднее
+             */
+            budget: string | null;
+            /**
+             * Carry
+             * @description Итог предыдущей недели плюс поправки задним числом
+             */
+            carry: string;
+            /** Days */
+            days: components["schemas"]["BudgetDayOut"][];
+            limit: components["schemas"]["LimitOut"];
+            /** @description null - неделя ещё не готова к распределению */
+            outcome: components["schemas"]["OutcomeOut"] | null;
+            /**
+             * Ready To Settle
+             * @description Неделя прошла целиком либо все семь дней известны
+             */
+            ready_to_settle: boolean;
+            /** Settled */
+            settled: boolean;
+            /** @description null - owner ещё не распределил итог */
+            settlement: components["schemas"]["SettlementOut"] | null;
+            /**
+             * Spent
+             * @description Сумма известных дней
+             */
+            spent: string;
+            /**
+             * Week End
+             * Format: date
+             */
+            week_end: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+        };
+        /**
+         * BudgetWeeksOut
+         * @description Ответ `GET /api/finance/budget/weeks`: недели подряд, для ввода вперёд.
+         */
+        BudgetWeeksOut: {
+            /**
+             * From Week
+             * Format: date
+             */
+            from_week: string;
+            /** Weeks */
+            weeks: components["schemas"]["BudgetWeekOut"][];
+        };
+        /**
          * CalendarOut
          * @description Сетка календаря на период: ответ `GET /api/calendar`.
          */
@@ -224,7 +876,7 @@ export interface components {
              * @description Один элемент на день периода, по порядку
              */
             days: components["schemas"]["DayOut"][];
-            freshness: components["schemas"]["FreshnessOut"];
+            freshness: components["schemas"]["jarvis_api__api__schemas__FreshnessOut"];
             period: components["schemas"]["PeriodOut"];
             /**
              * Timezone
@@ -261,35 +913,36 @@ export interface components {
         };
         /**
          * CaptureDraftIn
-         * @description Тело `POST /api/capture/drafts` (Э8, §8.4).
+         * @description Тело `POST /api/capture/drafts` - вход текстом (Э8, Э12в, §8.4).
          *
-         *     Модальность объявлена всеми тремя значениями, хотя принимается одна:
-         *     контракт обязан показывать, что режимов три, а отказ по фотографии
-         *     и голосу - назвать причину. Спрятать их из перечисления значило бы
-         *     описать продукт, которого не задумывали (решение owner 2026-09-17:
-         *     режимы видны, но погашены).
+         *     Текстом приходят два режима из трёх: напечатанное и надиктованное.
+         *     Голос расшифровывает браузер (ADR-046), поэтому у сервера он такой же
+         *     текст, но с другой пометкой: модель читает расшифровку иначе. Фотография
+         *     идёт своей ручкой, `POST /api/capture/drafts/photo`, - multipart,
+         *     а не base64 в JSON, который раздул бы снимок на треть.
          */
         CaptureDraftIn: {
             /**
              * Modality
-             * @description Вид входа: текст, фото или голос
+             * @description text - напечатано, audio - расшифровка голоса браузером
              * @default text
              * @enum {string}
              */
-            modality: "text" | "image" | "audio";
+            modality: "text" | "audio";
             /**
              * Text
-             * @description Что вставили или напечатали. Обязателен для modality=text
+             * @description Что вставили, напечатали или надиктовали
              */
-            text?: string | null;
+            text: string;
         };
         /**
          * CaptureDraftOut
          * @description Черновик захвата.
          *
-         *     `extracted` и `error` приходят пустыми до слоя моделей (Э12), и это
-         *     состояние клиент обязан различать: пустой разбор означает «поля
-         *     заполняет owner», а не «модель ничего не нашла».
+         *     Ровно одно из `extracted` и `error` непусто у разобранного черновика.
+         *     Пустой `extracted` означает «поля заполняет owner» - либо модель
+         *     отказала (причина в `error`), либо разбора не было вовсе, - а не «модель
+         *     ничего не нашла»: нашедшая ничего модель отдаёт `extracted` с null-полями.
          */
         CaptureDraftOut: {
             /**
@@ -299,16 +952,11 @@ export interface components {
             created_at: string;
             /**
              * Error
-             * @description Разбор не удался - причина
+             * @description Почему разобрать не вышло - словами, для формы
              */
             error?: string | null;
-            /**
-             * Extracted
-             * @description Структура от модели. До слоя моделей - null
-             */
-            extracted?: {
-                [key: string]: unknown;
-            } | null;
+            /** @description Разбор моделью; null - поля заполняет owner */
+            extracted?: components["schemas"]["CaptureParsedOut"] | null;
             /**
              * Id
              * Format: uuid
@@ -321,6 +969,11 @@ export interface components {
             modality: "text" | "image" | "audio";
             /** Source Text */
             source_text: string | null;
+            /**
+             * Timezone
+             * @description Зона owner, в которой приведены моменты разбора
+             */
+            timezone: string;
         };
         /**
          * CaptureDraftsOut
@@ -333,6 +986,45 @@ export interface components {
         CaptureDraftsOut: {
             /** Drafts */
             drafts: components["schemas"]["CaptureDraftOut"][];
+        };
+        /**
+         * CaptureParsedOut
+         * @description Что модель извлекла из входа (Э12в). Предложение, а не факт.
+         *
+         *     Моменты приведены в зону owner (`timezone` черновика), как у сетки
+         *     календаря: форма показывает их часы и минуты как есть, без своей
+         *     арифметики зон. Пометки сомнения посчитал сервер (инвариант 1):
+         *     клиент их показывает, но не выводит сам из `confidence`.
+         */
+        CaptureParsedOut: {
+            /**
+             * Confidence
+             * @description Уверенность модели, 0..1
+             */
+            confidence: number;
+            /** Description */
+            description: string | null;
+            /**
+             * Duration Assumed
+             * @description Длительность не названа, конец поставлен правилом сервера
+             */
+            duration_assumed: boolean;
+            /** Ends At */
+            ends_at: string | null;
+            /** Location */
+            location: string | null;
+            /**
+             * Starts At
+             * @description null - дату модель не нашла
+             */
+            starts_at: string | null;
+            /**
+             * Time Uncertain
+             * @description День и время найдены, но это не факт: форма просит проверить
+             */
+            time_uncertain: boolean;
+            /** Title */
+            title: string | null;
         };
         /**
          * CapturedEventOut
@@ -370,6 +1062,53 @@ export interface components {
             sync_state: string;
             /** Synced At */
             synced_at: string | null;
+            /** Title */
+            title: string;
+        };
+        /** CategoriesOut */
+        CategoriesOut: {
+            /** Categories */
+            categories: components["schemas"]["CategoryOut"][];
+            /**
+             * Month
+             * @description Месяц фильтра. null - все месяцы
+             */
+            month: string | null;
+        };
+        /**
+         * CategoryOut
+         * @description Категория месяца (§15.4).
+         */
+        CategoryOut: {
+            /** Id */
+            id: number;
+            /**
+             * Key
+             * @description Стабильный ключ, переживающий смену месяца
+             */
+            key: string;
+            /**
+             * Level
+             * @description 1 - категория, 2 - подкатегория
+             */
+            level: number;
+            /**
+             * Origin
+             * @description owner или ai
+             */
+            origin: string;
+            /** Parent Id */
+            parent_id: number | null;
+            /**
+             * Period Month
+             * Format: date
+             */
+            period_month: string;
+            /**
+             * Status
+             * @description active, proposed или rejected
+             */
+            status: string;
             /** Title */
             title: string;
         };
@@ -468,6 +1207,74 @@ export interface components {
             mirror_covers: boolean;
         };
         /**
+         * DaySpendIn
+         * @description Тело `PUT /api/finance/budget/days/{day}`.
+         *
+         *     Возврат сюда не вносится отрицательной суммой: у него есть исходная
+         *     покупка, и гасит он её привязкой (§15.5).
+         */
+        DaySpendIn: {
+            /**
+             * Amount
+             * @description Сколько потрачено за день
+             */
+            amount: number | string;
+            /** Note */
+            note?: string | null;
+        };
+        /**
+         * DaySpendOut
+         * @description Ответ на ввод и снятие суммы дня.
+         */
+        DaySpendOut: {
+            /**
+             * Amount
+             * @description null после снятия: день снова «неизвестен»
+             */
+            amount: string | null;
+            /**
+             * Corrected Weeks
+             * @description Распределённые недели, чей снимок трат разошёлся с фактом: поправка ушла в ближайшую нераспределённую
+             */
+            corrected_weeks: string[];
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /**
+             * Previous
+             * @description Что стояло за день до этого
+             */
+            previous: string | null;
+            /** @description Неделя после записи: лимит считает сервер, не экран */
+            week: components["schemas"]["BudgetWeekOut"];
+        };
+        /**
+         * EditOut
+         * @description Ответ на правку: что изменилось и что из этого запомнено правилом.
+         */
+        EditOut: {
+            /** Changed */
+            changed: boolean;
+            /** Fields Changed */
+            fields_changed: string[];
+            /** Id */
+            id: number;
+            /**
+             * Rules
+             * @description Заведённые правила
+             */
+            rules: number[];
+            /** @description Карточка после правки */
+            transaction: components["schemas"]["TransactionCardOut"];
+            /**
+             * Warnings
+             * @description Читает owner: правка прошла, но с оговоркой
+             */
+            warnings: string[];
+        };
+        /**
          * ErrorBody
          * @description Тело любого отказа API.
          *
@@ -556,6 +1363,650 @@ export interface components {
             title: string;
         };
         /**
+         * Health
+         * @description Ответ /health. Время отдаётся, чтобы инвариант 7 был проверяем извне.
+         */
+        Health: {
+            /** Env */
+            env: string;
+            /** Status */
+            status: string;
+            /**
+             * Time
+             * Format: date-time
+             */
+            time: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * ImportFileOut
+         * @description Что файл сделал бы или сделал (§15.3).
+         */
+        ImportFileOut: {
+            /** Added */
+            added: number;
+            /**
+             * Already Imported
+             * @description Файл с этим sha256 уже загружали: изменений нет
+             */
+            already_imported: boolean;
+            /** Bank */
+            bank: string | null;
+            /**
+             * Error
+             * @description Файл отклонён целиком, с причиной
+             */
+            error: string | null;
+            /** Filename */
+            filename: string;
+            /**
+             * New Accounts
+             * @description Новые имена счетов: роль unknown, ждут owner
+             */
+            new_accounts: string[];
+            /** Period End */
+            period_end: string | null;
+            /** Period Start */
+            period_start: string | null;
+            /**
+             * Reverted
+             * @description Было в книжке, пропало из выгрузки
+             */
+            reverted: number;
+            /** Rows Added */
+            rows_added: components["schemas"]["ImportRowOut"][];
+            /** Rows In File */
+            rows_in_file: number;
+            /** Rows Reverted */
+            rows_reverted: components["schemas"]["ImportRowOut"][];
+            /** Rows Updated */
+            rows_updated: components["schemas"]["ImportRowOut"][];
+            /** Sha256 */
+            sha256: string;
+            /** To Review */
+            to_review: number;
+            /** Unchanged */
+            unchanged: number;
+            /** Updated */
+            updated: number;
+        };
+        /**
+         * ImportOut
+         * @description Ответ `POST /api/finance/import`.
+         *
+         *     `applied=false` - это дифф: в базу не записано ничего, и повторный
+         *     запрос с `apply=true` тем же файлом запишет ровно показанное.
+         */
+        ImportOut: {
+            /** Applied */
+            applied: boolean;
+            /**
+             * Corrected Weeks
+             * @description Распределённые недели бюджета, чьи траты выписка изменила задним числом (§15.10): разница ушла поправкой вперёд. Пусто в dry-run
+             */
+            corrected_weeks?: string[];
+            /**
+             * Failed
+             * @description Файлов отклонено. Остальные файлы захода обработаны
+             */
+            failed: number;
+            /** Files */
+            files: components["schemas"]["ImportFileOut"][];
+            /** @description Разбор после записи. null в dry-run: разбирать нечего */
+            recategorized?: components["schemas"]["RecategorizeOut"] | null;
+        };
+        /**
+         * ImportRowOut
+         * @description Строка диффа импорта: то, что попадёт в книжку или изменится в ней.
+         */
+        ImportRowOut: {
+            /** Account */
+            account: string | null;
+            /** Amount */
+            amount: string;
+            /**
+             * Id
+             * @description null у новой строки: её ещё нет в книжке
+             */
+            id: number | null;
+            /** Merchant */
+            merchant: string | null;
+            /**
+             * Needs Review
+             * @description Уйдёт в очередь разбора: кандидат в дубли
+             */
+            needs_review: boolean;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+        };
+        /**
+         * LimitOut
+         * @description Ответ на вопрос «сколько можно потратить» (§15.10).
+         */
+        LimitOut: {
+            /**
+             * Amount
+             * @description null - бюджет не задан либо открытых дней не осталось. Не ноль
+             */
+            amount: string | null;
+            /** Budget Set */
+            budget_set: boolean;
+            /**
+             * Days Without Amount
+             * @description Прошедшие дни без суммы: в расчёт идут нулём, и экран обязан их назвать
+             */
+            days_without_amount: number;
+            /**
+             * For Day
+             * @description День, к которому относится сумма. Экран обязан его подписать
+             */
+            for_day: string | null;
+            /**
+             * Open Days
+             * @description Делитель лимита
+             */
+            open_days: number;
+            /**
+             * Remainder
+             * @description Бюджет с переносом минус траты. Минус - перерасход
+             */
+            remainder: string;
+            /**
+             * Spent
+             * @description Сумма известных дней
+             */
+            spent: string;
+        };
+        /**
+         * MonthOut
+         * @description Сальдо месяца и статьи «Отложено» и «Осталось» (§15.5).
+         */
+        MonthOut: {
+            /**
+             * Balance
+             * @description Пришло минус ушло
+             */
+            balance: string;
+            /**
+             * Expense
+             * @description Уменьшен гашениями, не ниже нуля
+             */
+            expense: string;
+            /** Income */
+            income: string;
+            /**
+             * Left
+             * @description Накопленный итог с начала ведения
+             */
+            left: string;
+            /**
+             * Month
+             * Format: date
+             * @description Первое число месяца в зоне owner
+             */
+            month: string;
+            /**
+             * Outside Transfers
+             * @description Строки на накопительных счетах, не опознанные переводом себе
+             */
+            outside_transfers: number;
+            /**
+             * Recalculated Later
+             * @description Расход месяца погашен поступлением более позднего месяца
+             */
+            recalculated_later: boolean;
+            /**
+             * Saved
+             * @description Нетто переводов на счета savings. null - счета не размечены, и это не ноль
+             */
+            saved: string | null;
+            /**
+             * Transactions
+             * @description Строк, вошедших в сальдо
+             */
+            transactions: number;
+        };
+        /**
+         * OffsetIn
+         * @description Тело `POST /api/finance/transactions/{id}/offsets`.
+         */
+        OffsetIn: {
+            /**
+             * Income Id
+             * @description Поступление, которое гасит этот расход
+             */
+            income_id: number;
+        };
+        /**
+         * OffsetOut
+         * @description Ответ на привязку и снятие.
+         */
+        OffsetOut: {
+            /** @description Расход после действия: сколько он теперь стоит */
+            breakdown?: components["schemas"]["BreakdownOut"] | null;
+            /** Changed */
+            changed: boolean;
+            /** Expense Id */
+            expense_id: number | null;
+            /** Income Id */
+            income_id: number;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * OffsetPartOut
+         * @description Один гасящий приход в разбивке расхода (§15.5).
+         */
+        OffsetPartOut: {
+            /** Applied */
+            applied: string;
+            /**
+             * Surplus
+             * @description Что не пошло на расход и стало доходом
+             */
+            surplus: string;
+            /** Transaction Id */
+            transaction_id: number;
+        };
+        /**
+         * OutcomeOut
+         * @description Итог недели, готовой к распределению.
+         */
+        OutcomeOut: {
+            /**
+             * Amount
+             * @description Плюс - излишек, минус - перерасход
+             */
+            amount: string;
+            /** Settled */
+            settled: boolean;
+            /** Spent */
+            spent: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+        };
+        /**
+         * OverviewOut
+         * @description Ответ `GET /api/finance/overview`: месяц с оговорками к цифре.
+         */
+        OverviewOut: {
+            /**
+             * Accounts Marked
+             * @description Все счета книжки получили роль от owner
+             */
+            accounts_marked: boolean;
+            /**
+             * Covered Through
+             * @description То же, что в freshness: повтор для цифры
+             */
+            covered_through: string | null;
+            data: components["schemas"]["MonthOut"];
+            freshness: components["schemas"]["jarvis_api__api__schemas_finance__FreshnessOut"];
+            /**
+             * In Recalc Window
+             * @description Месяц ещё может пересчитаться гашением
+             */
+            in_recalc_window: boolean;
+            /**
+             * Incomplete
+             * @description Выписки дошли не до конца месяца - цифра промежуточная
+             */
+            incomplete: boolean;
+            /**
+             * Timezone
+             * @description Зона owner, в которой посчитаны границы месяца
+             */
+            timezone: string;
+        };
+        /** PeriodOut */
+        PeriodOut: {
+            /**
+             * Ends On
+             * Format: date
+             * @description Включительно
+             */
+            ends_on: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /**
+             * Today
+             * Format: date
+             * @description Сегодня в зоне owner, независимо от периода
+             */
+            today: string;
+            /**
+             * View
+             * @enum {string}
+             */
+            view: "day" | "week";
+        };
+        /**
+         * RecategorizeOut
+         * @description Ответ `POST /api/finance/recategorize` - тот же дифф, что у команды.
+         */
+        RecategorizeOut: {
+            /**
+             * Applied
+             * @description false - показан дифф, в базу не записано ничего
+             */
+            applied: boolean;
+            /** Categories */
+            categories: number;
+            /** Changes */
+            changes: number;
+            /**
+             * Lines
+             * @description Дифф строками, по одной на изменение: их читает owner
+             */
+            lines: string[];
+            /** Rules */
+            rules: number;
+            /** To Review */
+            to_review: number;
+            /** Transactions */
+            transactions: number;
+            /**
+             * Transfers
+             * @description Опознано парой концов
+             */
+            transfers: number;
+            /** Without Category */
+            without_category: number;
+        };
+        /**
+         * RuleIn
+         * @description Тело `POST /api/finance/rules`.
+         *
+         *     Форма правила проверяется доменом, а не только здесь: те же проверки
+         *     нужны и флагу «запомнить» на карточке операции, который сюда не заходит.
+         */
+        RuleIn: {
+            /** Category Key */
+            category_key?: string | null;
+            /**
+             * Kind
+             * @description Только для sender: income, refund
+             */
+            kind?: string | null;
+            /**
+             * Pattern
+             * @description Образец: код MCC, мерчант, имя отправителя
+             */
+            pattern: string;
+            /**
+             * Rule Type
+             * @description Одна из: mcc, bank_category, merchant, sender, self
+             */
+            rule_type: string;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * RuleOut
+         * @description Правило разбора (§15.4, §15.5).
+         */
+        RuleOut: {
+            /** Category Key */
+            category_key: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @description Только у правила отправителя: income, refund
+             */
+            kind: string | null;
+            /** Pattern */
+            pattern: string;
+            /**
+             * Rule Type
+             * @description Одна из ступеней: mcc, bank_category, merchant, sender, self
+             */
+            rule_type: string;
+            /**
+             * Title
+             * @description Как owner называет отправителя, а не как пишет банк
+             */
+            title: string | null;
+        };
+        /** RulesOut */
+        RulesOut: {
+            /** Rules */
+            rules: components["schemas"]["RuleOut"][];
+        };
+        /**
+         * SettleIn
+         * @description Тело `POST /api/finance/budget/weeks/{week_start}/settle`.
+         *
+         *     Два числа, а не выбор из двух: половину излишка в копилку, половину
+         *     в следующую неделю - законное решение owner. Сумма обязана сойтись
+         *     с итогом недели, иначе отказ: доложить недостающее молча значило бы
+         *     решить за него, куда девать его деньги.
+         */
+        SettleIn: {
+            /**
+             * To Next
+             * @description В следующую неделю. Минус - перенос перерасхода
+             */
+            to_next: number | string;
+            /**
+             * To Savings
+             * @description В копилку. Минус - покрытие перерасхода из неё
+             */
+            to_savings: number | string;
+        };
+        /**
+         * SettlementOut
+         * @description Решение owner о том, куда ушёл итог недели.
+         */
+        SettlementOut: {
+            /**
+             * Settled At
+             * Format: date-time
+             */
+            settled_at: string;
+            /**
+             * Settled Spend
+             * @description Снимок трат на момент решения. Расходится с spent - неделю поправили позже
+             */
+            settled_spend: string;
+            /**
+             * To Next
+             * @description В следующую неделю. Минус - перерасход переносом
+             */
+            to_next: string;
+            /**
+             * To Savings
+             * @description В копилку. Минус - покрытие перерасхода из неё
+             */
+            to_savings: string;
+        };
+        /**
+         * TransactionCardOut
+         * @description Ответ `GET /api/finance/transactions/{id}` (экран 13 дизайна).
+         */
+        TransactionCardOut: {
+            /** @description Только у расхода */
+            breakdown: components["schemas"]["BreakdownOut"] | null;
+            /**
+             * Offsets
+             * @description Поступления, гасящие этот расход
+             */
+            offsets: components["schemas"]["TransactionOut"][];
+            /** @description Расход, который гасит сама эта операция */
+            offsetting: components["schemas"]["TransactionOut"] | null;
+            transaction: components["schemas"]["TransactionOut"];
+            /** @description Второй конец перевода себе */
+            transfer_pair: components["schemas"]["TransactionOut"] | null;
+        };
+        /**
+         * TransactionOut
+         * @description Строка ленты и карточки.
+         */
+        TransactionOut: {
+            /** Account */
+            account: string;
+            /**
+             * Amount
+             * @description Как в выписке: расход отрицателен
+             */
+            amount: string;
+            /** Amount Rub */
+            amount_rub: string;
+            /** Bank */
+            bank: string;
+            /** Category Id */
+            category_id: number | null;
+            /**
+             * Category Key
+             * @description Стабильный ключ категории, переживающий месяц
+             */
+            category_key: string | null;
+            /** Category Source */
+            category_source: string | null;
+            /** Category Title */
+            category_title: string | null;
+            /**
+             * Counts
+             * @description Идёт в счёт: не исключена, не отменена, не в очереди разбора
+             */
+            counts: boolean;
+            /** Currency */
+            currency: string;
+            /**
+             * Effective
+             * @description Чего расход стоил после гашений. null у прихода - гасить нечего
+             */
+            effective: string | null;
+            /** Entered Manually */
+            entered_manually: boolean;
+            /** Excluded */
+            excluded: boolean;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @description expense, income, transfer или refund
+             */
+            kind: string;
+            /**
+             * Kind Source
+             * @description sign, default, sender_rule, transfer_pair или manual
+             */
+            kind_source: string;
+            /** Merchant */
+            merchant: string | null;
+            /** Message */
+            message: string | null;
+            /**
+             * Needs Review
+             * @description Стоит в очереди разбора и в сальдо не входит
+             */
+            needs_review: boolean;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Offset
+             * @description Сколько из расхода погашено поступлениями
+             */
+            offset: string | null;
+            /**
+             * Offsets Transaction Id
+             * @description Расход, который гасит это поступление
+             */
+            offsets_transaction_id: number | null;
+            /**
+             * Status
+             * @description posted, pending или reverted
+             */
+            status: string;
+            /**
+             * Transfer Pair Id
+             * @description Второй конец перевода себе
+             */
+            transfer_pair_id: number | null;
+        };
+        /**
+         * TransactionPatchIn
+         * @description Тело `PATCH /api/finance/transactions/{id}` - решение owner (§15.4).
+         *
+         *     Переданными считаются только присланные поля: экран правит одно поле
+         *     карточки, и умолчание, затирающее заметку при смене категории, стоило бы
+         *     owner ровно того текста, который он туда вписал. Поэтому у полей нет
+         *     значений по умолчанию в привычном смысле - роутер смотрит
+         *     `model_fields_set`.
+         *
+         *     `null` при этом - законное значение: снять категорию или заметку.
+         */
+        TransactionPatchIn: {
+            /**
+             * Category Id
+             * @description null снимает категорию
+             */
+            category_id?: number | null;
+            /** Excluded */
+            excluded?: boolean | null;
+            /**
+             * Kind
+             * @description Один из: expense, income, transfer, refund
+             */
+            kind?: string | null;
+            /**
+             * Needs Review
+             * @description false закрывает вопрос разбора
+             */
+            needs_review?: boolean | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Remember
+             * @description Запомнить решение правилом. По умолчанию правка разовая
+             * @default false
+             */
+            remember: boolean;
+        };
+        /**
+         * TransactionsOut
+         * @description Ответ `GET /api/finance/transactions`.
+         *
+         *     Объектом, а не голым массивом: массив на верхнем уровне нельзя расширить
+         *     ни одним полем, не сломав клиента.
+         */
+        TransactionsOut: {
+            /**
+             * Month
+             * @description Месяц фильтра. null - вся книжка
+             */
+            month: string | null;
+            /** Needs Review Only */
+            needs_review_only: boolean;
+            /** Transactions */
+            transactions: components["schemas"]["TransactionOut"][];
+        };
+        /**
+         * WeekBudgetIn
+         * @description Тело `PUT /api/finance/budget/weeks/{week_start}`.
+         */
+        WeekBudgetIn: {
+            /**
+             * Amount
+             * @description Бюджет недели. Отрицательного бюджета не бывает
+             */
+            amount: number | string;
+        };
+        /**
          * FreshnessOut
          * @description Свежесть расписания (§10).
          *
@@ -563,7 +2014,7 @@ export interface components {
          *     Фразу собирает клиент: макет печатает один и тот же момент двумя
          *     форматами - «от 12 октября, 07:10» в полосе и «от 12.10» на блоке пары.
          */
-        FreshnessOut: {
+        jarvis_api__api__schemas__FreshnessOut: {
             /**
              * Covered From
              * @description Окно вокруг даты забора, включительно
@@ -590,46 +2041,29 @@ export interface components {
             state: "fresh" | "stale" | "never";
         };
         /**
-         * Health
-         * @description Ответ /health. Время отдаётся, чтобы инвариант 7 был проверяем извне.
+         * FreshnessOut
+         * @description Свежесть книжки по самому отстающему банку (§15.6).
          */
-        Health: {
-            /** Env */
-            env: string;
-            /** Status */
-            status: string;
+        jarvis_api__api__schemas_finance__FreshnessOut: {
             /**
-             * Time
-             * Format: date-time
+             * Covered Through
+             * @description Последний день, покрытый выписками всех банков. null - покрытия нет
              */
-            time: string;
-            /** Version */
-            version: string;
-        };
-        /** PeriodOut */
-        PeriodOut: {
+            covered_through: string | null;
+            /** Days Ago */
+            days_ago: number | null;
             /**
-             * Ends On
-             * Format: date
-             * @description Включительно
+             * Lagging Bank
+             * @description Банк, по которому книжка отстаёт
              */
-            ends_on: string;
+            lagging_bank: string | null;
+            /** Loaded At */
+            loaded_at: string | null;
             /**
-             * Starts On
-             * Format: date
+             * Stale
+             * @description Срок из FINANCE_STALE_AFTER_DAYS вышел
              */
-            starts_on: string;
-            /**
-             * Today
-             * Format: date
-             * @description Сегодня в зоне owner, независимо от периода
-             */
-            today: string;
-            /**
-             * View
-             * @enum {string}
-             */
-            view: "day" | "week";
+            stale: boolean;
         };
     };
     responses: never;
@@ -767,6 +2201,66 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CaptureDraftIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureDraftOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    capture_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_capture_file"];
             };
         };
         responses: {
@@ -1129,6 +2623,1332 @@ export interface operations {
                 };
             };
             /** @description Ограничение базы или системная пометка */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0441\u0447\u0435\u0442\u0430_api_finance_accounts_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0440\u043E\u043B\u044C_\u0441\u0447\u0451\u0442\u0430_api_finance_accounts__account_id__role_put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountRoleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0431\u044E\u0434\u0436\u0435\u0442_api_finance_budget_get": {
+        parameters: {
+            query?: {
+                /** @description Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner */
+                week?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0432\u043D\u0435\u0441\u0442\u0438_\u0442\u0440\u0430\u0442\u0443_\u0434\u043D\u044F_api_finance_budget_days__day__put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DaySpendIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaySpendOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0441\u043D\u044F\u0442\u044C_\u0442\u0440\u0430\u0442\u0443_\u0434\u043D\u044F_api_finance_budget_days__day__delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DaySpendOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043D\u0435\u0434\u0435\u043B\u0438_\u0431\u044E\u0434\u0436\u0435\u0442\u0430_api_finance_budget_weeks_get": {
+        parameters: {
+            query?: {
+                /** @description Понедельник недели, YYYY-MM-DD. Не задан - текущая неделя в зоне owner */
+                from?: string | null;
+                /** @description Сколько недель отдать подряд */
+                weeks?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetWeeksOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0432\u043D\u0435\u0441\u0442\u0438_\u0431\u044E\u0434\u0436\u0435\u0442_\u043D\u0435\u0434\u0435\u043B\u0438_api_finance_budget_weeks__week_start__put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                week_start: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeekBudgetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetWeekOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0440\u0430\u0441\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C_\u0438\u0442\u043E\u0433_api_finance_budget_weeks__week_start__settle_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                week_start: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetWeekOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438_\u043C\u0435\u0441\u044F\u0446\u0430_api_finance_categories_get": {
+        parameters: {
+            query?: {
+                /** @description Месяц в формате YYYY-MM. Не задан - текущий в зоне owner */
+                month?: string | null;
+                /** @description Наборы всех месяцев сразу */
+                all_months?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriesOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    finance_import: {
+        parameters: {
+            query?: {
+                /** @description false - показать дифф и не писать ничего */
+                apply?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_finance_import"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043E\u0431\u0437\u043E\u0440_\u043C\u0435\u0441\u044F\u0446\u0430_api_finance_overview_get": {
+        parameters: {
+            query?: {
+                /** @description Месяц в формате YYYY-MM. Не задан - текущий в зоне owner */
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043F\u0435\u0440\u0435\u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C_api_finance_recategorize_post": {
+        parameters: {
+            query?: {
+                /** @description false - показать дифф и не писать ничего */
+                apply?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecategorizeOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043F\u0440\u0430\u0432\u0438\u043B\u0430_api_finance_rules_get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0437\u0430\u0432\u0435\u0441\u0442\u0438_\u043F\u0440\u0430\u0432\u0438\u043B\u043E_api_finance_rules_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0443\u0431\u0440\u0430\u0442\u044C_\u043F\u0440\u0430\u0432\u0438\u043B\u043E_api_finance_rules__rule_id__delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043B\u0435\u043D\u0442\u0430_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439_api_finance_transactions_get": {
+        parameters: {
+            query?: {
+                /** @description Месяц в формате YYYY-MM. Не задан - текущий в зоне owner */
+                month?: string | null;
+                /** @description Вся книжка вместо месяца. Осмысленно с needs_review */
+                all_months?: boolean;
+                /** @description Только очередь разбора */
+                needs_review?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionsOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0438_api_finance_transactions__tx_id__get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionCardOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043F\u0440\u0430\u0432\u0438\u0442\u044C_\u043E\u043F\u0435\u0440\u0430\u0446\u0438\u044E_api_finance_transactions__tx_id__patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionPatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u043F\u0440\u0438\u0432\u044F\u0437\u0430\u0442\u044C_\u0433\u0430\u0448\u0435\u043D\u0438\u0435_api_finance_transactions__tx_id__offsets_post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OffsetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffsetOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Запрос не разобран */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description База данных или настройки недоступны */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    "\u0441\u043D\u044F\u0442\u044C_\u0433\u0430\u0448\u0435\u043D\u0438\u0435_api_finance_transactions__tx_id__offsets__income_id__delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tx_id: number;
+                income_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffsetOut"];
+                };
+            };
+            /** @description Нет действующего токена Cloudflare Access */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Токен принадлежит не owner */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Операции, счёта или правила с таким id нет */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Действие противоречит состоянию книжки */
             409: {
                 headers: {
                     [name: string]: unknown;

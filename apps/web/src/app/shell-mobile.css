@@ -67,4 +67,95 @@
   .rail-action .tab-text {
     display: none;
   }
+
+  /* Кнопка «добавить событие» на вкладке `Calendar` - только ПК: здесь
+     вкладка сама и есть захват (ADR-039), вариант А макета 3, раздел 7. */
+  .rail-action[data-desktop-only] {
+    display: none;
+  }
+
+  /* --- Захват как содержимое вкладки - макет 3, раздел 7 -----------------
+     Ни окна, ни рамки: это экран, а не модалка. Правила - буквальный
+     перенос артборда (`.capture--phone` в макете), в продукте класс
+     `.capture--screen`, потому что появляется он только здесь. */
+  .capture--screen {
+    max-width: none;
+    margin-top: var(--space-4);
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .capture--screen .capture-head {
+    padding: 0 0 var(--space-3);
+  }
+
+  /* Запас снизу - под закреплённый подвал: последнее поле формы доезжает
+     до места, где подвал его не закрывает. */
+  .capture--screen .capture-body {
+    padding: var(--space-4) 0 120px;
+  }
+
+  .capture--screen .capture-body > .btn {
+    align-self: stretch !important;
+    justify-content: center;
+    padding: 12px 15px;
+  }
+
+  .capture--screen .rec-btn {
+    padding: 14px var(--space-3);
+  }
+
+  /* Дата - своей строкой, «С» и «До» рядом: в трёх колонках на 390 px
+     «22.10.2026» не помещается. */
+  .capture--screen .field-row--when {
+    flex-wrap: wrap;
+  }
+
+  .capture--screen .field-row--when .field:first-child {
+    flex-basis: 100%;
+  }
+
+  /* Подвал закреплён над капсулой: «Подтвердить» видно без прокрутки.
+     88px - высота капсулы с её отступом, та же, что у кнопки действия выше. */
+  .capture--screen .capture-foot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 88px;
+    z-index: 9;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg);
+  }
+
+  .capture--screen .capture-foot-actions {
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-left: 0;
+  }
+
+  .capture--screen .capture-foot .btn {
+    justify-content: center;
+    padding: 12px 15px;
+  }
+
+  .capture--screen .capture-block-hint {
+    text-align: center;
+  }
+
+  .btn-pair {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .btn-pair .rec-btn {
+    flex: 1;
+  }
 }

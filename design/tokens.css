@@ -604,7 +604,12 @@ body {
    темах, а не быть частью палитры, которая между ними меняется. */
 .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45);
          display: flex; align-items: flex-start; justify-content: center;
-         padding: 56px var(--space-5); }
+         padding: 56px var(--space-5);
+         /* Слой выше всего контента экрана: у блоков сетки свой z-index
+            (наложение событий), и без этого пары календаря рисовались
+            поверх модалки. Найдено на живом экране Э12в - в макете под
+            скримом стояла пустая заглушка. */
+         z-index: 50; overflow-y: auto; }
 
 .capture { width: 100%; max-width: 440px; background: var(--surface);
            border: 1px solid var(--border); border-radius: var(--radius-lg);
@@ -663,6 +668,10 @@ textarea.field-input { min-height: 76px; resize: vertical; font-family: inherit;
                  border-top: 1px solid var(--border); }
 .capture-foot-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
 .capture-block-hint { font-size: 12px; color: var(--text-muted); text-align: right; }
+/* Кнопки подвала не переносятся: в 440 px модалки подсказка рядом
+   с «Подтвердить и записать» ломала кнопку на две строки. Переносится
+   подсказка - она текст, а не цель для курсора. */
+.capture-foot .btn { white-space: nowrap; }
 
 /* Кнопка недоступна, пока не заполнено обязательное поле — блокирует запись
    «наугад» до того, как она случится, а не текстом ошибки постфактум. */
@@ -698,6 +707,69 @@ textarea.field-input { min-height: 76px; resize: vertical; font-family: inherit;
 .seg--flat:hover button:hover { color: var(--text); }
 .seg--flat:hover button.is-active:hover { color: var(--text); }
 
+
+/* Состояния разбора и записи — раздел 5 макета 3, утверждено owner
+   2026-09-30 (Э12в). Новых приёмов нет: граница вместо заливки,
+   приглушённый текст, погашенная кнопка. */
+
+/* Сообщение системы в теле формы: разбор не вышел, браузер не умеет речь.
+   Не пунктир: пунктир значит «модель ответила, но не факт», а здесь
+   ответа модели нет вовсе — смешать их значит соврать о происхождении поля. */
+.capture-note { padding: var(--space-3); border-radius: var(--radius);
+                border: 1px solid var(--border-strong); font-size: var(--fs-sm);
+                color: var(--text-muted); line-height: 1.5; }
+.capture-note b { color: var(--text); font-weight: 600; }
+
+/* Превью фото. Серая штриховка — заглушка снимка в макете, в продукте тут
+   уменьшенная копия того самого файла, что уйдёт модели. */
+.capture-file { display: flex; align-items: center; gap: var(--space-3); }
+.capture-thumb { flex: 0 0 auto; width: 64px; height: 64px; border-radius: var(--radius);
+                 border: 1px solid var(--border);
+                 background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, var(--border) 6px 7px); }
+.capture-file-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0;
+                     font-size: var(--fs-sm); color: var(--text-muted); }
+.capture-file-meta b { color: var(--text); font-weight: 600; overflow: hidden;
+                       text-overflow: ellipsis; white-space: nowrap; }
+.link-btn { border: 0; background: none; padding: 0; font: inherit; font-size: var(--fs-sm);
+            color: var(--text); text-decoration: underline; text-underline-offset: 3px;
+            cursor: pointer; align-self: flex-start; }
+
+/* Исходник-фото в черновике: та же цитата «что пришло на вход модели»,
+   только вместо кавычки — миниатюра. */
+.capture-thumb img { display: block; width: 100%; height: 100%; object-fit: cover;
+                     border-radius: inherit; }
+.source-quote--photo { align-items: center; }
+.source-quote--photo::before { content: none; }
+.source-quote--photo .capture-thumb { width: 44px; height: 44px; }
+
+/* Идёт запись: точка залита цветом текста, а не красным — декоративных
+   цветов нет (рамка owner), «идёт» говорят слово и таймер. */
+.rec-btn.is-live .rec-dot { background: var(--text); }
+.rec-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* Итог после подтверждения — что именно ушло в календарь. */
+.capture-summary { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm);
+                   color: var(--text-muted); line-height: 1.5; }
+.capture-summary b { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
+/* Состояние записи — утверждение, а не вопрос: знака «?» подсказки у него нет. */
+.capture-status { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5; }
+
+/* Перетаскивание и PDF — раздел 6 макета 3, утверждено owner 2026-09-30. */
+
+/* Файл над формой. Приём тот же, что у зоны раздела 2 (граница вместо
+   заливки), но граница темнее: зона ждёт файла всегда, а это состояние
+   длится секунду и обязано читаться сразу — «отпустите сюда». */
+.drop-over { display: flex; flex-direction: column; align-items: center; justify-content: center;
+             gap: 6px; min-height: 176px; border-radius: var(--radius);
+             border: 1.5px dashed var(--text-muted); background: var(--surface-2);
+             color: var(--text-muted); font-size: var(--fs-sm); text-align: center; }
+.drop-over b { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
+
+/* Миниатюра PDF: первой страницы в превью нет — рисовать её браузеру нечем
+   без библиотеки, — поэтому формат назван словом. */
+.capture-thumb--pdf { display: flex; align-items: center; justify-content: center;
+                      background: var(--surface-2); color: var(--text-muted);
+                      font-size: 11px; font-weight: 600; letter-spacing: .04em; }
 
 /* --- Змейка курса — SPEC §8.2 --------------------------------------------
    Утверждено owner на этапе 4. Экран курса: очередь узлов, по которой видно,

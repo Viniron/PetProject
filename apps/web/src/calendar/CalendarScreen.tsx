@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { ОшибкаAPI, ОшибкаСети, получить } from "@/api/client";
+import { СОБЫТИЕ_ЗАПИСАНО } from "@/capture/Capture";
 
 import { Сетка } from "./Grid";
 import { подписьПериода, фразаДавности } from "./format";
@@ -63,6 +64,14 @@ export function CalendarScreen() {
       управление.abort();
     };
   }, [вид, дата, попытка]);
+
+  // Подтверждённое в захвате событие обязано появиться на сетке сразу,
+  // а не при следующем листании: неделя перечитывается целиком (инвариант 1).
+  useEffect(() => {
+    const перечитать = () => повторить((было) => было + 1);
+    window.addEventListener(СОБЫТИЕ_ЗАПИСАНО, перечитать);
+    return () => window.removeEventListener(СОБЫТИЕ_ЗАПИСАНО, перечитать);
+  }, []);
 
   // Линия «сейчас» обязана идти, а не замереть на времени загрузки экрана.
   // Раз в минуту: шкала подписана с точностью до минуты, чаще нечего менять.
