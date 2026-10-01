@@ -123,6 +123,7 @@ def test_промпт_разбора_события_на_месте() -> None:
         "capture_parse",
         now="2026-09-21T10:00:00",
         zone="Europe/Moscow",
+        modality="напечатана",
         text="зубной в среду в 15:00",
     )
 

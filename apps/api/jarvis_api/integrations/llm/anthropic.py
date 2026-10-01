@@ -37,6 +37,9 @@ from jarvis_api.integrations.llm.base import (
 from jarvis_api.integrations.llm.http import Транспорт
 from jarvis_api.integrations.llm.schema import для_anthropic
 
+# Тип вложения, которое уходит блоком `document`, а не `image`.
+PDF = "application/pdf"
+
 logger = logging.getLogger("jarvis.llm.anthropic")
 
 ИМЯ = "anthropic"
@@ -153,12 +156,13 @@ class АдаптерAnthropic:
     # --- сборка запроса -----------------------------------------------------
 
     def _тело(self, запрос: Запрос) -> dict[str, Any]:
-        # Картинки идут перед текстом: провайдер разбирает такой порядок
+        # Вложения идут перед текстом: провайдер разбирает такой порядок
         # заметно лучше, а стабильный префикс от него не сдвигается - он
-        # живёт в `system`, до сообщений.
+        # живёт в `system`, до сообщений. PDF у Anthropic - не картинка,
+        # а свой блок `document`; поле `source` у них одинаковое.
         содержимое: list[dict[str, Any]] = [
             {
-                "type": "image",
+                "type": "document" if кадр.media_type == PDF else "image",
                 "source": {
                     "type": "base64",
                     "media_type": кадр.media_type,

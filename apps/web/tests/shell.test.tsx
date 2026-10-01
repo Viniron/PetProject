@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -46,8 +46,8 @@ describe("оболочка", () => {
     );
   });
 
-  // Кнопка обещала бы работу, которой нет: захват событий - Э8.
-  it("кнопка действия видна, но неактивна", () => {
+  // Захват событий работает с Э12в: кнопка открывает модалку поверх экрана.
+  it("кнопка события открывает захват", () => {
     render(
       <Shell>
         <p>экран</p>
@@ -55,8 +55,29 @@ describe("оболочка", () => {
     );
 
     const кнопка = screen.getByRole("button", { name: /Event/ }) as HTMLButtonElement;
-    expect(кнопка.disabled).toBe(true);
+    expect(кнопка.disabled).toBe(false);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(кнопка);
+
+    expect(screen.getByRole("dialog").textContent).toContain("Новое событие");
+    // Экран под модалкой остаётся: это слой, а не переход (макет 3).
+    expect(screen.getByText("экран").tagName).toBe("P");
   });
+
+  // Вариант А макета 3, раздел 7: на телефоне вкладка сама и есть захват.
+  it("кнопка события помечена только для ПК", () => {
+    render(
+      <Shell>
+        <p>экран</p>
+      </Shell>,
+    );
+
+    expect(screen.getByRole("button", { name: /Event/ }).hasAttribute("data-desktop-only")).toBe(
+      true,
+    );
+  });
+
 
   it("содержимое экрана отрисовано внутри оболочки", () => {
     render(

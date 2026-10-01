@@ -1,10 +1,10 @@
-"""Эндпоинты захвата события: черновик, отмена, подтверждение (Э8, §8.4).
+"""Эндпоинты захвата события: черновик, отмена, подтверждение (Э8, Э12в, §8.4).
 
-Четыре ручки на один путь `вход → черновик → подтверждение → запись`.
-Разбора входа среди них нет: он принадлежит слою моделей (Э12), а до него
-поля события приходят с формы подтверждения. Это и есть граница этапа -
-захват работает целиком, кроме того единственного шага, который без
-назначения моделей owner сделать нельзя.
+Пять ручек на один путь `вход → модель → черновик → подтверждение → запись`.
+Модель зовётся **внутри** запроса, заводящего черновик (ADR-054): owner ждёт
+разобранную форму, а не «приходите позже». Ожидание ограничено коротким
+бюджетом вызова (`domain/capture_parse.py`), и отказ модели черновика
+не отменяет - форма приходит пустой, с причиной словами.
 
 **`PATCH` события нет.** Правка и удаление уже записанного - отдельный
 этап (решение owner 2026-09-17). Здесь событие только рождается.
@@ -14,10 +14,13 @@
 заблокировал бы цикл событий вместе с `/health`.
 """
 
+import datetime as dt
 import uuid
-from typing import Any
+from typing import Annotated, Any
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from sqlalchemy.orm import Session
 
 from jarvis_api.api.deps import Настройки, Сейчас, Сессия
 from jarvis_api.api.errors import ОТКАЗЫ, ErrorBody, ОтказAPI
@@ -27,8 +30,14 @@ from jarvis_api.api.schemas import (
     CaptureDraftIn,
     CaptureDraftOut,
     CaptureDraftsOut,
+    CaptureParsedOut,
 )
-from jarvis_api.domain import capture
+from jarvis_api.config import Settings
+from jarvis_api.db.models import CaptureDraft
+from jarvis_api.domain import capture, capture_parse
+from jarvis_api.domain.capture import Модальность
+from jarvis_api.integrations import llm
+from jarvis_api.jobs.common import owner_timezone
 from jarvis_api.jobs.push_capture import отправить_сразу
 
 маршрутизатор = APIRouter(prefix="/api/capture", tags=["capture"])
@@ -40,32 +49,106 @@ from jarvis_api.jobs.push_capture import отправить_сразу
 }
 
 
+def адаптеры_захвата(настройки: Настройки) -> dict[str, llm.Адаптер]:
+    """Подключённые провайдеры на коротком бюджете (ADR-054).
+
+    Зависимостью, а не вызовом внутри ручки: тесты подменяют её подставным
+    провайдером, и сеть в прогоне не трогается ни разу (`CLAUDE.md`).
+    Короткие настройки нужны уже здесь: число попыток живёт в транспорте
+    адаптера, а не в запросе.
+    """
+    return llm.собрать_адаптеры(capture_parse.короткие_настройки(настройки))
+
+
+Адаптеры = Annotated[dict[str, llm.Адаптер], Depends(адаптеры_захвата)]
+
+
+def _наружу(строка: CaptureDraft, зона: ZoneInfo) -> CaptureDraftOut:
+    """Черновик для экрана: моменты разбора - в зоне owner, как у сетки (§8.4)."""
+    черновик = capture.из_строки(строка)
+    разбор = None
+    if черновик.extracted is not None:
+        разбор = CaptureParsedOut.model_validate(черновик.extracted)
+        разбор = разбор.model_copy(
+            update={
+                "starts_at": _в_зону(разбор.starts_at, зона),
+                "ends_at": _в_зону(разбор.ends_at, зона),
+            }
+        )
+    return CaptureDraftOut(
+        id=черновик.id,
+        modality=черновик.modality,
+        source_text=черновик.source_text,
+        extracted=разбор,
+        error=черновик.error,
+        timezone=зона.key,
+        created_at=черновик.created_at,
+    )
+
+
+def _в_зону(момент: dt.datetime | None, зона: ZoneInfo) -> dt.datetime | None:
+    return момент.astimezone(зона) if момент is not None else None
+
+
+def _завести_и_разобрать(
+    сессия: Session,
+    *,
+    настройки: Settings,
+    момент: dt.datetime,
+    адаптеры: dict[str, llm.Адаптер],
+    modality: Модальность,
+    текст: str | None,
+    картинка: tuple[str, bytes] | None,
+) -> CaptureDraftOut:
+    """Общий путь текста и фото: черновик, разбор, коммит.
+
+    Черновик заводится **до** вызова модели. Отказ модели слой коммитит сам,
+    вместе со своим аудитом (`client.py`), и черновик уезжает в базу тем же
+    коммитом - без разбора, но не потерянный. Итог разбора дописывается
+    следующим.
+    """
+    зона = owner_timezone(сессия)
+    строка = capture.создать(сессия, modality=modality, source_text=текст, картинка=картинка)
+    изображение = (
+        llm.Изображение(media_type=картинка[0], данные=картинка[1])
+        if картинка is not None
+        else None
+    )
+    extracted, error = capture_parse.разобрать(
+        сессия,
+        modality=modality,
+        текст=текст,
+        изображение=изображение,
+        настройки=настройки,
+        адаптеры=адаптеры,
+        сейчас=момент,
+        зона=зона,
+    )
+    capture.записать_разбор(строка, extracted=extracted, error=error)
+    сессия.commit()
+    return _наружу(строка, зона)
+
+
 @маршрутизатор.post(
     "/drafts",
     status_code=status.HTTP_201_CREATED,
     responses=ОТКАЗЫ,
-    summary="Завести черновик захвата",
+    summary="Завести черновик из текста или расшифровки голоса",
 )
-def завести_черновик(сессия: Сессия, настройки: Настройки, тело: CaptureDraftIn) -> CaptureDraftOut:
-    """Принять вход и вернуть черновик.
+def завести_черновик(
+    сессия: Сессия,
+    настройки: Настройки,
+    момент: Сейчас,
+    адаптеры: Адаптеры,
+    тело: CaptureDraftIn,
+) -> CaptureDraftOut:
+    """Принять напечатанное или надиктованное, разобрать моделью, вернуть черновик.
 
-    Фотография и голос отвергаются с названной причиной, а не принимаются
-    молча: разбирать их до Э12 нечем, и принятое сырьё осталось бы байтами
-    в базе, которые уезжают в каждый ночной дамп и удаляются по сроку, так
-    и не став событием. Отказ с объяснением честнее обещания (инвариант 9).
+    201 и черновик приходят и тогда, когда модель отказала: причина лежит
+    в `error`, поля заполняет owner. Отказ всего запроса значил бы, что
+    недоступный провайдер теряет то, что owner успел написать.
     """
-    if тело.modality not in capture.РАЗБИРАЕМЫЕ:
-        raise ОтказAPI(
-            статус=422,
-            code="capture_modality_unavailable",
-            message=(
-                f"вход {тело.modality!r} появится вместе со слоем моделей: "
-                "разбирать фотографию и запись сейчас нечем, "
-                "а сырьё без разбора не превращается в событие"
-            ),
-        )
-
-    if тело.text is not None and len(тело.text) > настройки.capture_text_max_chars:
+    if len(тело.text) > настройки.capture_text_max_chars:
         raise ОтказAPI(
             статус=422,
             code="validation_error",
@@ -75,9 +158,83 @@ def завести_черновик(сессия: Сессия, настройк
             ),
         )
 
-    строка = capture.создать(сессия, modality=тело.modality, source_text=тело.text)
-    сессия.commit()
-    return CaptureDraftOut.model_validate(capture.из_строки(строка))
+    return _завести_и_разобрать(
+        сессия,
+        настройки=настройки,
+        момент=момент,
+        адаптеры=адаптеры,
+        modality=тело.modality,
+        текст=тело.text,
+        картинка=None,
+    )
+
+
+@маршрутизатор.post(
+    "/drafts/file",
+    status_code=status.HTTP_201_CREATED,
+    responses=ОТКАЗЫ,
+    summary="Завести черновик из фото, скриншота или PDF",
+    # Явный `operation_id` по той же причине, что у импорта выписок: из имени
+    # русской функции FastAPI собрал бы имя схемы тела формы цепочкой
+    # подчёркиваний, и оно уехало бы в клиент именем типа TypeScript.
+    operation_id="capture_file",
+)
+def завести_из_файла(
+    сессия: Сессия,
+    настройки: Настройки,
+    момент: Сейчас,
+    адаптеры: Адаптеры,
+    file: Annotated[UploadFile, File(description="Фото или скриншот (JPEG, PNG, WebP) или PDF")],
+) -> CaptureDraftOut:
+    """Принять файл, разобрать моделью, вернуть черновик.
+
+    Формат, размер и число страниц PDF проверяются **до** черновика и до
+    модели: отвергнутый файл не должен ни лечь в базу, ни стоить денег.
+    Формат определяется по байтам, а не по заголовку клиента -
+    см. `capture.тип_файла`.
+    """
+    предел = настройки.capture_image_max_bytes
+    # На байт больше предела: этого хватает, чтобы понять «слишком большой»,
+    # и не нужно читать в память файл целиком, каким бы он ни был.
+    данные = file.file.read(предел + 1)
+    if len(данные) > предел:
+        raise ОтказAPI(
+            статус=422,
+            code="capture_file_too_large",
+            message=f"файл больше {предел} байт - уменьшите его перед отправкой",
+        )
+    тип = capture.тип_файла(данные)
+    if тип is None:
+        raise ОтказAPI(
+            статус=422,
+            code="capture_file_unsupported",
+            message="файл не картинка и не PDF: принимаются JPEG, PNG, WebP и PDF",
+        )
+    if тип == capture.PDF:
+        try:
+            страниц = capture.страниц_pdf(данные)
+        except capture.ФайлНеЧитается as сбой:
+            raise ОтказAPI(статус=422, code="capture_file_unreadable", message=str(сбой)) from сбой
+        if страниц > настройки.capture_pdf_max_pages:
+            raise ОтказAPI(
+                статус=422,
+                code="capture_pdf_too_long",
+                message=(
+                    f"в файле {страниц} страниц, а разбираются PDF до "
+                    f"{настройки.capture_pdf_max_pages} - сохраните нужные страницы "
+                    "отдельным файлом"
+                ),
+            )
+
+    return _завести_и_разобрать(
+        сессия,
+        настройки=настройки,
+        момент=момент,
+        адаптеры=адаптеры,
+        modality="image",
+        текст=None,
+        картинка=(тип, данные),
+    )
 
 
 @маршрутизатор.get("/drafts", responses=ОТКАЗЫ, summary="Черновики, ждущие подтверждения")
@@ -89,10 +246,9 @@ def список_черновиков(сессия: Сессия) -> CaptureDraf
     бы, что черновики копятся, - и чинить это надо было бы уборкой,
     а не параметром.
     """
+    зона = owner_timezone(сессия)
     строки = capture.черновики(сессия)
-    return CaptureDraftsOut(
-        drafts=[CaptureDraftOut.model_validate(capture.из_строки(строка)) for строка in строки]
-    )
+    return CaptureDraftsOut(drafts=[_наружу(строка, зона) for строка in строки])
 
 
 @маршрутизатор.delete(

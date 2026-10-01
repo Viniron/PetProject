@@ -19,6 +19,7 @@
 import datetime as dt
 import uuid
 
+import pdfplumber
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -34,16 +35,34 @@ from jarvis_api.domain import capture
 def черновик_с_сырьём(
     сессия: Session, текст: str = "встреча с куратором в четверг"
 ) -> CaptureDraft:
-    """Черновик, к которому приложены байты.
+    """Черновик-фотография: байты лежат в `capture_blobs` (Э12в)."""
+    return capture.создать(
+        сессия, modality="image", source_text=текст, картинка=("image/jpeg", b"jpg")
+    )
 
-    Модальность остаётся `text`: фотографии до Э12 не принимаются, но
-    таблица сырья существует с Э2, и каскад обязан работать уже сейчас -
-    иначе о нём вспомнят в день, когда фотографии начнут приходить.
+
+def pdf(страниц: int) -> bytes:
+    """Настоящий PDF из пустых страниц: таблица ссылок посчитана честно.
+
+    Собирается здесь, а не лежит фикстурой: число страниц - параметр теста,
+    и файл на каждое число был бы шумом в репозитории.
     """
-    строка = capture.создать(сессия, modality="text", source_text=текст)
-    сессия.add(CaptureBlob(draft_id=строка.id, mime_type="image/jpeg", size_bytes=3, data=b"jpg"))
-    сессия.flush()
-    return строка
+    объекты = ["<< /Type /Catalog /Pages 2 0 R >>"]
+    дети = " ".join(f"{3 + i} 0 R" for i in range(страниц))
+    объекты.append(f"<< /Type /Pages /Kids [{дети}] /Count {страниц} >>")
+    объекты += ["<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>"] * страниц
+    вывод = b"%PDF-1.4\n"
+    смещения = []
+    for номер, объект in enumerate(объекты, 1):
+        смещения.append(len(вывод))
+        вывод += f"{номер} 0 obj\n{объект}\nendobj\n".encode("ascii")
+    таблица = len(вывод)
+    вывод += f"xref\n0 {len(объекты) + 1}\n0000000000 65535 f \n".encode("ascii")
+    вывод += b"".join(f"{с:010d} 00000 n \n".encode("ascii") for с in смещения)
+    вывод += (
+        f"trailer\n<< /Size {len(объекты) + 1} /Root 1 0 R >>\n" f"startxref\n{таблица}\n%%EOF\n"
+    ).encode("ascii")
+    return вывод
 
 
 def строк(сессия: Session, модель: type) -> int:
@@ -189,7 +208,7 @@ def test_черновики_отдаются_новыми_сверху(сесс�
     assert [строка.id for строка in capture.черновики(сессия)] == [второй.id, первый.id]
 
 
-def test_разбор_пуст_до_слоя_моделей(сессия: Session) -> None:
+def test_разбор_пуст_пока_его_не_записали(сессия: Session) -> None:
     """Пустой `extracted` - это «поля заполняет owner», а не «модель молчит».
 
     Заготовка с правдоподобными датой и временем на этом месте была бы
@@ -201,3 +220,74 @@ def test_разбор_пуст_до_слоя_моделей(сессия: Sessio
 
     assert наружу.extracted is None
     assert наружу.error is None
+
+
+def test_итог_разбора_ложится_в_черновик(сессия: Session) -> None:
+    черновик = capture.создать(сессия, modality="audio", source_text="зубной в пятницу")
+
+    capture.записать_разбор(черновик, extracted=None, error="модель для разбора не назначена")
+    сессия.flush()
+
+    наружу = capture.из_строки(черновик)
+    assert наружу.modality == "audio"
+    assert наружу.error == "модель для разбора не назначена"
+
+
+def test_байты_фото_лежат_отдельно_от_черновика(сессия: Session) -> None:
+    черновик = черновик_с_сырьём(сессия)
+
+    сырьё = сессия.get(CaptureBlob, черновик.id)
+
+    assert сырьё is not None
+    assert (сырьё.mime_type, сырьё.size_bytes, сырьё.data) == ("image/jpeg", 3, b"jpg")
+
+
+@pytest.mark.parametrize(
+    ("начало", "тип"),
+    [
+        (bytes.fromhex("ffd8ffe0") + b"JFIF", "image/jpeg"),
+        (bytes.fromhex("89504e470d0a1a0a") + b"IHDR", "image/png"),
+        (b"RIFF" + bytes(4) + b"WEBPVP8 ", "image/webp"),
+        (b"%PDF-1.7\n", "application/pdf"),
+    ],
+)
+def test_формат_файла_узнаётся_по_байтам(начало: bytes, тип: str) -> None:
+    assert capture.тип_файла(начало) == тип
+
+
+@pytest.mark.parametrize(
+    "данные",
+    [b"", b"%PD", b"GIF89a", b"RIFF" + bytes(4) + b"WAVE", b"\x00\x00\x00\x18ftypheic"],
+)
+def test_чужой_формат_не_узнаётся(данные: bytes) -> None:
+    """HEIC и GIF тоже чужие: их не принимает один из назначенных провайдеров."""
+    assert capture.тип_файла(данные) is None
+
+
+@pytest.mark.parametrize("страниц", [1, 5, 12])
+def test_страницы_pdf_считаются(страниц: int) -> None:
+    assert capture.страниц_pdf(pdf(страниц)) == страниц
+
+
+def test_битый_pdf_не_читается() -> None:
+    with pytest.raises(capture.ФайлНеЧитается):
+        capture.страниц_pdf(b"%PDF-1.7\nnot a document")
+
+
+def test_защищённый_pdf_отвергается(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Даже открывшийся без пароля: провайдер шифрованный PDF не примет."""
+
+    class Документ:
+        doc = type("Doc", (), {"encryption": ("Standard", {})})()
+        pages = [object()]
+
+        def __enter__(self) -> "Документ":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+    monkeypatch.setattr(pdfplumber, "open", lambda _: Документ())
+
+    with pytest.raises(capture.ФайлНеЧитается, match="защищён"):
+        capture.страниц_pdf(pdf(1))

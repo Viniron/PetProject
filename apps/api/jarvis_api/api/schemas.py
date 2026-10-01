@@ -18,12 +18,16 @@
 
 import datetime as dt
 import uuid
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jarvis_api.domain.calendar import Вид, Источник, СостояниеДавности, СостояниеПортала
-from jarvis_api.domain.capture import ПРЕДЕЛ_МЕСТА, ПРЕДЕЛ_НАЗВАНИЯ, Модальность
+from jarvis_api.domain.capture import (
+    ПРЕДЕЛ_МЕСТА,
+    ПРЕДЕЛ_НАЗВАНИЯ,
+    Модальность,
+    ТекстоваяМодальность,
+)
 from jarvis_api.domain.day_flags import АВТОПОМЕТКА, ПРЕДЕЛ_ЗАМЕТКИ, ПРЕДЕЛ_ПРИЧИНЫ
 
 
@@ -182,50 +186,65 @@ class DayFlagsOut(BaseModel):
 
 
 class CaptureDraftIn(BaseModel):
-    """Тело `POST /api/capture/drafts` (Э8, §8.4).
+    """Тело `POST /api/capture/drafts` - вход текстом (Э8, Э12в, §8.4).
 
-    Модальность объявлена всеми тремя значениями, хотя принимается одна:
-    контракт обязан показывать, что режимов три, а отказ по фотографии
-    и голосу - назвать причину. Спрятать их из перечисления значило бы
-    описать продукт, которого не задумывали (решение owner 2026-09-17:
-    режимы видны, но погашены).
+    Текстом приходят два режима из трёх: напечатанное и надиктованное.
+    Голос расшифровывает браузер (ADR-046), поэтому у сервера он такой же
+    текст, но с другой пометкой: модель читает расшифровку иначе. Фотография
+    идёт своей ручкой, `POST /api/capture/drafts/photo`, - multipart,
+    а не base64 в JSON, который раздул бы снимок на треть.
     """
 
-    modality: Модальность = Field(default="text", description="Вид входа: текст, фото или голос")
-    text: str | None = Field(
-        default=None,
-        description="Что вставили или напечатали. Обязателен для modality=text",
+    modality: ТекстоваяМодальность = Field(
+        default="text", description="text - напечатано, audio - расшифровка голоса браузером"
     )
+    text: str = Field(description="Что вставили, напечатали или надиктовали")
 
     @field_validator("text")
     @classmethod
-    def _текст_не_пустой(cls, значение: str | None) -> str | None:
+    def _текст_не_пустой(cls, значение: str) -> str:
         """Пробелы текстом не считаются.
 
         Пустой черновик прошёл бы до формы подтверждения и превратился бы
         в событие из ничего: разбирать нечего, поля пустые, а запись
         в календарь при этом законна.
         """
-        if значение is None:
-            return None
         очищенное = значение.strip()
         if not очищенное:
             raise ValueError("текст захвата пуст")
         return очищенное
 
-    @model_validator(mode="after")
-    def _текстовому_входу_нужен_текст(self) -> "CaptureDraftIn":
-        if self.modality == "text" and self.text is None:
-            raise ValueError("для modality=text поле text обязательно")
-        return self
+
+class CaptureParsedOut(BaseModel):
+    """Что модель извлекла из входа (Э12в). Предложение, а не факт.
+
+    Моменты приведены в зону owner (`timezone` черновика), как у сетки
+    календаря: форма показывает их часы и минуты как есть, без своей
+    арифметики зон. Пометки сомнения посчитал сервер (инвариант 1):
+    клиент их показывает, но не выводит сам из `confidence`.
+    """
+
+    title: str | None
+    starts_at: dt.datetime | None = Field(description="null - дату модель не нашла")
+    ends_at: dt.datetime | None
+    location: str | None
+    description: str | None
+    confidence: float = Field(description="Уверенность модели, 0..1")
+    time_uncertain: bool = Field(
+        description="День и время найдены, но это не факт: форма просит проверить"
+    )
+    duration_assumed: bool = Field(
+        description="Длительность не названа, конец поставлен правилом сервера"
+    )
 
 
 class CaptureDraftOut(BaseModel):
     """Черновик захвата.
 
-    `extracted` и `error` приходят пустыми до слоя моделей (Э12), и это
-    состояние клиент обязан различать: пустой разбор означает «поля
-    заполняет owner», а не «модель ничего не нашла».
+    Ровно одно из `extracted` и `error` непусто у разобранного черновика.
+    Пустой `extracted` означает «поля заполняет owner» - либо модель
+    отказала (причина в `error`), либо разбора не было вовсе, - а не «модель
+    ничего не нашла»: нашедшая ничего модель отдаёт `extracted` с null-полями.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -233,10 +252,13 @@ class CaptureDraftOut(BaseModel):
     id: uuid.UUID
     modality: Модальность
     source_text: str | None
-    extracted: dict[str, Any] | None = Field(
-        default=None, description="Структура от модели. До слоя моделей - null"
+    extracted: CaptureParsedOut | None = Field(
+        default=None, description="Разбор моделью; null - поля заполняет owner"
     )
-    error: str | None = Field(default=None, description="Разбор не удался - причина")
+    error: str | None = Field(
+        default=None, description="Почему разобрать не вышло - словами, для формы"
+    )
+    timezone: str = Field(description="Зона owner, в которой приведены моменты разбора")
     created_at: dt.datetime
 
 

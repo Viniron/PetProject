@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+
+import { Capture } from "@/capture/Capture";
 
 import { установленныеКурсы } from "@/courses/installed";
 import { собратьВкладки, действиеДляВкладки, type Вкладка } from "@/shell/tabs";
@@ -20,6 +22,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const вкладки = собратьВкладки(установленныеКурсы());
   const активная = выбратьАктивную(вкладки, путь);
   const действие = активная ? действиеДляВкладки(активная) : null;
+  // Модалку держит оболочка: кнопка, которая её открывает, живёт в капсуле,
+  // а не в экране календаря (§8.1, макет 3).
+  const [захват, установитьЗахват] = useState(false);
 
   // Разделитель ставится перед первой вкладкой вне списка курсов: Settings
   // не курс, и потолок в пять её не касается (этап 1 дизайна).
@@ -42,7 +47,9 @@ export function Shell({ children }: { children: ReactNode }) {
             <button
               type="button"
               className="rail-action"
-              disabled
+              disabled={!действие.доступно}
+              data-desktop-only={действие.толькоПК ? "" : undefined}
+              onClick={действие.id === "event" ? () => установитьЗахват(true) : undefined}
               title={действие.пояснение}
               aria-label={`${действие.подпись}: ${действие.пояснение}`}
             >
@@ -55,6 +62,7 @@ export function Shell({ children }: { children: ReactNode }) {
         ) : null}
       </nav>
       <div className="content">{children}</div>
+      {захват ? <Capture вид="modal" закрыть={() => установитьЗахват(false)} /> : null}
     </div>
   );
 }

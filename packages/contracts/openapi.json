@@ -68,6 +68,21 @@
         "title": "AccountsOut",
         "type": "object"
       },
+      "Body_capture_file": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Фото или скриншот (JPEG, PNG, WebP) или PDF",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_capture_file",
+        "type": "object"
+      },
       "Body_finance_import": {
         "properties": {
           "files": {
@@ -469,37 +484,32 @@
         "type": "object"
       },
       "CaptureDraftIn": {
-        "description": "Тело `POST /api/capture/drafts` (Э8, §8.4).\n\nМодальность объявлена всеми тремя значениями, хотя принимается одна:\nконтракт обязан показывать, что режимов три, а отказ по фотографии\nи голосу - назвать причину. Спрятать их из перечисления значило бы\nописать продукт, которого не задумывали (решение owner 2026-09-17:\nрежимы видны, но погашены).",
+        "description": "Тело `POST /api/capture/drafts` - вход текстом (Э8, Э12в, §8.4).\n\nТекстом приходят два режима из трёх: напечатанное и надиктованное.\nГолос расшифровывает браузер (ADR-046), поэтому у сервера он такой же\nтекст, но с другой пометкой: модель читает расшифровку иначе. Фотография\nидёт своей ручкой, `POST /api/capture/drafts/photo`, - multipart,\nа не base64 в JSON, который раздул бы снимок на треть.",
         "properties": {
           "modality": {
             "default": "text",
-            "description": "Вид входа: текст, фото или голос",
+            "description": "text - напечатано, audio - расшифровка голоса браузером",
             "enum": [
               "text",
-              "image",
               "audio"
             ],
             "title": "Modality",
             "type": "string"
           },
           "text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Что вставили или напечатали. Обязателен для modality=text",
-            "title": "Text"
+            "description": "Что вставили, напечатали или надиктовали",
+            "title": "Text",
+            "type": "string"
           }
         },
+        "required": [
+          "text"
+        ],
         "title": "CaptureDraftIn",
         "type": "object"
       },
       "CaptureDraftOut": {
-        "description": "Черновик захвата.\n\n`extracted` и `error` приходят пустыми до слоя моделей (Э12), и это\nсостояние клиент обязан различать: пустой разбор означает «поля\nзаполняет owner», а не «модель ничего не нашла».",
+        "description": "Черновик захвата.\n\nРовно одно из `extracted` и `error` непусто у разобранного черновика.\nПустой `extracted` означает «поля заполняет owner» - либо модель\nотказала (причина в `error`), либо разбора не было вовсе, - а не «модель\nничего не нашла»: нашедшая ничего модель отдаёт `extracted` с null-полями.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -515,21 +525,19 @@
                 "type": "null"
               }
             ],
-            "description": "Разбор не удался - причина",
+            "description": "Почему разобрать не вышло - словами, для формы",
             "title": "Error"
           },
           "extracted": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/CaptureParsedOut"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Структура от модели. До слоя моделей - null",
-            "title": "Extracted"
+            "description": "Разбор моделью; null - поля заполняет owner"
           },
           "id": {
             "format": "uuid",
@@ -555,12 +563,18 @@
               }
             ],
             "title": "Source Text"
+          },
+          "timezone": {
+            "description": "Зона owner, в которой приведены моменты разбора",
+            "title": "Timezone",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "modality",
           "source_text",
+          "timezone",
           "created_at"
         ],
         "title": "CaptureDraftOut",
@@ -581,6 +595,96 @@
           "drafts"
         ],
         "title": "CaptureDraftsOut",
+        "type": "object"
+      },
+      "CaptureParsedOut": {
+        "description": "Что модель извлекла из входа (Э12в). Предложение, а не факт.\n\nМоменты приведены в зону owner (`timezone` черновика), как у сетки\nкалендаря: форма показывает их часы и минуты как есть, без своей\nарифметики зон. Пометки сомнения посчитал сервер (инвариант 1):\nклиент их показывает, но не выводит сам из `confidence`.",
+        "properties": {
+          "confidence": {
+            "description": "Уверенность модели, 0..1",
+            "title": "Confidence",
+            "type": "number"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "duration_assumed": {
+            "description": "Длительность не названа, конец поставлен правилом сервера",
+            "title": "Duration Assumed",
+            "type": "boolean"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "starts_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - дату модель не нашла",
+            "title": "Starts At"
+          },
+          "time_uncertain": {
+            "description": "День и время найдены, но это не факт: форма просит проверить",
+            "title": "Time Uncertain",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "title",
+          "starts_at",
+          "ends_at",
+          "location",
+          "description",
+          "confidence",
+          "time_uncertain",
+          "duration_assumed"
+        ],
+        "title": "CaptureParsedOut",
         "type": "object"
       },
       "CapturedEventOut": {
@@ -2840,7 +2944,7 @@
         ]
       },
       "post": {
-        "description": "Принять вход и вернуть черновик.\n\nФотография и голос отвергаются с названной причиной, а не принимаются\nмолча: разбирать их до Э12 нечем, и принятое сырьё осталось бы байтами\nв базе, которые уезжают в каждый ночной дамп и удаляются по сроку, так\nи не став событием. Отказ с объяснением честнее обещания (инвариант 9).",
+        "description": "Принять напечатанное или надиктованное, разобрать моделью, вернуть черновик.\n\n201 и черновик приходят и тогда, когда модель отказала: причина лежит\nв `error`, поля заполняет owner. Отказ всего запроса значил бы, что\nнедоступный провайдер теряет то, что owner успел написать.",
         "operationId": "завести_черновик_api_capture_drafts_post",
         "requestBody": {
           "content": {
@@ -2904,7 +3008,79 @@
             "description": "База данных или настройки недоступны"
           }
         },
-        "summary": "Завести черновик захвата",
+        "summary": "Завести черновик из текста или расшифровки голоса",
+        "tags": [
+          "capture"
+        ]
+      }
+    },
+    "/api/capture/drafts/file": {
+      "post": {
+        "description": "Принять файл, разобрать моделью, вернуть черновик.\n\nФормат, размер и число страниц PDF проверяются **до** черновика и до\nмодели: отвергнутый файл не должен ни лечь в базу, ни стоить денег.\nФормат определяется по байтам, а не по заголовку клиента -\nсм. `capture.тип_файла`.",
+        "operationId": "capture_file",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_capture_file"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureDraftOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Нет действующего токена Cloudflare Access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Токен принадлежит не owner"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Запрос не разобран"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "База данных или настройки недоступны"
+          }
+        },
+        "summary": "Завести черновик из фото, скриншота или PDF",
         "tags": [
           "capture"
         ]

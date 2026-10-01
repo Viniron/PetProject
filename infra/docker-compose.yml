@@ -107,6 +107,11 @@ services:
       CAPTURE_DRAFT_TTL_HOURS: ${CAPTURE_DRAFT_TTL_HOURS:-}
       CAPTURE_TEXT_MAX_CHARS: ${CAPTURE_TEXT_MAX_CHARS:-}
       CAPTURE_PUSH_TIMEOUT_SECONDS: ${CAPTURE_PUSH_TIMEOUT_SECONDS:-}
+      CAPTURE_PARSE_TIMEOUT_SECONDS: ${CAPTURE_PARSE_TIMEOUT_SECONDS:-}
+      CAPTURE_IMAGE_MAX_BYTES: ${CAPTURE_IMAGE_MAX_BYTES:-}
+      CAPTURE_PDF_MAX_PAGES: ${CAPTURE_PDF_MAX_PAGES:-}
+      CAPTURE_DEFAULT_DURATION_MINUTES: ${CAPTURE_DEFAULT_DURATION_MINUTES:-}
+      CAPTURE_CONFIDENCE_THRESHOLD: ${CAPTURE_CONFIDENCE_THRESHOLD:-}
       # Живучесть (Э9, ADR-043). Адрес стороннего сторожа, которому цепочка
       # календаря сообщает об удачном прогоне. Забытая строчка здесь тише
       # всех прочих: стек работает, расписание доезжает, и молчит только

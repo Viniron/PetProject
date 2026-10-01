@@ -135,24 +135,16 @@ async function разобратьОтказ(ответ: Response): Promise<Ош�
 }
 
 /**
- * GET по пути контракта.
+ * Один запрос целиком: сеть, редирект Access, отказ. Общий для чтения и записи.
  *
- * `signal` нужен экранам: уход со вкладки обязан отменять запрос, иначе
- * ответ прилетает в размонтированный экран.
+ * Разбор ответа сюда не входит - у DELETE тела нет вовсе, а вызывающий
+ * знает, что ждёт.
  */
-export async function получить<P extends ПутиGET>(
-  путь: P,
-  параметры?: Запрос<ОперацияGET<P>>,
-  signal?: AbortSignal,
-): Promise<Успех<ОперацияGET<P>>> {
-  // Пути в контракте уже начинаются с /api - база в них не дописывается.
-  const адрес = `${String(путь)}${строкаЗапроса(параметры as Record<string, unknown> | undefined)}`;
-
+async function выполнить(адрес: string, запрос: RequestInit): Promise<Response> {
   let ответ: Response;
   try {
     ответ = await fetch(адрес, {
-      method: "GET",
-      headers: { Accept: "application/json" },
+      ...запрос,
       // Токен Access живёт в cookie, которую ставит сам Cloudflare:
       // без этой строки fetch в некоторых браузерах её не приложит,
       // и каждый запрос будет отказом 401 при живой сессии.
@@ -166,7 +158,6 @@ export async function получить<P extends ПутиGET>(
       // и мы называем причину своим именем. Своих редиректов у API нет
       // (ADR-031), так что терять на этом нечего.
       redirect: "manual",
-      signal: signal ?? null,
     });
   } catch (причина) {
     if (причина instanceof DOMException && причина.name === "AbortError") throw причина;
@@ -187,9 +178,12 @@ export async function получить<P extends ПутиGET>(
   }
 
   if (!ответ.ok) throw await разобратьОтказ(ответ);
+  return ответ;
+}
 
+async function какJSON<T>(ответ: Response): Promise<T> {
   try {
-    return (await ответ.json()) as Успех<ОперацияGET<P>>;
+    return (await ответ.json()) as T;
   } catch (причина) {
     throw new ОшибкаAPI({
       статус: ответ.status,
@@ -199,4 +193,54 @@ export async function получить<P extends ПутиGET>(
       подробности: [String(причина)],
     });
   }
+}
+
+/**
+ * GET по пути контракта.
+ *
+ * `signal` нужен экранам: уход со вкладки обязан отменять запрос, иначе
+ * ответ прилетает в размонтированный экран.
+ */
+export async function получить<P extends ПутиGET>(
+  путь: P,
+  параметры?: Запрос<ОперацияGET<P>>,
+  signal?: AbortSignal,
+): Promise<Успех<ОперацияGET<P>>> {
+  // Пути в контракте уже начинаются с /api - база в них не дописывается.
+  const адрес = `${String(путь)}${строкаЗапроса(параметры as Record<string, unknown> | undefined)}`;
+  const ответ = await выполнить(адрес, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    signal: signal ?? null,
+  });
+  return какJSON<Успех<ОперацияGET<P>>>(ответ);
+}
+
+/**
+ * POST с телом JSON или формой. Тип ответа задаёт вызывающий - из схем
+ * контракта (`components["schemas"]`), а не своей копией.
+ *
+ * Путь здесь строка, а не ключ `paths`: у ручек записи в пути стоит
+ * идентификатор (`/drafts/{id}/confirm`), и шаблон контракта с настоящим
+ * адресом типом не сопоставить без вывода, который сложнее самого клиента.
+ * Типы тела и ответа всё равно приходят из контракта - см. `src/capture/api.ts`.
+ */
+export async function отправить<T>(адрес: string, тело: unknown, signal?: AbortSignal): Promise<T> {
+  // Форму браузер размечает сам, вместе с границей частей: заголовок,
+  // выставленный руками, эту границу потерял бы.
+  const форма = тело instanceof FormData;
+  const ответ = await выполнить(адрес, {
+    method: "POST",
+    headers: форма
+      ? { Accept: "application/json" }
+      : { Accept: "application/json", "Content-Type": "application/json" },
+    body: форма ? тело : JSON.stringify(тело),
+    signal: signal ?? null,
+  });
+  return какJSON<T>(ответ);
+}
+
+/** DELETE. Тела у ответа нет (204). */
+export async function удалить(адрес: string): Promise<void> {
+  await выполнить(адрес, { method: "DELETE", headers: { Accept: "application/json" } });
 }
