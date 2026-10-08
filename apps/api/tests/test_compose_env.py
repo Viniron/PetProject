@@ -108,6 +108,9 @@ COMPOSE_PI = REPO_ROOT / "infra" / "docker-compose.pi.yml"
     # Ф10: глубина истории и число мерчантов в предложении набора.
     "FINANCE_PROPOSAL_HISTORY_MONTHS",
     "FINANCE_PROPOSAL_MERCHANTS",
+    # Ф11: окно «среднего» и порог истории резюме.
+    "FINANCE_SUMMARY_HISTORY_WEEKS",
+    "FINANCE_SUMMARY_MIN_HISTORY_WEEKS",
 )
 
 # Живучесть (Э9, ADR-043). Забытая проброска здесь самая тихая из всех:

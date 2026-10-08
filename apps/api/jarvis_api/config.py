@@ -179,6 +179,16 @@ class Settings(BaseSettings):
     # повода не даёт, а токены и данные owner у провайдера тратит.
     finance_proposal_merchants: int = 10
 
+    # --- Ф11: резюме о расходах -------------------------------------------------
+    # Сколько прошлых недель составляют «среднее», с которым резюме сравнивает
+    # период (§15.9). Восемь - около двух месяцев: разовый крупный месяц
+    # не делается нормой, а набор owner не успевает смениться до неузнаваемости.
+    finance_summary_history_weeks: int = 8
+    # Меньше стольких недель истории до периода - сравнения нет вовсе, и текст
+    # обязан это назвать (§15.9). Среднее по одной-двум неделям - это не
+    # привычка owner, а случайность, выданная за неё.
+    finance_summary_min_history_weeks: int = 4
+
     # --- Э5: планировщик -----------------------------------------------------
     # Рубильник. Включён по умолчанию (решение owner): выключенный по умолчанию
     # планировщик означает продукт, который молча не работает, если строчку
@@ -438,6 +448,8 @@ class Settings(BaseSettings):
         "finance_categorize_timeout_seconds",
         "finance_proposal_history_months",
         "finance_proposal_merchants",
+        "finance_summary_history_weeks",
+        "finance_summary_min_history_weeks",
         "restore_scratch_db",
         "restore_max_dump_age_hours",
         "llm_monthly_cap_usd",
@@ -514,6 +526,8 @@ class Settings(BaseSettings):
         "finance_categorize_timeout_seconds",
         "finance_proposal_history_months",
         "finance_proposal_merchants",
+        "finance_summary_history_weeks",
+        "finance_summary_min_history_weeks",
     )
     @classmethod
     def _положительно(cls, значение: int, info: ValidationInfo) -> int:
@@ -524,6 +538,22 @@ class Settings(BaseSettings):
         """
         if значение <= 0:
             raise ValueError(f"{info.field_name}: ожидалось число больше нуля")
+        return значение
+
+    @field_validator("finance_summary_min_history_weeks")
+    @classmethod
+    def _порог_истории(cls, значение: int, info: ValidationInfo) -> int:
+        """Порог больше окна - резюме навсегда «сравнивать не с чем».
+
+        Молча: ни ошибки, ни сравнения, и owner решил бы, что истории
+        у книжки и правда нет. Падать дешевле при старте.
+        """
+        окно = info.data.get("finance_summary_history_weeks")
+        if окно is not None and значение > окно:
+            raise ValueError(
+                "finance_summary_min_history_weeks: порог больше окна"
+                f" FINANCE_SUMMARY_HISTORY_WEEKS ({окно}) - сравнения не будет никогда"
+            )
         return значение
 
 

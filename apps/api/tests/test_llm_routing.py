@@ -249,3 +249,11 @@ def test_пример_из_env_example_разбирается() -> None:
     категории = маршруты[Задача.КНИЖКА_КАТЕГОРИЯ]
     assert категории.batch is False
     assert категории.fallback and категории.provider != категории.fallback[0].provider
+
+    # Резюме о расходах (Ф11): обычный вызов в конце импорта, резерв
+    # у второго провайдера, без `temperature` - на модели резюме сэмплинга
+    # нет (ADR-049), и поле ушло бы в 400.
+    резюме = маршруты[Задача.КНИЖКА_РЕЗЮМЕ]
+    assert резюме.batch is False
+    assert резюме.temperature is None
+    assert резюме.fallback and резюме.provider != резюме.fallback[0].provider

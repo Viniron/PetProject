@@ -80,6 +80,23 @@ class FreshnessOut(BaseModel):
     )
 
 
+class SummaryOut(BaseModel):
+    """Резюме о расходах (§15.9): текст и период, о котором он.
+
+    Снимок чисел (`basis`) в контракт не входит: экрану нечего с ним делать,
+    а хранится он для того, чтобы прошлый текст можно было объяснить, когда
+    гашение задним числом сдвинет сальдо (§15.5).
+    """
+
+    period_from: dt.date = Field(description="Первый день периода в зоне owner")
+    period_to: dt.date = Field(description="Последний день периода, включительно")
+    text: str
+    compared: bool = Field(
+        description="Было с чем сравнивать. false - истории мало, и текст это называет"
+    )
+    created_at: dt.datetime
+
+
 class OverviewOut(BaseModel):
     """Ответ `GET /api/finance/overview`: месяц с оговорками к цифре."""
 
@@ -92,6 +109,12 @@ class OverviewOut(BaseModel):
     in_recalc_window: bool = Field(description="Месяц ещё может пересчитаться гашением")
     accounts_marked: bool = Field(description="Все счета книжки получили роль от owner")
     freshness: FreshnessOut
+    latest_summary: SummaryOut | None = Field(
+        description=(
+            "Последнее резюме книжки - не обязательно этого месяца: оно о периоде"
+            " с прошлой загрузки. null - резюме ещё не было"
+        )
+    )
 
 
 # --- операции ---------------------------------------------------------------
@@ -483,6 +506,17 @@ class MonthTransitionOut(BaseModel):
     lines: list[str]
 
 
+class SummaryReportOut(BaseModel):
+    """Резюме в записи импорта: текст или причина, по которой его нет."""
+
+    summary: SummaryOut | None = Field(description="null - резюме не получено")
+    skipped: str | None = Field(description="Почему модель не звали - не отказ")
+    error: str | None = Field(
+        description="Почему модель не дала резюме. Следующий импорт охватит и этот период"
+    )
+    lines: list[str]
+
+
 class ImportOut(BaseModel):
     """Ответ `POST /api/finance/import`.
 
@@ -507,6 +541,9 @@ class ImportOut(BaseModel):
             "Распределённые недели бюджета, чьи траты выписка изменила задним числом"
             " (§15.10): разница ушла поправкой вперёд. Пусто в dry-run"
         ),
+    )
+    summary: SummaryReportOut | None = Field(
+        default=None, description="Резюме о расходах после записи (§15.9). null в dry-run"
     )
 
 
