@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 12 — Finance: лента операций · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 12 — Finance: лента операций</h1>
+  <p>Лента месяца или очередь разбора по всей книжке — <code>GET /api/finance/transactions</code> с <code>month</code> или <code>needs_review</code> (<code>SPEC.md</code> §15.7). Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> <b>Только ПК:</b> на телефоне раздела «Операции» нет, очередь «Требует внимания» раскрывается в обзоре (этап 10). Цвет кружка — категория операции, буква — мерчант.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК — операции месяца</h2>
+  <p>По дням, свежие сверху, у дня — сумма того, что вошло в итоги. Строка открывает карточку (этап 13).</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Все операции</b><span>1440 · light</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущий месяц">‹</button><span>Октябрь 2026</span><button aria-label="Следующий месяц" disabled>›</button></div>
+          <a class="fin-btn" href="11-finance-import.html">⇪ Загрузить выписки</a></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="12-finance-feed.html" class="is-active" aria-current="page">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+        <section class="fin-card" style="max-width: 860px; padding: 28px; border-radius: 28px">
+          <div class="fin-head"><h2 class="fin-h fin-h--lg">Операции октября</h2><div class="fin-tabs" role="group" aria-label="Что показать" style="align-self: auto"><button class="is-active" aria-pressed="true">Все операции</button><button class="" aria-pressed="false">Требует внимания <span class="fin-count">7</span></button></div></div>
+          <p class="fin-note">◷ Операции по 6 октября · дольше всех ждёт Ozon Bank, загружен вчера</p>
+          <h3 class="fin-day-h">Вторник, 6 октября<span>−2 764,40 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">П</span><span class="fin-op-body"><span class="fin-op-title">Перекрёсток</span><span class="fin-op-sub">Еда › Супермаркет · Black</span></span><span class="fin-op-amt">−1 126,40 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--4" aria-hidden="true">O</span><span class="fin-op-body"><span class="fin-op-title">Оплата на Платформе Ozon</span><span class="fin-op-sub">Маркетплейсы · Ozon ·1237</span></span><span class="fin-op-amt">−1 249 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-sub">Входящий перевод · Black</span><span class="fin-badge fin-badge--warn">Требует внимания: доход или доля за покупку?</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-sub">Еда › Супермаркет · Black</span><span class="fin-badge fin-badge--warn">Требует внимания: кандидат в дубли</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">В</span><span class="fin-op-body"><span class="fin-op-title">Вкусно — и точка</span><span class="fin-op-sub">Еда › Фастфуд · Black</span></span><span class="fin-op-amt">−389 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Понедельник, 5 октября<span>−1 480 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">Л</span><span class="fin-op-body"><span class="fin-op-title">Лента</span><span class="fin-op-sub">Еда › Супермаркет · Black</span></span><span class="fin-op-amt">−600 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--2" aria-hidden="true">Я</span><span class="fin-op-body"><span class="fin-op-title">Яндекс Go</span><span class="fin-op-sub">Транспорт · Black</span></span><span class="fin-op-amt">−318 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">К</span><span class="fin-op-body"><span class="fin-op-title">Кофе Хаус</span><span class="fin-op-sub">Еда › Кофейни · Black</span><span class="fin-badge fin-badge--model">разложила модель</span></span><span class="fin-op-amt">−298 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Столовая ИТМО</span><span class="fin-op-sub">Еда › Столовая · Black</span></span><span class="fin-op-amt">−264 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Суббота, 3 октября<span>−460 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--5" aria-hidden="true">Т</span><span class="fin-op-body"><span class="fin-op-title">Тренировки Альфа</span><span class="fin-op-sub">Остальное · Black</span><span class="fin-badge fin-badge--link">3 доли привязаны</span></span><span class="fin-op-amt">−1 150 ₽<small>стоит 460 ₽ · погашено 690 ₽</small></span></a></li>
+            <li><a class="fin-op is-plus is-quiet" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Анна К.</span><span class="fin-op-sub">Доля за «Тренировки Альфа» · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-sub">На Ozon ·1237 · пары нет</span><span class="fin-badge fin-badge--warn">Требует внимания: счёт Ozon ·1237 не размечен</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Алексей Н.</span><span class="fin-op-sub">Входящий перевод · Ozon ·1237</span><span class="fin-badge fin-badge--warn">Требует внимания: похоже на перевод себе</span></span><span class="fin-op-amt">+2 000 ₽</span></a></li>
+            <li><a class="fin-op is-gone" href="13-finance-tx.html"><span class="fin-av fin-av--5" aria-hidden="true">К</span><span class="fin-op-body"><span class="fin-op-title">Кинотеатр Аврора</span><span class="fin-op-sub">Отменена банком — пропала из выгрузки</span></span><span class="fin-op-amt">−450 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Четверг, 1 октября<span>−790 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">Е</span><span class="fin-op-body"><span class="fin-op-title">Евгений В.</span><span class="fin-op-sub">Доход · правило отправителя «папа»</span></span><span class="fin-op-amt">+20 000 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--none" aria-hidden="true">И</span><span class="fin-op-body"><span class="fin-op-title">ИП Смирнов</span><span class="fin-op-sub">Без категории · Black</span></span><span class="fin-op-amt">−540 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--4" aria-hidden="true">O</span><span class="fin-op-body"><span class="fin-op-title">Оплата на Платформе Ozon</span><span class="fin-op-sub">Маркетплейсы · Ozon ·1237</span></span><span class="fin-op-amt">−250 ₽</span></a></li>
+            <li><a class="fin-op is-quiet" href="13-finance-tx.html"><span class="fin-av fin-av--2" aria-hidden="true">Ж</span><span class="fin-op-body"><span class="fin-op-title">Ж/д билеты Альфа</span><span class="fin-op-sub">Транспорт · Black</span><span class="fin-badge fin-badge--off">не в итогах</span></span><span class="fin-op-amt">−65 ₽</span></a></li>
+          </ul>
+        </section>
+      </div></div>
+    </div>
+    <p class="mark"><b>Каждый особый случай назван словом</b>: гашение («стоит 460 ₽»), отмена банком (зачёркнуто), «не в итогах», «разложила модель», вопрос разбора. Цвет его только дублирует.</p>
+    <p class="mark"><b>Без категории — пунктирный кружок</b>, приём «не факт» этапа 2: категории нет, и это видно до чтения подписи.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · ПК — очередь разбора и тёмная тема</h2>
+  <p>Переключатель над списком; месяц в шапке сменяется на «Вся книжка».</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Требует внимания</b><span>needs_review</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущий месяц">‹</button><span>Вся книжка</span><button aria-label="Следующий месяц" disabled>›</button></div>
+          <a class="fin-btn" href="11-finance-import.html">⇪ Загрузить выписки</a></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="12-finance-feed.html" class="is-active" aria-current="page">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+        <section class="fin-card" style="max-width: 860px; padding: 28px; border-radius: 28px">
+          <div class="fin-head"><h2 class="fin-h fin-h--lg">Очередь разбора</h2><div class="fin-tabs" role="group" aria-label="Что показать" style="align-self: auto"><button class="" aria-pressed="false">Все операции</button><button class="is-active" aria-pressed="true">Требует внимания <span class="fin-count">7</span></button></div></div>
+          <p class="fin-note">Вся книжка, не только этот месяц. Пока операция здесь, в итоги она не входит.</p>
+          <h3 class="fin-day-h">Октябрь<span>4 операции</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-sub">6 октября · входящий перевод · Black</span><span class="fin-badge fin-badge--warn">Доход или доля за покупку?</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-sub">6 октября · Black</span><span class="fin-badge fin-badge--warn">Кандидат в дубли</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-sub">3 октября · на Ozon ·1237</span><span class="fin-badge fin-badge--warn">Счёт Ozon ·1237 не размечен</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Алексей Н.</span><span class="fin-op-sub">3 октября · Ozon ·1237</span><span class="fin-badge fin-badge--warn">Похоже на перевод себе</span></span><span class="fin-op-amt">+2 000 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Сентябрь<span>3 операции</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">И</span><span class="fin-op-body"><span class="fin-op-title">Ирина Т.</span><span class="fin-op-sub">27 сентября · входящий перевод · Black</span><span class="fin-badge fin-badge--warn">Доход или доля за покупку?</span></span><span class="fin-op-amt">+350 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">П</span><span class="fin-op-body"><span class="fin-op-title">Пятёрочка</span><span class="fin-op-sub">21 сентября · Black</span><span class="fin-badge fin-badge--warn">Кандидат в дубли</span></span><span class="fin-op-amt">−189 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">Д</span><span class="fin-op-body"><span class="fin-op-title">Дмитрий Л.</span><span class="fin-op-sub">14 сентября · входящий перевод · Black</span><span class="fin-badge fin-badge--warn">Доход или доля за покупку?</span></span><span class="fin-op-amt">+500 ₽</span></a></li>
+          </ul>
+        </section>
+      </div></div>
+    </div>
+    <p class="mark"><b>Очередь — по всей книжке</b>: вопрос сентября остаётся, пока на него не ответили.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная тема</b><span>dark</span></div>
+    <div class="app fin" data-theme="dark">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущий месяц">‹</button><span>Октябрь 2026</span><button aria-label="Следующий месяц" disabled>›</button></div>
+          <a class="fin-btn" href="11-finance-import.html">⇪ Загрузить выписки</a></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="12-finance-feed.html" class="is-active" aria-current="page">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+        <section class="fin-card" style="max-width: 860px; padding: 28px; border-radius: 28px">
+          <div class="fin-head"><h2 class="fin-h fin-h--lg">Операции октября</h2><div class="fin-tabs" role="group" aria-label="Что показать" style="align-self: auto"><button class="is-active" aria-pressed="true">Все операции</button><button class="" aria-pressed="false">Требует внимания <span class="fin-count">7</span></button></div></div>
+          <p class="fin-note">◷ Операции по 6 октября · дольше всех ждёт Ozon Bank, загружен вчера</p>
+          <h3 class="fin-day-h">Вторник, 6 октября<span>−2 764,40 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">П</span><span class="fin-op-body"><span class="fin-op-title">Перекрёсток</span><span class="fin-op-sub">Еда › Супермаркет · Black</span></span><span class="fin-op-amt">−1 126,40 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--4" aria-hidden="true">O</span><span class="fin-op-body"><span class="fin-op-title">Оплата на Платформе Ozon</span><span class="fin-op-sub">Маркетплейсы · Ozon ·1237</span></span><span class="fin-op-amt">−1 249 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-sub">Входящий перевод · Black</span><span class="fin-badge fin-badge--warn">Требует внимания: доход или доля за покупку?</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-sub">Еда › Супермаркет · Black</span><span class="fin-badge fin-badge--warn">Требует внимания: кандидат в дубли</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">В</span><span class="fin-op-body"><span class="fin-op-title">Вкусно — и точка</span><span class="fin-op-sub">Еда › Фастфуд · Black</span></span><span class="fin-op-amt">−389 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Понедельник, 5 октября<span>−1 480 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">Л</span><span class="fin-op-body"><span class="fin-op-title">Лента</span><span class="fin-op-sub">Еда › Супермаркет · Black</span></span><span class="fin-op-amt">−600 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--2" aria-hidden="true">Я</span><span class="fin-op-body"><span class="fin-op-title">Яндекс Go</span><span class="fin-op-sub">Транспорт · Black</span></span><span class="fin-op-amt">−318 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">К</span><span class="fin-op-body"><span class="fin-op-title">Кофе Хаус</span><span class="fin-op-sub">Еда › Кофейни · Black</span><span class="fin-badge fin-badge--model">разложила модель</span></span><span class="fin-op-amt">−298 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Столовая ИТМО</span><span class="fin-op-sub">Еда › Столовая · Black</span></span><span class="fin-op-amt">−264 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Суббота, 3 октября<span>−460 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--5" aria-hidden="true">Т</span><span class="fin-op-body"><span class="fin-op-title">Тренировки Альфа</span><span class="fin-op-sub">Остальное · Black</span><span class="fin-badge fin-badge--link">3 доли привязаны</span></span><span class="fin-op-amt">−1 150 ₽<small>стоит 460 ₽ · погашено 690 ₽</small></span></a></li>
+            <li><a class="fin-op is-plus is-quiet" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Анна К.</span><span class="fin-op-sub">Доля за «Тренировки Альфа» · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-sub">На Ozon ·1237 · пары нет</span><span class="fin-badge fin-badge--warn">Требует внимания: счёт Ozon ·1237 не размечен</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Алексей Н.</span><span class="fin-op-sub">Входящий перевод · Ozon ·1237</span><span class="fin-badge fin-badge--warn">Требует внимания: похоже на перевод себе</span></span><span class="fin-op-amt">+2 000 ₽</span></a></li>
+            <li><a class="fin-op is-gone" href="13-finance-tx.html"><span class="fin-av fin-av--5" aria-hidden="true">К</span><span class="fin-op-body"><span class="fin-op-title">Кинотеатр Аврора</span><span class="fin-op-sub">Отменена банком — пропала из выгрузки</span></span><span class="fin-op-amt">−450 ₽</span></a></li>
+          </ul>
+          <h3 class="fin-day-h">Четверг, 1 октября<span>−790 ₽</span></h3>
+          <ul class="fin-list">
+            <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">Е</span><span class="fin-op-body"><span class="fin-op-title">Евгений В.</span><span class="fin-op-sub">Доход · правило отправителя «папа»</span></span><span class="fin-op-amt">+20 000 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--none" aria-hidden="true">И</span><span class="fin-op-body"><span class="fin-op-title">ИП Смирнов</span><span class="fin-op-sub">Без категории · Black</span></span><span class="fin-op-amt">−540 ₽</span></a></li>
+            <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--4" aria-hidden="true">O</span><span class="fin-op-body"><span class="fin-op-title">Оплата на Платформе Ozon</span><span class="fin-op-sub">Маркетплейсы · Ozon ·1237</span></span><span class="fin-op-amt">−250 ₽</span></a></li>
+            <li><a class="fin-op is-quiet" href="13-finance-tx.html"><span class="fin-av fin-av--2" aria-hidden="true">Ж</span><span class="fin-op-body"><span class="fin-op-title">Ж/д билеты Альфа</span><span class="fin-op-sub">Транспорт · Black</span><span class="fin-badge fin-badge--off">не в итогах</span></span><span class="fin-op-amt">−65 ₽</span></a></li>
+          </ul>
+        </section>
+      </div></div>
+    </div>
+    <p class="mark"><b>Отменённая и исключённая приглушены прозрачностью</b>, а не серым цветом: зелёный прихода остаётся зелёным.</p>
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>
