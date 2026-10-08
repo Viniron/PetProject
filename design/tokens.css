@@ -1144,3 +1144,395 @@ textarea.field-input { min-height: 76px; resize: vertical; font-family: inherit;
 .mini-body i:nth-child(2) { width: 80%; }
 .mini-body i:nth-child(3) { width: 65%; }
 .mini-body i:nth-child(4) { width: 72%; }
+
+/* ==========================================================================
+   Вкладка Finance — SPEC §15.7, этапы 10–15 и 17 дизайна.
+   Утверждено owner 2026-10-08. Рамка OpenAI на эту вкладку НЕ
+   распространяется (решение owner): содержимое Finance рисуется по мотивам
+   сайта Т-Банка — серая подложка, белые карточки с большим радиусом,
+   жёлтый акцент на главном действии, цвет категории у кружка операции.
+   Оболочка (капсула, вкладки) — общая, этап 1, и здесь не меняется.
+
+   Свои переменные с префиксом --fin-, а не переопределение общих: капсула
+   стоит на той же странице и обязана остаться в палитре оболочки.
+   Шрифт — системный, как у всего продукта (решение owner): фирменный
+   шрифт банка проприетарный, а макеты открываются без сети.
+   ========================================================================== */
+:root {
+  --fin-bg:        #f6f7f8;   /* подложка вкладки */
+  --fin-surface:   #ffffff;   /* карточки */
+  --fin-fill:      #f6f7f8;   /* плитки и поля внутри карточки */
+  --fin-fill-2:    #edeff2;   /* дорожка переключателей, вторичные кнопки */
+  --fin-line:      #e6e8eb;
+  --fin-text:      #333333;
+  --fin-strong:    #1a1a1a;
+  /* Серый подписей затемнён против сайта банка (#9299a2): тот даёт 2.9:1
+     на белом, а подписи здесь несут смысл — давность, причину разбора. */
+  --fin-muted:     #6a717c;
+  --fin-accent:    #ffdd2d;   /* только главное действие и лимит дня */
+  --fin-on-accent: #333333;
+  --fin-on-accent-muted: rgba(51, 51, 51, .78);
+  --fin-ink:       #1f1f1f;   /* тёмная кнопка на жёлтом — одна в обеих темах */
+  --fin-accent-soft: #fff7cc;
+  /* Зелёный — приход. Затемнён до 4.9:1: банковский #00b92d на белом
+     даёт 2.6:1 и для суммы не годится. */
+  --fin-plus:      #0a8233;
+  --fin-minus:     #c8281f;
+  --fin-minus-soft:#fdecea;
+  --fin-warn:      #8a5300;   /* «требует внимания», давность */
+  --fin-warn-soft: #fff1d6;
+  --fin-link:      #1a66e0;
+  --fin-shadow:    0 4px 24px rgba(0, 16, 36, .07);
+  --fin-pop:       0 16px 56px rgba(0, 16, 36, .18);
+  --fin-scrim:     rgba(0, 16, 36, .32);
+  /* Цвет категории: кружок операции, точка в наборе месяца, чип правила.
+     Пары «фон + глиф», как --state-*: на белом и на тёмном один цвет
+     читается по-разному. Привязка цвета к категории — по порядку в наборе,
+     а не по названию: ядро названий не знает (инвариант 2). */
+  --fin-c1-bg: #e5eeff;  --fin-c1-fg: #2453b3;
+  --fin-c2-bg: #e2f5ec;  --fin-c2-fg: #11704a;
+  --fin-c3-bg: #fff0d9;  --fin-c3-fg: #9a5b00;
+  --fin-c4-bg: #f1e8ff;  --fin-c4-fg: #6232b5;
+  --fin-c5-bg: #eef0f3;  --fin-c5-fg: #4a515c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fin-bg: #0e0e10; --fin-surface: #1c1c1f; --fin-fill: #26262a; --fin-fill-2: #303035;
+    --fin-line: #2f2f34; --fin-text: #e8e8ea; --fin-strong: #ffffff; --fin-muted: #a3a8b0;
+    --fin-on-accent: #1c1c1f; --fin-on-accent-muted: rgba(28, 28, 31, .78); --fin-accent-soft: #3a3416;
+    --fin-plus: #52d27d; --fin-minus: #ff7a70; --fin-minus-soft: #3d1e1c;
+    --fin-warn: #ffc266; --fin-warn-soft: #3a2c12; --fin-link: #7aaaff;
+    --fin-shadow: none; --fin-pop: 0 16px 56px rgba(0, 0, 0, .6); --fin-scrim: rgba(0, 0, 0, .6);
+    --fin-c1-bg: #1e2a44; --fin-c1-fg: #9dbbff; --fin-c2-bg: #16352a; --fin-c2-fg: #7fdcb1;
+    --fin-c3-bg: #3a2c14; --fin-c3-fg: #ffc874; --fin-c4-bg: #2e2245; --fin-c4-fg: #c9aeff;
+    --fin-c5-bg: #2a2c31; --fin-c5-fg: #b9bec6;
+  }
+}
+[data-theme="dark"] {
+  --fin-bg: #0e0e10; --fin-surface: #1c1c1f; --fin-fill: #26262a; --fin-fill-2: #303035;
+  --fin-line: #2f2f34; --fin-text: #e8e8ea; --fin-strong: #ffffff; --fin-muted: #a3a8b0;
+  --fin-on-accent: #1c1c1f; --fin-on-accent-muted: rgba(28, 28, 31, .78); --fin-accent-soft: #3a3416;
+  --fin-plus: #52d27d; --fin-minus: #ff7a70; --fin-minus-soft: #3d1e1c;
+  --fin-warn: #ffc266; --fin-warn-soft: #3a2c12; --fin-link: #7aaaff;
+  --fin-shadow: none; --fin-pop: 0 16px 56px rgba(0, 0, 0, .6); --fin-scrim: rgba(0, 0, 0, .6);
+  --fin-c1-bg: #1e2a44; --fin-c1-fg: #9dbbff; --fin-c2-bg: #16352a; --fin-c2-fg: #7fdcb1;
+  --fin-c3-bg: #3a2c14; --fin-c3-fg: #ffc874; --fin-c4-bg: #2e2245; --fin-c4-fg: #c9aeff;
+  --fin-c5-bg: #2a2c31; --fin-c5-fg: #b9bec6;
+}
+[data-theme="light"] {
+  --fin-bg: #f6f7f8; --fin-surface: #ffffff; --fin-fill: #f6f7f8; --fin-fill-2: #edeff2;
+  --fin-line: #e6e8eb; --fin-text: #333333; --fin-strong: #1a1a1a; --fin-muted: #6a717c;
+  --fin-on-accent: #333333; --fin-on-accent-muted: rgba(51, 51, 51, .78); --fin-accent-soft: #fff7cc;
+  --fin-plus: #0a8233; --fin-minus: #c8281f; --fin-minus-soft: #fdecea;
+  --fin-warn: #8a5300; --fin-warn-soft: #fff1d6; --fin-link: #1a66e0;
+  --fin-shadow: 0 4px 24px rgba(0, 16, 36, .07); --fin-pop: 0 16px 56px rgba(0, 16, 36, .18);
+  --fin-scrim: rgba(0, 16, 36, .32);
+  --fin-c1-bg: #e5eeff; --fin-c1-fg: #2453b3; --fin-c2-bg: #e2f5ec; --fin-c2-fg: #11704a;
+  --fin-c3-bg: #fff0d9; --fin-c3-fg: #9a5b00; --fin-c4-bg: #f1e8ff; --fin-c4-fg: #6232b5;
+  --fin-c5-bg: #eef0f3; --fin-c5-fg: #4a515c;
+}
+
+/* --- Каркас вкладки ------------------------------------------------------
+   Серая подложка ставится на .app целиком: капсула белая на сером, как
+   карточки. Сама капсула — по правилам этапа 1, без изменений. */
+.app.fin, .fin { background: var(--fin-bg); color: var(--fin-text); }
+.fin-col { max-width: 1120px; display: flex; flex-direction: column; gap: var(--space-5); }
+.fin-row2 { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-5); }
+.fin-row2 > * { flex: 1 1 320px; min-width: 0; }
+.fin-row2 > .is-wide { flex: 3 1 440px; }
+.fin-row2.is-stretch { align-items: stretch; }
+.fin-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+            gap: var(--space-4); }
+.fin-head-l { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.fin-title { margin: 0; font-size: 44px; line-height: 1.05; font-weight: 800;
+             letter-spacing: -.025em; color: var(--fin-strong); }
+.fin-sub { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.015em; color: var(--fin-strong); }
+.fin-lead { margin: 0; max-width: 720px; font-size: 16px; color: var(--fin-muted); }
+.fin-back { align-self: flex-start; font-size: 15px; font-weight: 500; color: var(--fin-muted);
+            text-decoration: none; }
+.fin-back::before { content: "‹ "; }
+.fin .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* --- Кнопки ---------------------------------------------------------------
+   Жёлтая — одно главное действие на экране. Остальное — серые. */
+.fin-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+           min-height: 48px; padding: 0 20px; border: 0; border-radius: 14px;
+           background: var(--fin-accent); color: var(--fin-on-accent);
+           font: 600 15px/1.2 var(--font); text-decoration: none; cursor: pointer; }
+.fin-btn--soft { background: var(--fin-fill-2); color: var(--fin-strong); }
+.fin-btn--ink { background: var(--fin-ink); color: #ffffff; }
+.fin-btn--ghost { background: transparent; color: var(--fin-link); font-weight: 500; }
+.fin-btn--lg { min-height: 56px; border-radius: 16px; font-size: 17px; font-weight: 700; }
+.fin-btn--sm { min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; }
+.fin-btn--block { display: flex; width: 100%; }
+.fin-btn--icon { width: 44px; min-height: 44px; padding: 0; font-size: 18px; }
+
+/* Переключатель месяца и недели. */
+.fin-period { display: inline-flex; align-items: center; gap: 2px; padding: 4px;
+              border-radius: 14px; background: var(--fin-surface); box-shadow: var(--fin-shadow); }
+.fin-period button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: none;
+                     color: var(--fin-text); font: inherit; font-size: 18px; cursor: pointer; }
+.fin-period button:disabled { color: var(--fin-line); cursor: default; }
+.fin-period span { padding: 0 8px; font-size: 15px; font-weight: 600; color: var(--fin-strong); }
+
+/* Разделы вкладки: на ПК — сегменты на серой дорожке, на телефоне — чипы. */
+.fin-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; align-self: flex-start;
+            border-radius: 16px; background: var(--fin-fill-2); }
+.fin-tabs a, .fin-tabs button { display: inline-flex; align-items: center; gap: var(--space-2);
+            padding: 10px 18px; border: 0; border-radius: 12px; background: none;
+            color: var(--fin-muted); font: 500 15px/1.2 var(--font); text-decoration: none; cursor: pointer; }
+.fin-tabs .is-active { background: var(--fin-surface); color: var(--fin-strong); font-weight: 600;
+                       box-shadow: 0 1px 4px rgba(0, 16, 36, .08); }
+.fin-tabs--fit { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); align-self: stretch; }
+.fin-tabs--fit a, .fin-tabs--fit button { justify-content: center; padding: 10px 6px; }
+.fin-chips { display: flex; gap: var(--space-2); overflow-x: auto; scrollbar-width: none; }
+.fin-chips a { flex: 0 0 auto; padding: 10px 16px; border-radius: var(--radius-pill);
+               background: var(--fin-surface); color: var(--fin-strong);
+               font: 500 15px/1.2 var(--font); text-decoration: none; }
+.fin-chips a.is-active { background: var(--fin-strong); color: var(--fin-bg); font-weight: 600; }
+
+/* Счётчик очереди разбора. Жёлтый, чтобы его видели, а не чтобы торопить:
+   пока операция в очереди, она не входит в итоги. */
+.fin-count { display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: var(--radius-pill);
+             background: var(--fin-accent); color: var(--fin-on-accent);
+             font-size: 12px; font-weight: 700; text-align: center; }
+
+/* Давность — §15.1: «операции по <дата>» видно всегда. Плашка — когда
+   вышел срок FINANCE_STALE_AFTER_DAYS. */
+.fin-fresh { align-self: flex-start; margin: 0; padding: 8px 14px; border-radius: var(--radius-pill);
+             background: var(--fin-fill-2); color: var(--fin-muted); font-size: 14px; }
+.fin-fresh::before { content: "◷ "; }
+.fin-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4);
+             padding: 18px 20px; border-radius: 20px; background: var(--fin-warn-soft); color: var(--fin-warn); }
+.fin-stale b { display: block; font-size: 16px; }
+.fin-stale p { margin: 4px 0 0; font-size: 14px; }
+.fin-stale > div { flex: 1 1 280px; min-width: 0; }
+
+/* --- Карточки -------------------------------------------------------------
+   Границ нет, только заливка и мягкая тень — приём банка. В тёмной теме
+   тени нет: на тёмном она не видна, карточку отделяет светлее заливка. */
+.fin-card { display: flex; flex-direction: column; gap: 10px; padding: 28px; border-radius: 24px;
+            background: var(--fin-surface); color: var(--fin-text); box-shadow: var(--fin-shadow); }
+.fin-card--hero { gap: var(--space-2); padding: 32px; border-radius: 28px; }
+.fin-card--accent { background: var(--fin-accent); color: var(--fin-on-accent); box-shadow: none; }
+.fin-card--accent .fin-note { color: var(--fin-on-accent-muted); }
+.fin-card--slot { background: transparent; border: 2px dashed var(--fin-line); box-shadow: none; }
+.fin-card--alert { box-shadow: inset 0 0 0 2px var(--fin-minus-soft), var(--fin-shadow); }
+.fin-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.fin-h { margin: 0; font-size: 20px; font-weight: 700; color: var(--fin-strong); }
+.fin-h--lg { font-size: 22px; }
+.fin-label { margin: 0; font-size: 17px; font-weight: 500; color: var(--fin-muted); }
+.fin-card--accent .fin-label { color: var(--fin-on-accent); font-weight: 600; }
+.fin-big { margin: 0; font-size: 60px; line-height: 1.05; font-weight: 800; letter-spacing: -.03em; color: var(--fin-strong); }
+.fin-card--accent .fin-big { color: var(--fin-on-accent); }
+.fin-mid { margin: 0; font-size: 36px; font-weight: 800; letter-spacing: -.02em; color: var(--fin-strong); }
+.fin-mid.is-empty { font-size: 30px; color: var(--fin-muted); }
+.fin-note { margin: 0; font-size: 14px; color: var(--fin-muted); }
+.fin-tag { padding: 4px 10px; border-radius: var(--radius-pill); background: var(--fin-fill);
+           color: var(--fin-muted); font-size: 13px; white-space: nowrap; }
+.fin-tile { padding: 20px; border-radius: 20px; background: var(--fin-fill); }
+.fin-tile .fin-note { margin-top: 6px; font-size: 13px; }
+.fin-tile-val { margin: 8px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; color: var(--fin-strong); }
+.fin-sep { margin: 0; padding-top: 20px; border-top: 1px solid var(--fin-line); }
+.fin-hint { margin: 0; padding: 14px; border-radius: 16px; background: var(--fin-fill);
+            font-size: 14px; color: var(--fin-muted); }
+.fin-hint--accent { background: var(--fin-accent-soft); color: var(--fin-strong); }
+.fin-hint--warn { background: var(--fin-warn-soft); color: var(--fin-warn); }
+.fin-hint--on-accent { align-self: flex-start; padding: 8px 12px; border-radius: 12px;
+                       background: rgba(255, 255, 255, .55); color: #333333; font-weight: 500; }
+
+/* --- Операция в списке ---------------------------------------------------
+   Кружок — первая буква мерчанта на цвете категории. Логотипов мерчантов
+   в выписке нет, а цвет категории связывает ленту, карточку и набор. */
+.fin-list { margin: 0; padding: 0; list-style: none; }
+.fin-op { display: flex; align-items: center; gap: 14px; padding: 12px 8px; border-radius: 16px;
+          color: var(--fin-text); text-decoration: none; }
+a.fin-op:hover { background: var(--fin-fill); }
+.fin-op-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fin-op-title { font-size: 16px; font-weight: 600; color: var(--fin-strong); }
+.fin-op-sub { font-size: 14px; color: var(--fin-muted); }
+.fin-op-q { font-size: 14px; color: var(--fin-warn); }
+.fin-op-amt { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+              font-size: 16px; font-weight: 600; color: var(--fin-strong);
+              font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-op-amt small { font-size: 13px; font-weight: 400; color: var(--fin-muted); }
+.fin-op.is-plus .fin-op-amt { color: var(--fin-plus); }
+/* Отменённая банком — зачёркнута, но в ленте: удалять запрещено (§15.3). */
+.fin-op.is-gone { opacity: .7; }
+.fin-op.is-gone .fin-op-title, .fin-op.is-gone .fin-op-amt { text-decoration: line-through; }
+/* Исключённая и привязанная доля — приглушены: в итоги сами не идут. */
+.fin-op.is-quiet { opacity: .7; }
+.fin-op.is-quiet .fin-op-amt { color: var(--fin-muted); }
+.fin-op.is-quiet.is-plus .fin-op-amt { color: var(--fin-plus); }
+.fin-day-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3);
+             margin: 0; padding: 16px 8px 8px; font-size: 17px; font-weight: 700; color: var(--fin-strong); }
+.fin-day-h span { font-size: 15px; font-weight: 400; color: var(--fin-muted); font-variant-numeric: tabular-nums; }
+
+.fin-av { flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px;
+          border-radius: 50%; font-size: 17px; font-weight: 700; }
+.fin-av--1 { background: var(--fin-c1-bg); color: var(--fin-c1-fg); }
+.fin-av--2 { background: var(--fin-c2-bg); color: var(--fin-c2-fg); }
+.fin-av--3 { background: var(--fin-c3-bg); color: var(--fin-c3-fg); }
+.fin-av--4 { background: var(--fin-c4-bg); color: var(--fin-c4-fg); }
+.fin-av--5 { background: var(--fin-c5-bg); color: var(--fin-c5-fg); }
+/* Без категории — пунктир «не факт», приём этапа 2. */
+.fin-av--none { border: 1.5px dashed var(--fin-muted); color: var(--fin-muted); }
+.fin-dot { flex: 0 0 auto; width: 14px; height: 14px; border-radius: 50%; }
+.fin-dot--1 { background: var(--fin-c1-fg); } .fin-dot--2 { background: var(--fin-c2-fg); }
+.fin-dot--3 { background: var(--fin-c3-fg); } .fin-dot--4 { background: var(--fin-c4-fg); }
+.fin-dot--5 { background: var(--fin-c5-fg); } .fin-dot--ai { border: 1.5px dashed var(--fin-c4-fg); }
+
+.fin-badge { align-self: flex-start; margin-top: 4px; padding: 3px 10px; border-radius: var(--radius-pill);
+             font-size: 13px; font-weight: 600; white-space: nowrap; }
+.fin-badge--warn  { background: var(--fin-warn-soft); color: var(--fin-warn); }
+.fin-badge--model { background: var(--fin-c4-bg); color: var(--fin-c4-fg); }
+.fin-badge--off   { background: var(--fin-fill-2); color: var(--fin-muted); }
+.fin-badge--link  { background: var(--fin-c2-bg); color: var(--fin-c2-fg); }
+.fin-badge--ok    { background: var(--fin-c2-bg); color: var(--fin-c2-fg); }
+.fin-badge--bad   { background: var(--fin-minus-soft); color: var(--fin-minus); }
+
+/* --- Импорт: строка диффа -------------------------------------------------
+   Новая строка — пунктир «не факт» (этап 2): её ещё нет в книжке. */
+.fin-diff { overflow-x: auto; border-radius: 16px; background: var(--fin-fill); }
+.fin-diff-in { min-width: 640px; padding: 6px; }
+.fin-drow { display: grid; grid-template-columns: 108px minmax(0, 1fr) 150px 120px; gap: 12px;
+            align-items: center; margin-top: 4px; padding: 10px 12px; border-radius: 12px;
+            background: var(--fin-surface); font-size: 14px; color: var(--fin-muted); }
+.fin-drow.is-head { margin: 0; padding: 8px 12px; background: none; font-size: 13px; font-weight: 500; }
+.fin-drow b { display: block; font-size: 15px; font-weight: 500; color: var(--fin-strong); }
+.fin-drow small { font-size: 13px; }
+.fin-drow .num { text-align: right; font-size: 15px; font-weight: 600; color: var(--fin-strong); }
+.fin-drow.is-add { outline: 1.5px dashed var(--fin-muted); outline-offset: -1.5px; }
+.fin-drow.is-review { outline: 1.5px dashed var(--fin-warn); outline-offset: -1.5px;
+                      background: var(--fin-warn-soft); }
+.fin-drow.is-review small { color: var(--fin-warn); }
+.fin-drow.is-gone { opacity: .72; }
+.fin-drow.is-gone b, .fin-drow.is-gone .num { text-decoration: line-through; }
+.fin-drow .is-plus { color: var(--fin-plus); }
+.fin-stat { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.fin-stat li { padding: 8px 14px; border-radius: 12px; background: var(--fin-fill); font-size: 15px; }
+.fin-stat .is-new { background: var(--fin-accent-soft); color: var(--fin-strong); }
+.fin-stat .is-warn { background: var(--fin-warn-soft); color: var(--fin-warn); }
+.fin-stat .is-dim { color: var(--fin-muted); }
+.fin-mono { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--fin-fill);
+            font-family: var(--font-mono); font-size: 14px; color: var(--fin-strong); }
+
+/* --- Поля формы — те же, что у захвата (этап 3), в палитре вкладки ----- */
+.fin-field { display: flex; flex-direction: column; gap: var(--space-2); }
+.fin-field > span, .fin-field > label { font-size: 15px; font-weight: 600; color: var(--fin-strong); }
+.fin-input { width: 100%; min-width: 0; min-height: 52px; padding: 0 14px; border: 0; border-radius: 14px; background: var(--fin-fill);
+             color: var(--fin-strong); font: 16px/1.3 var(--font); }
+textarea.fin-input { min-height: 76px; padding: 14px; resize: vertical; }
+.fin-check { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 14px;
+             background: var(--fin-fill); font-size: 15px; }
+.fin-check input { margin-top: 2px; width: 20px; height: 20px; accent-color: var(--fin-ink); }
+.fin-check small { display: block; font-size: 13px; color: var(--fin-muted); }
+.fin-switch { display: flex; align-items: center; gap: 14px; }
+.fin-switch > span { flex: 1; }
+.fin-switch b { display: block; font-size: 15px; color: var(--fin-strong); }
+.fin-switch small { font-size: 13px; color: var(--fin-muted); }
+.fin-switch input { width: 22px; height: 22px; accent-color: var(--fin-ink); }
+
+/* Переключатель внутри карточки: вид операции, роль счёта. */
+.fin-seg { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 4px; padding: 4px;
+           border-radius: 14px; background: var(--fin-fill-2); }
+.fin-seg button { min-height: 40px; padding: 0 8px; border: 0; border-radius: 10px; background: none;
+                  color: var(--fin-muted); font: 500 14px/1.2 var(--font); cursor: pointer; }
+.fin-seg button.is-active { background: var(--fin-surface); color: var(--fin-strong); font-weight: 600;
+                            box-shadow: 0 1px 4px rgba(0, 16, 36, .08); }
+
+/* Варианты ответа на вопрос разбора — карточка под палец целиком. */
+.fin-opt { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 16px;
+           background: var(--fin-fill); cursor: pointer; }
+.fin-opt input { margin-top: 3px; width: 20px; height: 20px; accent-color: var(--fin-ink); }
+.fin-opt b { display: block; font-size: 15px; color: var(--fin-strong); }
+.fin-opt small { font-size: 14px; color: var(--fin-muted); }
+
+/* --- Модалка и шторка карточки операции --------------------------------- */
+.fin-scrim { display: flex; justify-content: center; align-items: flex-start; padding: 48px 16px;
+             background: var(--fin-scrim); }
+.fin-dialog { width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 20px;
+              padding: 28px; border-radius: 32px; background: var(--fin-surface); box-shadow: var(--fin-pop); }
+.fin-dialog--sheet { max-width: none; gap: 18px; padding: 14px 16px 34px; border-radius: 28px 28px 0 0; box-shadow: none; }
+.fin-dialog--sheet::before { content: ""; align-self: center; width: 40px; height: 5px; border-radius: 3px;
+                             background: var(--fin-line); }
+.fin-dialog-foot { display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1px solid var(--fin-line); }
+.fin-x { flex: 0 0 auto; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fin-fill);
+         color: var(--fin-strong); font-size: 18px; cursor: pointer; }
+
+/* --- Бюджет: плитка дня — §15.10 -----------------------------------------
+   Пять видов дня, и каждый отличается не только цветом: выписка и ручная
+   сумма — заливка с подписью источника, неизвестный — пунктир цвета
+   внимания, сегодня — жёлтая рамка, открытый — пунктир серый. */
+.fin-days { margin: 0; padding: 0; list-style: none; display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-2); min-width: 760px; }
+.fin-day { display: flex; flex-direction: column; gap: 6px; min-height: 148px; padding: 14px; border-radius: 18px;
+           background: var(--fin-fill); }
+.fin-day b { font-size: 13px; font-weight: 600; color: var(--fin-muted); }
+.fin-day .num { font-size: 20px; font-weight: 700; color: var(--fin-strong); }
+.fin-day small { font-size: 13px; color: var(--fin-muted); }
+.fin-day em { margin-top: auto; padding: 4px 8px; border-radius: 8px; background: var(--fin-warn-soft);
+              color: var(--fin-warn); font-size: 12.5px; font-style: normal; font-weight: 500; }
+.fin-day.is-unknown { background: none; outline: 1.5px dashed var(--fin-warn); outline-offset: -1.5px; }
+.fin-day.is-unknown .num, .fin-day.is-open .num { color: var(--fin-muted); }
+.fin-day.is-unknown small { color: var(--fin-warn); }
+.fin-day.is-today { background: var(--fin-accent-soft); outline: 2px solid var(--fin-accent); outline-offset: -2px; }
+.fin-day.is-today b { color: var(--fin-strong); }
+.fin-day.is-open { background: none; outline: 1.5px dashed var(--fin-line); outline-offset: -1.5px; }
+/* На телефоне те же дни — строками: семь колонок по 46px сумму не вмещают. */
+.fin-days--rows { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fin-days--rows .fin-day { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+                           gap: 2px 10px; min-height: 0; padding: 10px 12px; border-radius: 14px; }
+.fin-days--rows .fin-day b { font-size: 15px; color: var(--fin-strong); }
+.fin-days--rows .fin-day .num { grid-column: 2; grid-row: 1 / span 3; font-size: 16px; }
+.fin-days--rows .fin-day em { margin: 0; padding: 0; background: none; }
+.fin-amount { display: flex; align-items: center; gap: var(--space-2); padding: 0 16px; border-radius: 16px;
+              background: var(--fin-fill); }
+.fin-amount input { flex: 1; min-width: 0; min-height: 64px; border: 0; background: none;
+                    color: var(--fin-strong); font: 700 32px/1 var(--font); }
+.fin-amount span { font-size: 28px; font-weight: 700; color: var(--fin-muted); }
+
+/* --- Список настроек: правило, счёт ------------------------------------- */
+.fin-rule { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--fin-line); }
+.fin-rule > span { flex: 1; min-width: 0; font-size: 15px; color: var(--fin-muted); }
+.fin-rule > span b { font-weight: 600; color: var(--fin-strong); }
+.fin-rule > i { font-style: normal; color: var(--fin-muted); }
+.fin-rule > .fin-badge, .fin-rule > .fin-to { flex: 0 0 auto; margin: 0; }
+.fin-rule > .fin-mid { flex: 0 0 48px; font-size: 24px; color: var(--fin-strong); }
+.fin-rule-group { margin: 8px 0 0; font-size: 14px; font-weight: 600; color: var(--fin-muted); }
+.fin-rule-group span { font-weight: 400; }
+.fin-to { padding: 4px 10px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.fin-to--1 { background: var(--fin-c1-bg); color: var(--fin-c1-fg); }
+.fin-to--2 { background: var(--fin-c2-bg); color: var(--fin-c2-fg); }
+.fin-to--3 { background: var(--fin-c3-bg); color: var(--fin-c3-fg); }
+.fin-to--4 { background: var(--fin-c4-bg); color: var(--fin-c4-fg); }
+.fin-to--5 { background: var(--fin-c5-bg); color: var(--fin-c5-fg); }
+.fin-to--kind { background: var(--fin-fill-2); color: var(--fin-strong); }
+.fin-del { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none;
+           color: var(--fin-muted); font-size: 16px; cursor: pointer; }
+.fin-del:hover { background: var(--fin-minus-soft); color: var(--fin-minus); }
+.fin-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+           background: var(--fin-fill); }
+.fin-acc > span { flex: 1 1 200px; min-width: 0; font-size: 13px; color: var(--fin-muted); }
+.fin-acc > span b { display: block; font-size: 16px; font-weight: 600; color: var(--fin-strong); }
+.fin-acc .fin-seg { flex: 0 0 auto; display: flex; background: var(--fin-fill-2); }
+.fin-acc > .fin-av { flex: 0 0 auto; }
+/* Счёт без роли — цвет внимания: пока он есть, «Отложено» не считается. */
+.fin-acc.is-unknown { background: var(--fin-warn-soft); }
+.fin-acc.is-unknown > span { color: var(--fin-warn); }
+.fin-cat { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--fin-line);
+           font-size: 16px; font-weight: 600; color: var(--fin-strong); }
+.fin-cat > span { flex: 1; }
+.fin-cat.is-proposed > span { color: var(--fin-muted); }
+.fin-subcats { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0 0 12px 30px; list-style: none;
+               border-bottom: 1px solid var(--fin-line); }
+.fin-subcats li { padding: 6px 12px; border-radius: 10px; background: var(--fin-fill); font-size: 14px; }
+.fin-subcats li.is-ai { background: none; border: 1.5px dashed var(--fin-c4-fg); }
+.fin-subcats li.is-ai i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--fin-c4-fg); }
+
+/* --- Телефон: круглая кнопка вкладки Finance — «Внести трату за день» ----
+   Действие, которое делается каждый вечер (§15.10). Позиция — правило
+   этапа 1 (.rail--phone .rail-action), здесь только вид: инверсия текста,
+   чтобы кнопка читалась и в тёмной теме. */
+.rail .rail-action.fin-fab { background: var(--fin-strong); color: var(--fin-bg);
+                             border: 0; box-shadow: var(--fin-pop); }

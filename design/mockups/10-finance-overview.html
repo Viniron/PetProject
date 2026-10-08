@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 10 — Finance: обзор месяца · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 10 — Finance: обзор месяца</h1>
+  <p>Что видно каждый день: расход, доход и итог месяца, «Отложено» и «Осталось» (<code>SPEC.md</code> §15.5), очередь «Требует внимания» и лимит дня из бюджета недели (§15.10). Данные — <code>GET /api/finance/overview</code> и <code>GET /api/finance/budget</code>. Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> Стиль вкладки — по мотивам сайта Т-Банка, рамка OpenAI на Finance не распространяется. Слово «сальдо» в интерфейсе не используется — «итог месяца». На телефоне обзор сокращён до двух блоков: лимит дня и очередь разбора, ленты операций на телефоне нет.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК — обычный месяц</h2>
+  <p>Давность видна всегда строкой под разделами: книжка актуальна на момент загрузки, а не покупки (§15.1). Счётчик у «Операций» — очередь разбора.</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Октябрь, выписки по 6-е</b><span>1440 · light</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущий месяц">‹</button><span>Октябрь 2026</span><button aria-label="Следующий месяц" disabled>›</button></div>
+          <a class="fin-btn" href="11-finance-import.html">⇪ Загрузить выписки</a></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html" class="is-active" aria-current="page">Обзор</a><a href="12-finance-feed.html">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+        <p class="fin-fresh">Операции по 6 октября · дольше всех ждёт Ozon Bank, загружен вчера</p>
+        <section class="fin-card fin-card--hero" aria-label="Месяц">
+          <div class="fin-row2">
+            <div class="is-wide">
+              <p class="fin-label">Расход в октябре</p>
+              <p class="fin-big num">18 420,50 ₽</p>
+              <p class="fin-note">◷ по 6 октября — месяц не закончен, цифра промежуточная</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Доход</p><p class="fin-tile-val num" style="color: var(--fin-plus)">+24 000 ₽</p><p class="fin-note">возвраты и доли уже вычтены из расхода</p></div>
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Итог месяца</p><p class="fin-tile-val num">+5 579,50 ₽</p><p class="fin-note">пришло минус ушло</p></div>
+            </div>
+          </div>
+          <p class="fin-note fin-sep">В итогах — 41 операция. Октябрь ещё может пересчитаться: поступление можно привязать к его расходу до 30 ноября.</p>
+        </section>
+        <div class="fin-row2">
+          <section class="fin-card">
+            <div class="fin-card-head"><h2 class="fin-h">Отложено</h2><span class="fin-tag">за октябрь</span></div>
+            <p class="fin-mid num">3 000 ₽</p>
+            <p class="fin-note">Зачисления на накопительные счета минус снятия с них. Минус — месяц прожит из накоплений.</p>
+            <a class="fin-hint" href="12-finance-feed.html" style="text-decoration: none">⇄ 1 строка на накопительном счёте не опознана переводом себе и сюда не вошла ›</a>
+          </section>
+          <section class="fin-card">
+            <div class="fin-card-head"><h2 class="fin-h">Осталось</h2><span class="fin-tag">с августа 2026</span></div>
+            <p class="fin-mid num">42 310,75 ₽</p>
+            <p class="fin-note">Пришло минус ушло, накопленным итогом с первого месяца книжки. Это не остаток на картах: баланс банки в выписке не присылают.</p>
+          </section>
+        </div>
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card is-wide">
+            <div class="fin-card-head"><h2 class="fin-h">Требует внимания</h2><span class="fin-mid num" style="font-size: 28px">7</span></div>
+            <p class="fin-note">Операции, по которым книжка не решает за вас. В итоги месяца они не входят, пока не разобраны.</p>
+            <ul class="fin-list">
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">6 окт · входящий перевод · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-q">Кандидат в дубли</span><span class="fin-op-sub">6 окт · Black</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-q">Счёт Ozon ·1237 не размечен</span><span class="fin-op-sub">3 окт · на Ozon ·1237</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+            </ul>
+            <a class="fin-btn fin-btn--soft" href="12-finance-feed.html" style="align-self: flex-start">Разобрать очередь →</a>
+          </section>
+          <section class="fin-card fin-card--accent">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-big num" style="font-size: 44px">1 247,50 ₽</p>
+            <p class="fin-note">Неделя 5–11 октября: бюджет 7 000 ₽, осталось 4 990 ₽ на 4 дня.</p>
+            <p class="fin-note">Посчитано без среды: сумма за 7 октября не внесена.</p>
+            <a class="fin-btn fin-btn--ink" href="15-finance-budget.html" style="align-self: flex-start; margin-top: auto">Внести трату за день</a>
+          </section>
+        </div>
+      </div></div>
+    </div>
+    <p class="mark"><b>Итог месяца — пришло минус ушло</b>, а не остаток на картах: баланс банки в выписке не присылают (§15.5).</p>
+    <p class="mark"><b>Лимит дня подписан днём</b>, к которому относится (§15.10). Вечером, после ввода траты, подпись меняется на «завтра».</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · ПК — состояния</h2>
+  <p>Меняется одна-две карточки, остальное как в разделе 1.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Выписка устарела</b><span>stale</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <div class="fin-stale" role="status">
+          <div><b>Операции по 28 сентября — Ozon Bank загружали 9 дней назад</b><p>Т-Банк свежее, но книжка актуальна по самому отстающему банку. Цифры октября — по тому, что загружено.</p></div>
+          <a class="fin-btn" href="11-finance-import.html">Загрузить выписки</a>
+        </div>
+        <section class="fin-card fin-card--hero" aria-label="Месяц">
+          <div class="fin-row2">
+            <div class="is-wide">
+              <p class="fin-label">Расход в октябре</p>
+              <p class="fin-big num">12 960 ₽</p>
+              <p class="fin-note">◷ по 28 сентября — пока Ozon Bank не загружен, октябрь неполный</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Доход</p><p class="fin-tile-val num" style="color: var(--fin-plus)">+20 000 ₽</p><p class="fin-note">возвраты и доли уже вычтены из расхода</p></div>
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Итог месяца</p><p class="fin-tile-val num">+7 040 ₽</p><p class="fin-note">пришло минус ушло</p></div>
+            </div>
+          </div>
+          <p class="fin-note fin-sep">В итогах — 29 операций. Цифра вырастет, когда приедет выписка Ozon Bank.</p>
+        </section>
+    </div></div>
+    <p class="mark"><b>Плашка зажигается по сроку</b> <code>FINANCE_STALE_AFTER_DAYS</code> и называет отстающий банк: один свежий файл не делает свежими остальные.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Счета не размечены</b><span>saved = null</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <div class="fin-row2">
+          <section class="fin-card">
+            <div class="fin-card-head"><h2 class="fin-h">Отложено</h2><span class="fin-tag">за октябрь</span></div>
+            <p class="fin-mid is-empty">Счета не размечены</p>
+            <p class="fin-note">У счёта <b style="color: var(--fin-text)">Ozon ·1237</b> нет роли. Пока он не размечен, «Отложено» не считается: ноль здесь был бы выдумкой.</p>
+            <a class="fin-btn fin-btn--soft" href="17-settings-finance.html" style="align-self: flex-start">Разметить счёт</a>
+          </section>
+          <section class="fin-card">
+            <div class="fin-card-head"><h2 class="fin-h">Осталось</h2><span class="fin-tag">с августа 2026</span></div>
+            <p class="fin-mid num">42 310,75 ₽</p>
+            <p class="fin-note">Пришло минус ушло, накопленным итогом с первого месяца книжки. Это не остаток на картах: баланс банки в выписке не присылают.</p>
+          </section>
+        </div>
+    </div></div>
+    <p class="mark"><b>«Счета не размечены» вместо нуля</b> — ноль был бы правдоподобной выдумкой (§10). Разметка — в Settings → Финансы.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Пустой месяц</b><span>нули без деления на ноль</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <p class="fin-fresh">Операции по 30 сентября · за октябрь выписок ещё не загружали</p>
+        <section class="fin-card fin-card--hero" aria-label="Месяц">
+          <div class="fin-row2">
+            <div class="is-wide">
+              <p class="fin-label">Расход в октябре</p>
+              <p class="fin-big num">0 ₽</p>
+              <p class="fin-note">◷ выписок за октябрь ещё нет — это пустая книжка, а не нулевые траты</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Доход</p><p class="fin-tile-val num" style="color: var(--fin-plus)">0 ₽</p><p class="fin-note">возвраты и доли уже вычтены из расхода</p></div>
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Итог месяца</p><p class="fin-tile-val num">0 ₽</p><p class="fin-note">пришло минус ушло</p></div>
+            </div>
+          </div>
+          <p class="fin-note fin-sep">В итогах пока ни одной операции. «Осталось» перенесено из прошлых месяцев.</p>
+        </section>
+        <div class="fin-row2">
+          <section class="fin-card is-wide">
+            <div class="fin-card-head"><h2 class="fin-h">Требует внимания</h2><span class="fin-mid num" style="font-size: 28px">0</span></div>
+            <p class="fin-note">Очередь пуста: всё загруженное разложено.</p>
+          </section>
+        </div>
+    </div></div>
+    <p class="mark"><b>Нули — честные</b>, но подписаны: выписок нет, это не нулевые траты.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная тема</b><span>dark</span></div>
+    <div class="pad fin" data-theme="dark"><div class="fin-col">
+        <section class="fin-card fin-card--hero" aria-label="Месяц">
+          <div class="fin-row2">
+            <div class="is-wide">
+              <p class="fin-label">Расход в октябре</p>
+              <p class="fin-big num">18 420,50 ₽</p>
+              <p class="fin-note">◷ по 6 октября — месяц не закончен, цифра промежуточная</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Доход</p><p class="fin-tile-val num" style="color: var(--fin-plus)">+24 000 ₽</p><p class="fin-note">возвраты и доли уже вычтены из расхода</p></div>
+              <div class="fin-tile"><p class="fin-note" style="margin: 0; font-size: 15px">Итог месяца</p><p class="fin-tile-val num">+5 579,50 ₽</p><p class="fin-note">пришло минус ушло</p></div>
+            </div>
+          </div>
+          <p class="fin-note fin-sep">В итогах — 41 операция.</p>
+        </section>
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--accent">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-big num" style="font-size: 44px">1 247,50 ₽</p>
+            <p class="fin-note">Неделя 5–11 октября: бюджет 7 000 ₽, осталось 4 990 ₽ на 4 дня.</p>
+            <p class="fin-note">Посчитано без среды: сумма за 7 октября не внесена.</p>
+            <a class="fin-btn fin-btn--ink" href="15-finance-budget.html" style="align-self: flex-start; margin-top: auto">Внести трату за день</a>
+          </section>
+        </div>
+    </div></div>
+    <p class="mark"><b>В тёмной теме теней нет</b>: карточку отделяет более светлая заливка. Жёлтый остаётся жёлтым.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Телефон</h2>
+  <p>Только два блока — решение owner. Очередь раскрывается прямо в обзоре: отдельного раздела «Операции» на телефоне нет. Операция открывает карточку (этап 13). Круглая кнопка — «Внести трату за день».</p>
+</div>
+<div class="wrap"><div class="grid3">
+  <section class="pane">
+    <div class="pane-label"><b>Очередь свёрнута</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <a class="fin-btn fin-btn--icon" href="11-finance-import.html" aria-label="Загрузить выписки">⇪</a>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html" class="is-active" aria-current="page">Обзор</a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+            <section class="fin-card fin-card--accent fin-card--hero">
+              <p class="fin-label" style="font-size: 16px">Можно потратить сегодня, чт 8 октября</p>
+              <p class="fin-big num">1 247,50 ₽</p>
+              <p class="fin-note">Осталось 4 990 ₽ на 4 дня. Без среды: сумма за 7 октября не внесена.</p>
+              <a class="fin-btn fin-btn--ink fin-btn--block" href="15-finance-budget.html" style="margin-top: 8px">Внести трату за день</a>
+            </section>
+            <section class="fin-card">
+              <div class="fin-card-head"><h2 class="fin-h" style="font-size: 20px">Требует внимания</h2><span class="fin-mid num" style="font-size: 24px">7</span></div>
+              <p class="fin-note">Вся книжка, не только этот месяц. В итоги месяца эти операции не входят, пока вы не решили.</p>
+              <ul class="fin-list">
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">6 окт · входящий перевод · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-q">Кандидат в дубли</span><span class="fin-op-sub">6 окт · Black</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-q">Счёт Ozon ·1237 не размечен</span><span class="fin-op-sub">3 окт · на Ozon ·1237</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+              </ul>
+              <button class="fin-btn fin-btn--soft fin-btn--block" aria-expanded="false">Показать все 7 ▾</button>
+            </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Свёрнуто — три первые</b>, кнопка раскрывает всю очередь на месте, по месяцам.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Очередь раскрыта</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <a class="fin-btn fin-btn--icon" href="11-finance-import.html" aria-label="Загрузить выписки">⇪</a>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html" class="is-active" aria-current="page">Обзор</a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+            <section class="fin-card fin-card--accent fin-card--hero">
+              <p class="fin-label" style="font-size: 16px">Можно потратить сегодня, чт 8 октября</p>
+              <p class="fin-big num">1 247,50 ₽</p>
+              <p class="fin-note">Осталось 4 990 ₽ на 4 дня. Без среды: сумма за 7 октября не внесена.</p>
+              <a class="fin-btn fin-btn--ink fin-btn--block" href="15-finance-budget.html" style="margin-top: 8px">Внести трату за день</a>
+            </section>
+            <section class="fin-card">
+              <div class="fin-card-head"><h2 class="fin-h" style="font-size: 20px">Требует внимания</h2><span class="fin-mid num" style="font-size: 24px">7</span></div>
+              <p class="fin-note">Вся книжка, не только этот месяц. В итоги месяца эти операции не входят, пока вы не решили.</p>
+              <h3 class="fin-note" style="margin: 8px 0 0; font-weight: 600">Октябрь</h3>
+              <ul class="fin-list">
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">6 окт · входящий перевод · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-q">Кандидат в дубли</span><span class="fin-op-sub">6 окт · Black</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-q">Счёт Ozon ·1237 не размечен</span><span class="fin-op-sub">3 окт · на Ozon ·1237</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">А</span><span class="fin-op-body"><span class="fin-op-title">Алексей Н.</span><span class="fin-op-q">Похоже на перевод себе</span><span class="fin-op-sub">3 окт · Ozon ·1237</span></span><span class="fin-op-amt">+2 000 ₽</span></a></li>
+              </ul>
+              <h3 class="fin-note" style="margin: 8px 0 0; font-weight: 600">Сентябрь</h3>
+              <ul class="fin-list">
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">И</span><span class="fin-op-body"><span class="fin-op-title">Ирина Т.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">27 сен · входящий перевод · Black</span></span><span class="fin-op-amt">+350 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">П</span><span class="fin-op-body"><span class="fin-op-title">Пятёрочка</span><span class="fin-op-q">Кандидат в дубли</span><span class="fin-op-sub">21 сен · Black</span></span><span class="fin-op-amt">−189 ₽</span></a></li>
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">Д</span><span class="fin-op-body"><span class="fin-op-title">Дмитрий Л.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">14 сен · входящий перевод · Black</span></span><span class="fin-op-amt">+500 ₽</span></a></li>
+              </ul>
+              <button class="fin-btn fin-btn--soft fin-btn--block" aria-expanded="true">Свернуть ▴</button>
+            </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Вся книжка, а не месяц</b>: вопрос сентября не исчезает с наступлением октября.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Выписка устарела, тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <a class="fin-btn fin-btn--icon" href="11-finance-import.html" aria-label="Загрузить выписки">⇪</a>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html" class="is-active" aria-current="page">Обзор</a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+            <div class="fin-stale" role="status" style="padding: 16px">
+              <div><b>Операции по 28 сентября</b><p>Ozon Bank загружали 9 дней назад. Очередь и траты дней — по тому, что загружено.</p></div>
+              <a class="fin-btn fin-btn--block" href="11-finance-import.html">Загрузить выписки</a>
+            </div>
+            <section class="fin-card fin-card--accent fin-card--hero">
+              <p class="fin-label" style="font-size: 16px">Можно потратить сегодня, чт 8 октября</p>
+              <p class="fin-big num">1 247,50 ₽</p>
+              <p class="fin-note">Осталось 4 990 ₽ на 4 дня. Без среды: сумма за 7 октября не внесена.</p>
+              <a class="fin-btn fin-btn--ink fin-btn--block" href="15-finance-budget.html" style="margin-top: 8px">Внести трату за день</a>
+            </section>
+            <section class="fin-card">
+              <div class="fin-card-head"><h2 class="fin-h" style="font-size: 20px">Требует внимания</h2><span class="fin-mid num" style="font-size: 24px">7</span></div>
+              <p class="fin-note">Вся книжка, не только этот месяц. В итоги месяца эти операции не входят, пока вы не решили.</p>
+              <ul class="fin-list">
+              <li><a class="fin-op is-plus" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">М</span><span class="fin-op-body"><span class="fin-op-title">Мария С.</span><span class="fin-op-q">Доход или доля за общую покупку?</span><span class="fin-op-sub">6 окт · входящий перевод · Black</span></span><span class="fin-op-amt">+230 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--3" aria-hidden="true">С</span><span class="fin-op-body"><span class="fin-op-title">Самокат</span><span class="fin-op-q">Кандидат в дубли</span><span class="fin-op-sub">6 окт · Black</span></span><span class="fin-op-amt">−412 ₽</span></a></li>
+              <li><a class="fin-op" href="13-finance-tx.html"><span class="fin-av fin-av--1" aria-hidden="true">⇄</span><span class="fin-op-body"><span class="fin-op-title">Перевод с Black</span><span class="fin-op-q">Счёт Ozon ·1237 не размечен</span><span class="fin-op-sub">3 окт · на Ozon ·1237</span></span><span class="fin-op-amt">−2 000 ₽</span></a></li>
+              </ul>
+              <button class="fin-btn fin-btn--soft fin-btn--block" aria-expanded="false">Показать все 7 ▾</button>
+            </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Плашка давности остаётся и на телефоне</b> — только когда срок вышел (§15.6). В обычном состоянии строки о давности на телефоне нет.</p>
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

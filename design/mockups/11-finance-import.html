@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 11 — Finance: импорт выписки · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 11 — Finance: импорт выписки и дифф</h1>
+  <p>Единственная точка, где owner видит, что попадёт в книжку, <b>до</b> того как оно туда попадёт (<code>SPEC.md</code> §15.3). Два прогона одного адреса: <code>POST /api/finance/import?apply=false</code> — дифф, <code>apply=true</code> — запись и разбор. Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> По файлу с каждого банка, каждый разобран отдельно; отказ одного не отменяет остальные. Новая строка — пунктир «не факт» (этап 2).</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК — проверка (dry-run)</h2>
+  <p>Т-Банк прочитан, Ozon Bank прочитан с новым счётом, один файл не опознан, один уже загружали.</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Дифф четырёх файлов</b><span>1440 · apply=false</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <a class="fin-back" href="10-finance-overview.html">Обзор</a>
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-tabs" role="list" aria-label="Шаги загрузки"><span role="listitem" class="" style="display: inline-flex; padding: 8px 14px; border-radius: 12px; font-size: 14px">✓ Файлы</span><span role="listitem" class="is-active" style="display: inline-flex; padding: 8px 14px; border-radius: 12px; font-size: 14px">2 · Проверка</span><span role="listitem" class="" style="display: inline-flex; padding: 8px 14px; border-radius: 12px; font-size: 14px">3 · Запись</span></div></div>
+        </div>
+        <h2 class="fin-sub">Загрузка выписок</h2>
+        <p class="fin-lead">Проверка ничего не записала: ниже — что попадёт в книжку, если записать. Каждый файл разобран отдельно, отказ одного не останавливает остальные.</p>
+        <div class="fin-row2">
+          <div class="is-wide" style="flex: 999 1 560px; display: flex; flex-direction: column; gap: 16px">
+          <div class="fin-card fin-card--slot" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 16px; padding: 20px 24px">
+            <div style="flex: 1 1 280px"><b style="color: var(--fin-strong)">Перетащите ещё файлы сюда</b><p class="fin-note">По файлу с каждого банка. Банк узнаётся по содержимому, а не по имени: Т-Банк — CSV, Ozon Bank — PDF.</p></div>
+            <button class="fin-btn fin-btn--soft">Выбрать файлы</button>
+          </div>
+          <article class="fin-card" style="gap: 16px">
+            <div class="fin-head" style="gap: 12px"><div><h3 class="fin-h" style="font-size: 19px">Т-Банк</h3><p class="fin-note">operations_30.09–07.10.csv · период 30 сентября – 7 октября · 41 строка</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+            <ul class="fin-stat"><li class="is-new"><b class="num">+13</b> новых</li><li class="is-warn"><b>1</b> из них в разбор</li><li><b>2</b> обновятся</li><li><b>1</b> пропала из выгрузки</li><li class="is-dim"><b>26</b> уже в книжке</li></ul>
+            <div class="fin-diff"><div class="fin-diff-in">
+              <div class="fin-drow is-head"><span>Дата</span><span>Описание</span><span>Счёт</span><span style="text-align: right">Сумма</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">07.10 19:42</span><span><b>Вкусно — и точка</b><small>новая</small></span><span>Black</span><span class="num">−389,00 ₽</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">07.10 13:05</span><span><b>Столовая ИТМО</b><small>новая</small></span><span>Black</span><span class="num">−264,00 ₽</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">06.10 21:30</span><span><b>Перекрёсток</b><small>новая</small></span><span>Black</span><span class="num">−1 126,40 ₽</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">06.10 18:02</span><span><b>Мария С.</b><small>новая · входящий перевод</small></span><span>Black</span><span class="num is-plus">+230,00 ₽</span></div>
+              <div class="fin-drow is-review"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">06.10 12:44</span><span><b>Самокат</b><small>кандидат в дубли — уйдёт в разбор, в итоги не войдёт</small></span><span>Black</span><span class="num">−412,00 ₽</span></div>
+              <div class="fin-drow is-upd"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">05.10 20:15</span><span><b>Яндекс Go</b><small>обновится: изменились сумма или статус</small></span><span>Black</span><span class="num">−318,00 ₽</span></div>
+              <div class="fin-drow is-upd"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">04.10 16:40</span><span><b>Лента</b><small>обновится: изменились сумма или статус</small></span><span>Black</span><span class="num">−942,10 ₽</span></div>
+              <div class="fin-drow is-gone"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">03.10 11:20</span><span><b>Кинотеатр Аврора</b><small>была в книжке, в этой выгрузке её нет — станет отменённой</small></span><span>Black</span><span class="num">−450,00 ₽</span></div>
+              <button class="fin-btn fin-btn--ghost fin-btn--block">Показать ещё 8 новых</button>
+            </div></div>
+          </article>
+          <article class="fin-card" style="gap: 16px">
+            <div class="fin-head" style="gap: 12px"><div><h3 class="fin-h" style="font-size: 19px">Ozon Bank</h3><p class="fin-note">справка_о_движении.pdf · период 16 сентября – 6 октября · 7 строк</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+            <ul class="fin-stat"><li class="is-new"><b class="num">+3</b> новых</li><li class="is-dim"><b>4</b> уже в книжке</li></ul>
+            <p class="fin-note">✓ Итоги справки сошлись с прочитанным: зачисления, списания и остаток.</p>
+            <div class="fin-stale" style="padding: 16px 18px"><div><b style="font-size: 15px">Новый счёт: Ozon ·1237</b><p>Роль не задана. Пока счёт не размечен, «Отложено» не считается.</p></div><a class="fin-btn fin-btn--soft fin-btn--sm" href="17-settings-finance.html" style="background: var(--fin-surface)">Разметить после записи</a></div>
+            <div class="fin-diff"><div class="fin-diff-in">
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">06.10 17:27</span><span><b>Оплата товаров на Платформе Ozon, заказ № 0427…</b><small>новая</small></span><span>Ozon ·1237</span><span class="num">−1 249,00 ₽</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">03.10 10:02</span><span><b>Перевод через СБП. Отправитель: Алексей Н.</b><small>новая · входящий перевод</small></span><span>Ozon ·1237</span><span class="num is-plus">+2 000,00 ₽</span></div>
+              <div class="fin-drow is-add"><span class="num" style="text-align: left; font-size: 14px; font-weight: 400; color: var(--fin-muted)">01.10 14:18</span><span><b>Оплата товаров на Платформе Ozon, заказ № 0419…</b><small>новая</small></span><span>Ozon ·1237</span><span class="num">−250,00 ₽</span></div>
+            </div></div>
+          </article>
+          <article class="fin-card fin-card--alert" style="gap: 16px">
+            <div class="fin-head" style="gap: 12px"><div><h3 class="fin-h" style="font-size: 19px">statement.csv — не прочитан</h3><p class="fin-note">Файл отклонён целиком, в книжку из него не попадёт ни строки</p></div><span class="fin-badge fin-badge--bad" style="margin: 0">Отклонён</span></div>
+            <p style="margin: 0; font-size: 15px">Заголовок не узнал ни один адаптер. Пришли колонки:</p>
+            <p class="fin-mono">Дата; Сумма; Описание; Остаток</p>
+            <p class="fin-note">Если это выгрузка нового банка — для неё нужен адаптер по настоящему файлу. Банк, сменивший формат, читается так же: отказ называет колонки, а не угадывает их.</p>
+          </article>
+          <article class="fin-card" style="padding: 18px 24px"><h3 class="fin-h" style="font-size: 16px">operations_23.09–30.09.csv · Т-Банк</h3><p class="fin-note">Этот файл уже загружали 1 октября — изменений нет.</p></article>
+          </div>
+          <aside class="fin-card" style="flex: 1 1 300px">
+            <p class="fin-label">Попадёт в книжку</p>
+            <p class="fin-big num" style="font-size: 44px">+16</p>
+            <p class="fin-note" style="margin-top: -8px">новых операций из двух банков</p>
+            <dl style="margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px">
+              <div class="fin-head" style="gap: 8px"><dt class="fin-note" style="font-size: 15px">Уйдут в разбор, вне итогов</dt><dd style="margin: 0; font-weight: 600">1</dd></div>
+              <div class="fin-head" style="gap: 8px"><dt class="fin-note" style="font-size: 15px">Обновятся</dt><dd style="margin: 0; font-weight: 600">2</dd></div>
+              <div class="fin-head" style="gap: 8px"><dt class="fin-note" style="font-size: 15px">Станут отменёнными</dt><dd style="margin: 0; font-weight: 600">1</dd></div>
+              <div class="fin-head" style="gap: 8px"><dt class="fin-note" style="font-size: 15px">Уже в книжке</dt><dd style="margin: 0; font-weight: 600">30</dd></div>
+              <div class="fin-head fin-sep" style="gap: 8px; padding-top: 10px"><dt class="fin-note" style="font-size: 15px">Файлов отклонено</dt><dd style="margin: 0; font-weight: 600; color: var(--fin-minus)">1 из 4</dd></div>
+            </dl>
+            <p class="fin-hint">После записи книжка разберётся правилами, а неразобранный расход уйдёт модели. Итоги пересчитаются сами.</p>
+            <a class="fin-btn fin-btn--lg fin-btn--block" href="#done">Записать в книжку</a>
+            <a class="fin-btn fin-btn--soft fin-btn--block" href="10-finance-overview.html">Отменить</a>
+            <p class="fin-note" style="font-size: 13px">Повторная запись того же файла ничего не задвоит: файл узнаётся по хэшу содержимого.</p>
+          </aside>
+        </div>
+      </div></div>
+    </div>
+    <p class="mark"><b>Кандидат в дубли — в разбор, а не в книжку и не в мусор</b>: тихо смержить и тихо задвоить одинаково запрещено (§15.3).</p>
+    <p class="mark"><b>Пропавшая строка помечается отменённой</b>, не удаляется: история правок итогов важнее аккуратности таблицы.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · ПК — записано</h2>
+  <p>Итог записи: разбор правилами и моделью, переход месяца, поправка бюджета, место под резюме (§15.9).</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Модель ответила</b><span>apply=true</span></div>
+    <div id="done" class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+        <section class="fin-card fin-card--hero" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 24px">
+          <span class="fin-av fin-av--2" aria-hidden="true" style="width: 72px; height: 72px; font-size: 32px">✓</span>
+          <div style="flex: 1 1 420px"><h2 class="fin-sub" style="font-size: 32px">Записано: 16 новых операций</h2><p class="fin-lead" style="margin-top: 8px">Т-Банк — 13 новых, 2 обновлены, 1 отменена банком. Ozon Bank — 3 новых. Файл statement.csv отклонён и в книжку не попал.</p></div>
+        </section>
+        <div class="fin-row2">
+          <section class="fin-card is-wide">
+            <h3 class="fin-h">Разбор после записи</h3>
+            <ul class="fin-list">
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">11</span><span style="color: var(--fin-text)">получили категорию по правилам — мерчант, MCC, категория банка</span></li>
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">3</span><span style="color: var(--fin-text)">разложила модель — то, что правила не покрыли</span><span class="fin-badge fin-badge--model" style="margin: 0">модель</span></li>
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">1</span><span style="color: var(--fin-text)">новая подкатегория от модели: <b>Еда › Кофейни</b> — живёт до конца октября и в ноябрь сама не перейдёт</span></li>
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">0</span><span style="color: var(--fin-text)">переводов себе опознано парой. Перевод 2 000 ₽ из Black на Ozon ·1237 не собран: у Ozon ·1237 нет роли, оба конца ждут в разборе</span></li>
+              <li class="fin-rule" style="padding: 12px 0; border: 0"><span class="fin-mid num">4</span><span style="color: var(--fin-text)">ушли в очередь «Требует внимания» и в итоги не входят</span></li>
+            </ul>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px"><a class="fin-btn fin-btn--soft" href="12-finance-feed.html">Разобрать очередь</a><a class="fin-btn fin-btn--soft" href="17-settings-finance.html">Разметить Ozon ·1237</a></div>
+          </section>
+          <div style="display: flex; flex-direction: column; gap: 24px">
+          <section class="fin-card"><h3 class="fin-h">Открыт октябрь</h3><p style="margin: 0">Набор категорий унаследован от сентября: 5 основных и 3 подкатегории. Книжка работает на нём уже сейчас.</p>
+            <a class="fin-hint fin-hint--accent" href="14-finance-categories.html" style="text-decoration: none">Модель предлагает: <b>добавить 1, убрать 1</b>. Решение — за вами, по каждому пункту ›</a>
+          </section>
+          <section class="fin-card"><h3 class="fin-h">Поправка бюджета</h3><p style="margin: 0">Неделя 28 сентября – 4 октября уже распределена. Выписка изменила её траты на <b class="num">+260 ₽</b> — разница ушла поправкой в неделю 5–11 октября.</p><a class="fin-link" href="15-finance-budget.html">Открыть бюджет</a></section>
+          <section class="fin-card fin-card--slot"><h3 class="fin-h">Резюме о тратах</h3>
+            <p class="fin-note">[Короткий текст модели о тратах с прошлой загрузки — §15.9. Ждёт Ф11: формы ответа в контракте ещё нет.]</p>
+          </section>
+          </div>
+        </div>
+        <a class="fin-btn fin-btn--lg" href="10-finance-overview.html" style="align-self: flex-start">К обзору месяца</a>
+      </div></div>
+    </div>
+    <p class="mark"><b>Резюме — пустое место с пометкой</b>: формы ответа в контракте нет до Ф11. Выдуманный текст здесь был бы враньём макета.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Модель недоступна</b><span>model_error</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+        <section class="fin-card fin-card--hero" style="flex-direction: row; flex-wrap: wrap; align-items: center; gap: 24px">
+          <span class="fin-av fin-av--2" aria-hidden="true" style="width: 72px; height: 72px; font-size: 32px">✓</span>
+          <div style="flex: 1 1 420px"><h2 class="fin-sub" style="font-size: 32px">Записано: 16 новых операций</h2><p class="fin-lead" style="margin-top: 8px">Т-Банк — 13 новых, 2 обновлены, 1 отменена банком. Ozon Bank — 3 новых. Файл statement.csv отклонён и в книжку не попал.</p></div>
+        </section>
+        <div class="fin-row2">
+          <section class="fin-card is-wide">
+            <h3 class="fin-h">Разбор после записи</h3>
+            <ul class="fin-list">
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">11</span><span style="color: var(--fin-text)">получили категорию по правилам — мерчант, MCC, категория банка</span></li>
+              <li class="fin-hint fin-hint--warn" style="display: flex; gap: 14px; margin: 6px 0"><span class="fin-mid num" style="flex: 0 0 34px; font-size: 24px; color: inherit">3</span><span><b>расхода остались без категории.</b> Модель недоступна: нет связи с провайдером. Разбор правилами записан, неразобранное видно в ленте; модель позовётся при следующем импорте или переразборе.</span></li>
+              <li class="fin-rule" style="padding: 12px 0"><span class="fin-mid num">0</span><span style="color: var(--fin-text)">переводов себе опознано парой. Перевод 2 000 ₽ из Black на Ozon ·1237 не собран: у Ozon ·1237 нет роли, оба конца ждут в разборе</span></li>
+              <li class="fin-rule" style="padding: 12px 0; border: 0"><span class="fin-mid num">4</span><span style="color: var(--fin-text)">ушли в очередь «Требует внимания» и в итоги не входят</span></li>
+            </ul>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px"><a class="fin-btn fin-btn--soft" href="12-finance-feed.html">Разобрать очередь</a><a class="fin-btn fin-btn--soft" href="17-settings-finance.html">Разметить Ozon ·1237</a></div>
+          </section>
+          <div style="display: flex; flex-direction: column; gap: 24px">
+          <section class="fin-card"><h3 class="fin-h">Открыт октябрь</h3><p style="margin: 0">Набор категорий унаследован от сентября: 5 основных и 3 подкатегории. Книжка работает на нём уже сейчас.</p>
+            <p class="fin-hint">Предложения на октябрь нет: модель не ответила. Следующий импорт спросит снова.</p>
+          </section>
+          <section class="fin-card"><h3 class="fin-h">Поправка бюджета</h3><p style="margin: 0">Неделя 28 сентября – 4 октября уже распределена. Выписка изменила её траты на <b class="num">+260 ₽</b> — разница ушла поправкой в неделю 5–11 октября.</p><a class="fin-link" href="15-finance-budget.html">Открыть бюджет</a></section>
+          <section class="fin-card fin-card--slot"><h3 class="fin-h">Резюме о тратах</h3>
+            <p class="fin-note">Резюме нет: модель недоступна. Выдумывать его вместо модели книжка не станет.</p>
+          </section>
+          </div>
+        </div>
+        <a class="fin-btn fin-btn--lg" href="10-finance-overview.html" style="align-self: flex-start">К обзору месяца</a>
+      </div></div>
+    </div>
+    <p class="mark"><b>Так сейчас работает плата</b> до Э12г: категории правилами, остальное без категории и видно, резюме нет (§15.6).</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Телефон</h2>
+  <p>Выгрузки банков живут в телефоне — загрузка с него обязательна. Файлы выбираются кнопкой, перетаскивания нет.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Проверка</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <a class="fin-back" href="10-finance-overview.html">Обзор</a>
+            <div class="fin-head"><h1 class="fin-title" style="font-size: 30px">Загрузка выписок</h1></div>
+            <p class="fin-note">Шаг 2 из 3 · проверка. Ничего не записано; непрочитанный файл не мешает остальным.</p>
+            <button class="fin-btn fin-btn--soft fin-btn--block" style="border: 2px dashed var(--fin-line); background: var(--fin-surface)">＋ Добавить файл</button>
+            <article class="fin-card">
+              <div class="fin-head" style="gap: 8px"><div><h2 class="fin-h">Т-Банк</h2><p class="fin-note" style="font-size: 13px">CSV · 30 сент – 7 окт · 41 строка</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+              <ul class="fin-stat"><li class="is-new"><b>+13</b> новых</li><li class="is-warn"><b>1</b> в разбор</li><li><b>2</b> обновятся</li><li><b>1</b> пропала</li></ul>
+              <div class="fin-diff" style="background: none"><div style="padding: 0">
+                <div class="fin-drow is-add" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Вкусно — и точка</b><small>новая · 7 окт, 19:42</small></span><span class="num">−389 ₽</span></div>
+                <div class="fin-drow is-add" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Мария С.</b><small>новая · входящий перевод</small></span><span class="num is-plus">+230 ₽</span></div>
+                <div class="fin-drow is-review" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Самокат</b><small>кандидат в дубли — в разбор</small></span><span class="num">−412 ₽</span></div>
+                <div class="fin-drow is-upd" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Яндекс Go</b><small>обновится: сумма или статус</small></span><span class="num">−318 ₽</span></div>
+                <div class="fin-drow is-gone" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Кинотеатр Аврора</b><small>пропала из выгрузки — станет отменённой</small></span><span class="num">−450 ₽</span></div>
+              </div></div>
+              <button class="fin-btn fin-btn--ghost fin-btn--block">Показать все изменения</button>
+            </article>
+            <article class="fin-card">
+              <div class="fin-head" style="gap: 8px"><div><h2 class="fin-h">Ozon Bank</h2><p class="fin-note" style="font-size: 13px">PDF · 16 сент – 6 окт · 7 строк</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+              <p style="margin: 0"><b>+3</b> новых · <span class="fin-note">4 уже в книжке</span></p>
+              <p class="fin-note" style="font-size: 13px">✓ Итоги справки сошлись с прочитанным</p>
+              <p class="fin-hint fin-hint--warn"><b>Новый счёт: Ozon ·1237</b><br>Роль не задана — «Отложено» не посчитается, пока счёт не размечен.</p>
+            </article>
+            <article class="fin-card fin-card--alert">
+              <div class="fin-head" style="gap: 8px"><h2 class="fin-h">statement.csv</h2><span class="fin-badge fin-badge--bad" style="margin: 0">Отклонён</span></div>
+              <p style="margin: 0; font-size: 14px">Заголовок не узнал ни один адаптер. Пришли колонки:</p>
+              <p class="fin-mono" style="font-size: 13px">Дата; Сумма; Описание; Остаток</p>
+            </article>
+            <section class="fin-card">
+              <p class="fin-note">Попадёт в книжку</p>
+              <p style="margin: 0"><span class="fin-mid num">+16</span> <span class="fin-note">операций · 1 в разбор · 2 обновятся · 1 отменится</span></p>
+              <a class="fin-btn fin-btn--lg fin-btn--block" href="#done">Записать в книжку</a>
+              <a class="fin-btn fin-btn--soft fin-btn--block" href="10-finance-overview.html">Отменить</a>
+            </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Строки — по самым важным</b>: новая, в разбор, обновится, пропала. Остальное — «Показать все изменения».</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Проверка, тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <a class="fin-back" href="10-finance-overview.html">Обзор</a>
+            <div class="fin-head"><h1 class="fin-title" style="font-size: 30px">Загрузка выписок</h1></div>
+            <p class="fin-note">Шаг 2 из 3 · проверка. Ничего не записано; непрочитанный файл не мешает остальным.</p>
+            <button class="fin-btn fin-btn--soft fin-btn--block" style="border: 2px dashed var(--fin-line); background: var(--fin-surface)">＋ Добавить файл</button>
+            <article class="fin-card">
+              <div class="fin-head" style="gap: 8px"><div><h2 class="fin-h">Т-Банк</h2><p class="fin-note" style="font-size: 13px">CSV · 30 сент – 7 окт · 41 строка</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+              <ul class="fin-stat"><li class="is-new"><b>+13</b> новых</li><li class="is-warn"><b>1</b> в разбор</li><li><b>2</b> обновятся</li><li><b>1</b> пропала</li></ul>
+              <div class="fin-diff" style="background: none"><div style="padding: 0">
+                <div class="fin-drow is-add" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Вкусно — и точка</b><small>новая · 7 окт, 19:42</small></span><span class="num">−389 ₽</span></div>
+                <div class="fin-drow is-add" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Мария С.</b><small>новая · входящий перевод</small></span><span class="num is-plus">+230 ₽</span></div>
+                <div class="fin-drow is-review" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Самокат</b><small>кандидат в дубли — в разбор</small></span><span class="num">−412 ₽</span></div>
+                <div class="fin-drow is-upd" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Яндекс Go</b><small>обновится: сумма или статус</small></span><span class="num">−318 ₽</span></div>
+                <div class="fin-drow is-gone" style="grid-template-columns: minmax(0, 1fr) auto"><span><b>Кинотеатр Аврора</b><small>пропала из выгрузки — станет отменённой</small></span><span class="num">−450 ₽</span></div>
+              </div></div>
+              <button class="fin-btn fin-btn--ghost fin-btn--block">Показать все изменения</button>
+            </article>
+            <article class="fin-card">
+              <div class="fin-head" style="gap: 8px"><div><h2 class="fin-h">Ozon Bank</h2><p class="fin-note" style="font-size: 13px">PDF · 16 сент – 6 окт · 7 строк</p></div><span class="fin-badge fin-badge--ok" style="margin: 0">Прочитан</span></div>
+              <p style="margin: 0"><b>+3</b> новых · <span class="fin-note">4 уже в книжке</span></p>
+              <p class="fin-note" style="font-size: 13px">✓ Итоги справки сошлись с прочитанным</p>
+              <p class="fin-hint fin-hint--warn"><b>Новый счёт: Ozon ·1237</b><br>Роль не задана — «Отложено» не посчитается, пока счёт не размечен.</p>
+            </article>
+            <article class="fin-card fin-card--alert">
+              <div class="fin-head" style="gap: 8px"><h2 class="fin-h">statement.csv</h2><span class="fin-badge fin-badge--bad" style="margin: 0">Отклонён</span></div>
+              <p style="margin: 0; font-size: 14px">Заголовок не узнал ни один адаптер. Пришли колонки:</p>
+              <p class="fin-mono" style="font-size: 13px">Дата; Сумма; Описание; Остаток</p>
+            </article>
+            <section class="fin-card">
+              <p class="fin-note">Попадёт в книжку</p>
+              <p style="margin: 0"><span class="fin-mid num">+16</span> <span class="fin-note">операций · 1 в разбор · 2 обновятся · 1 отменится</span></p>
+              <a class="fin-btn fin-btn--lg fin-btn--block" href="#done">Записать в книжку</a>
+              <a class="fin-btn fin-btn--soft fin-btn--block" href="10-finance-overview.html">Отменить</a>
+            </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Пунктир «не факт» читается и на тёмном</b>: обводка цветом подписи, а не границы.</p>
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

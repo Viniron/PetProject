@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 14 — Finance: категории · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 14 — Finance: категории</h1>
+  <p>Набор категорий месяца и предложения модели на новый месяц (<code>SPEC.md</code> §15.4, ADR-056): <code>GET /api/finance/categories</code>, решение по пункту — <code>POST categories/{id}/decision</code>. Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> Раздел называется «Категории», а не «Категории и правила»: счета, правила разбора и переразбор книжки переехали в Settings → Финансы (этап 17) — настраиваются редко и меняют, как книжка разбирает операции.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК</h2>
+  <p>Слева — что предлагает модель, справа — набор, по которому книжка разбирает октябрь.</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Предложения не решены</b><span>1440 · light</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущий месяц">‹</button><span>Набор октября</span><button aria-label="Следующий месяц" disabled>›</button></div></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="12-finance-feed.html">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html" class="is-active" aria-current="page">Категории</a></nav>
+        <div class="fin-row2">
+          <section class="fin-card fin-card--hero" style="gap: 14px">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Модель предлагает на октябрь</h2><span class="fin-badge fin-badge--model" style="margin: 0">2 пункта</span></div>
+            <p class="fin-note">По истории июля–сентября. До вашего решения работает унаследованный набор; решение книжку не переразбирает.</p>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--ok" style="margin: 0; border-radius: 8px">Добавить</span><h3 class="fin-h" style="font-size: 18px">Развлечения</h3></div>
+              <p style="margin: 0; font-size: 15px">В сентябре 6 операций — кино, концерты, боулинг — на 2 900 ₽ ушли в «Остальное».</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn">Добавить</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--bad" style="margin: 0; border-radius: 8px">Убрать</span><h3 class="fin-h" style="font-size: 18px">Переводы</h3></div>
+              <p style="margin: 0; font-size: 15px">За июль–сентябрь в ней ни одной траты: входящие переводы — не траты, а исходящих людям не было.</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn">Убрать</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Набор октября</h2>
+            <p class="fin-note">Унаследован от сентября 7 октября, при импорте. Два уровня: категория и подкатегория.</p>
+            <div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--1"></i><span>Переводы</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">модель предлагает убрать</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--2"></i><span>Транспорт</span></div>
+              <div class="fin-cat" style="border: 0"><i class="fin-dot fin-dot--3"></i><span>Еда</span><small class="fin-note" style="font-weight: 400">4 подкатегории</small></div>
+              <ul class="fin-subcats"><li>Фастфуд</li><li>Столовая</li><li>Супермаркет</li><li class="is-ai">Кофейни <i>модель · до конца октября</i></li></ul>
+              <div class="fin-cat"><i class="fin-dot fin-dot--4"></i><span>Маркетплейсы</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--5"></i><span>Остальное</span></div>
+              <div class="fin-cat is-proposed" style="border: 0"><i class="fin-dot fin-dot--ai"></i><span>Развлечения</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">предложена, в разборе не участвует</span></div>
+            </div>
+            <p class="fin-note" style="font-size: 13px">Пунктир — завела или предлагает модель. Её категории живут месяц и в ноябрь сами не переходят. Список основных категорий заводится файлом, отсюда — только решения по предложениям.</p>
+          </section>
+        </div>
+        <a class="fin-hint" href="17-settings-finance.html" style="align-self: flex-start; background: var(--fin-surface); box-shadow: var(--fin-shadow); color: var(--fin-strong); text-decoration: none">⚙ Счета, правила разбора и переразбор книжки — в <b>Settings → Финансы</b> ›</a>
+      </div></div>
+    </div>
+    <p class="mark"><b>Решение — по пункту</b>, а не «принять всё»: добавить и убрать — разные вопросы (ADR-056).</p>
+    <p class="mark"><b>Цвет точки — тот же, что у кружка операции</b> в ленте и карточке: категория узнаётся по цвету на всех экранах.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Решение принято и тёмная тема</h2>
+  <p>После решения пункт остаётся с итогом и кнопкой «Вернуть вопрос» — до наступления следующего месяца.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>«Добавить» принято</b><span>decision accept</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+          <section class="fin-card fin-card--hero" style="gap: 14px">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Модель предлагает на октябрь</h2><span class="fin-badge fin-badge--model" style="margin: 0">2 пункта</span></div>
+            <p class="fin-note">По истории июля–сентября. До вашего решения работает унаследованный набор; решение книжку не переразбирает.</p>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--ok" style="margin: 0; border-radius: 8px">Добавить</span><h3 class="fin-h" style="font-size: 18px">Развлечения</h3></div>
+              <p style="margin: 0; font-size: 15px">В сентябре 6 операций — кино, концерты, боулинг — на 2 900 ₽ ушли в «Остальное».</p>
+              <p style="margin: 0; font-weight: 600; color: var(--fin-strong)">Добавлена: категория станет вашей и перейдёт в ноябрь. <button class="fin-btn fin-btn--ghost fin-btn--sm">Вернуть вопрос</button></p>
+            </article>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--bad" style="margin: 0; border-radius: 8px">Убрать</span><h3 class="fin-h" style="font-size: 18px">Переводы</h3></div>
+              <p style="margin: 0; font-size: 15px">За июль–сентябрь в ней ни одной траты: входящие переводы — не траты, а исходящих людям не было.</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn">Убрать</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+          </section>
+    </div></div>
+
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная тема</b><span>dark</span></div>
+    <div class="pad fin" data-theme="dark"><div class="fin-col">
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Набор октября</h2>
+            <p class="fin-note">Унаследован от сентября 7 октября, при импорте. Два уровня: категория и подкатегория.</p>
+            <div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--1"></i><span>Переводы</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">модель предлагает убрать</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--2"></i><span>Транспорт</span></div>
+              <div class="fin-cat" style="border: 0"><i class="fin-dot fin-dot--3"></i><span>Еда</span><small class="fin-note" style="font-weight: 400">4 подкатегории</small></div>
+              <ul class="fin-subcats"><li>Фастфуд</li><li>Столовая</li><li>Супермаркет</li><li class="is-ai">Кофейни <i>модель · до конца октября</i></li></ul>
+              <div class="fin-cat"><i class="fin-dot fin-dot--4"></i><span>Маркетплейсы</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--5"></i><span>Остальное</span></div>
+              <div class="fin-cat is-proposed" style="border: 0"><i class="fin-dot fin-dot--ai"></i><span>Развлечения</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">предложена, в разборе не участвует</span></div>
+            </div>
+            <p class="fin-note" style="font-size: 13px">Пунктир — завела или предлагает модель. Её категории живут месяц и в ноябрь сами не переходят. Список основных категорий заводится файлом, отсюда — только решения по предложениям.</p>
+          </section>
+    </div></div>
+
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Телефон</h2>
+  <p>На телефоне — только предложения модели и набор месяца, решение owner.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Категории</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <button class="fin-btn fin-btn--soft fin-btn--sm">Октябрь ▾</button>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html" class="is-active" aria-current="page">Категории</a></nav>
+          <section class="fin-card fin-card--hero" style="gap: 14px">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Модель предлагает на октябрь</h2><span class="fin-badge fin-badge--model" style="margin: 0">2 пункта</span></div>
+            <p class="fin-note">По истории июля–сентября. До вашего решения работает унаследованный набор; решение книжку не переразбирает.</p>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--ok" style="margin: 0; border-radius: 8px">Добавить</span><h3 class="fin-h" style="font-size: 18px">Развлечения</h3></div>
+              <p style="margin: 0; font-size: 15px">В сентябре 6 операций — кино, концерты, боулинг — на 2 900 ₽ ушли в «Остальное».</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><button class="fin-btn">Добавить</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--bad" style="margin: 0; border-radius: 8px">Убрать</span><h3 class="fin-h" style="font-size: 18px">Переводы</h3></div>
+              <p style="margin: 0; font-size: 15px">За июль–сентябрь в ней ни одной траты: входящие переводы — не траты, а исходящих людям не было.</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><button class="fin-btn">Убрать</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Набор октября</h2>
+            <p class="fin-note">Унаследован от сентября 7 октября, при импорте. Два уровня: категория и подкатегория.</p>
+            <div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--1"></i><span>Переводы</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">убрать?</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--2"></i><span>Транспорт</span></div>
+              <div class="fin-cat" style="border: 0"><i class="fin-dot fin-dot--3"></i><span>Еда</span><small class="fin-note" style="font-weight: 400">4 подкатегории</small></div>
+              <ul class="fin-subcats"><li>Фастфуд</li><li>Столовая</li><li>Супермаркет</li><li class="is-ai">Кофейни <i>модель</i></li></ul>
+              <div class="fin-cat"><i class="fin-dot fin-dot--4"></i><span>Маркетплейсы</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--5"></i><span>Остальное</span></div>
+              <div class="fin-cat is-proposed" style="border: 0"><i class="fin-dot fin-dot--ai"></i><span>Развлечения</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">предложена</span></div>
+            </div>
+            <p class="fin-note" style="font-size: 13px">Пунктир — завела или предлагает модель. Её категории живут месяц и в ноябрь сами не переходят. Список основных категорий заводится файлом, отсюда — только решения по предложениям.</p>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Категории, тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <button class="fin-btn fin-btn--soft fin-btn--sm">Октябрь ▾</button>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="15-finance-budget.html">Бюджет</a><a href="14-finance-categories.html" class="is-active" aria-current="page">Категории</a></nav>
+          <section class="fin-card fin-card--hero" style="gap: 14px">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Модель предлагает на октябрь</h2><span class="fin-badge fin-badge--model" style="margin: 0">2 пункта</span></div>
+            <p class="fin-note">По истории июля–сентября. До вашего решения работает унаследованный набор; решение книжку не переразбирает.</p>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--ok" style="margin: 0; border-radius: 8px">Добавить</span><h3 class="fin-h" style="font-size: 18px">Развлечения</h3></div>
+              <p style="margin: 0; font-size: 15px">В сентябре 6 операций — кино, концерты, боулинг — на 2 900 ₽ ушли в «Остальное».</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><button class="fin-btn">Добавить</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+            <article class="fin-tile" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px"><span class="fin-badge fin-badge--bad" style="margin: 0; border-radius: 8px">Убрать</span><h3 class="fin-h" style="font-size: 18px">Переводы</h3></div>
+              <p style="margin: 0; font-size: 15px">За июль–сентябрь в ней ни одной траты: входящие переводы — не траты, а исходящих людям не было.</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px"><button class="fin-btn">Убрать</button><button class="fin-btn fin-btn--soft">Отклонить</button></div>
+            </article>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Набор октября</h2>
+            <p class="fin-note">Унаследован от сентября 7 октября, при импорте. Два уровня: категория и подкатегория.</p>
+            <div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--1"></i><span>Переводы</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">убрать?</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--2"></i><span>Транспорт</span></div>
+              <div class="fin-cat" style="border: 0"><i class="fin-dot fin-dot--3"></i><span>Еда</span><small class="fin-note" style="font-weight: 400">4 подкатегории</small></div>
+              <ul class="fin-subcats"><li>Фастфуд</li><li>Столовая</li><li>Супермаркет</li><li class="is-ai">Кофейни <i>модель</i></li></ul>
+              <div class="fin-cat"><i class="fin-dot fin-dot--4"></i><span>Маркетплейсы</span></div>
+              <div class="fin-cat"><i class="fin-dot fin-dot--5"></i><span>Остальное</span></div>
+              <div class="fin-cat is-proposed" style="border: 0"><i class="fin-dot fin-dot--ai"></i><span>Развлечения</span><span class="fin-badge fin-badge--model" style="margin: 0; flex: 0 0 auto">предложена</span></div>
+            </div>
+            <p class="fin-note" style="font-size: 13px">Пунктир — завела или предлагает модель. Её категории живут месяц и в ноябрь сами не переходят. Список основных категорий заводится файлом, отсюда — только решения по предложениям.</p>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

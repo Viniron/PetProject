@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 17 — Settings: финансы · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 17 — Settings: финансы</h1>
+  <p>Счета и их роли, правила разбора, переразбор книжки (<code>SPEC.md</code> §15.4, §15.5, §15.7): <code>GET accounts</code> и <code>PUT accounts/{id}/role</code>, <code>GET/POST/DELETE rules</code>, <code>POST recategorize</code> (сначала <code>apply=false</code>). Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> Раздел вынесен с экрана 14 по решению owner: настраивается редко, а на вкладке Finance остаётся то, что смотрят каждую неделю. «Оформление» — экран 16, здесь не перерисовывается. Стиль — вкладки Finance: это её настройки.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК</h2>
+  <p>Подменю настроек слева; «Финансы» — второй раздел после «Оформления».</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Settings → Финансы</b><span>1440 · light</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+        <div class="fin-head"><h1 class="fin-title">Settings</h1></div>
+        <div class="fin-row2">
+          <nav class="fin-tabs" aria-label="Разделы настроек" style="flex: 0 1 240px; flex-direction: column; align-items: stretch"><button>Оформление</button><button class="is-active" aria-current="page">Финансы</button></nav>
+          <div style="flex: 999 1 560px; display: flex; flex-direction: column; gap: 24px">
+            <div><h2 class="fin-sub">Финансы</h2><p class="fin-lead">То, что настраивается редко и меняет, как книжка разбирает операции. Категории месяца и предложения модели — на вкладке Finance.</p></div>
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Счета</h3>
+            <p class="fin-note">Роль решает, что считать «Отложено» и что — переводом себе. Новый счёт появляется только с выпиской.</p>
+            <div class="fin-acc"><span><b>Black</b>Т-Банк</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="true" class="is-active">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+            <div class="fin-acc"><span><b>Накопительный счет</b>Т-Банк · имя как в выписке</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="true" class="is-active">Накопительный</button></div></div>
+            <div class="fin-acc is-unknown"><span><b>Ozon ·1237</b>Ozon Bank · роль не задана — «Отложено» не считается</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Правила разбора</h3>
+            <p class="fin-note">Сильнее модели, слабее вашей ручной правки. Ссылаются на ключ категории и переживают смену месяца.</p>
+            <p class="fin-rule-group">Мерчант <span>· точное описание из выписки</span></p>
+              <div class="fin-rule"><span><b>Тренировки Альфа</b></span><i aria-hidden="true">→</i><span class="fin-to fin-to--5">Остальное</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Вкусно — и точка</b></span><i aria-hidden="true">→</i><span class="fin-to fin-to--3">Еда › Фастфуд</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Столовая ИТМО</b></span><i aria-hidden="true">→</i><span class="fin-to fin-to--3">Еда › Столовая</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <p class="fin-rule-group">MCC и категория банка <span>· подсказки слабее мерчанта</span></p>
+              <div class="fin-rule"><span><b>MCC 5411</b></span><i aria-hidden="true">→</i><span class="fin-to fin-to--3">Еда › Супермаркет</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>MCC 4121</b></span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">Транспорт</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>«Маркетплейсы»</b> · категория банка</span><i aria-hidden="true">→</i><span class="fin-to fin-to--4">Маркетплейсы</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <p class="fin-rule-group">Отправитель <span>· родные — доход, прочие — возврат</span></p>
+              <div class="fin-rule"><span><b>Евгений В.</b> · папа</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Ольга В.</b> · мама</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Анна К.</b> · друзья, скидываются</span><i aria-hidden="true">→</i><span class="fin-to fin-to--kind">возврат</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <p class="fin-rule-group">Это вы <span>· не назначает перевод, а уводит непарный конец в разбор</span></p>
+              <div class="fin-rule"><span><b>Алексей Н.</b> · так банк пишет вас</span><i aria-hidden="true">→</i><span class="fin-to fin-to--kind">перевод себе?</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <form class="fin-tile" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; padding: 16px; margin-top: 8px">
+              <label class="fin-field"><small class="fin-note">Тип</small><select class="fin-input" style="min-height: 44px; background: var(--fin-surface)"><option>Мерчант</option><option>MCC</option><option>Категория банка</option><option>Отправитель</option><option>Это вы</option></select></label>
+              <label class="fin-field"><small class="fin-note">Образец</small><input class="fin-input" style="min-height: 44px; background: var(--fin-surface)" placeholder="Как в выписке"></label>
+              <label class="fin-field"><small class="fin-note">Куда</small><select class="fin-input" style="min-height: 44px; background: var(--fin-surface)"><option>Еда › Кофейни</option><option>Еда › Фастфуд</option><option>Транспорт</option><option>Остальное</option></select></label>
+              <button class="fin-btn fin-btn--ink" type="button" style="align-self: end">Завести правило</button>
+            </form>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Переразобрать книжку</h3>
+            <p class="fin-note">Правила, роли счетов и решения по категориям сами книжку не меняют — иначе одна галочка тихо сдвигала бы итоги двух месяцев. Сначала дифф, потом запись.</p>
+            <button class="fin-btn fin-btn--soft" style="align-self: flex-start">Показать, что изменится</button>
+          </section>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <p class="mark"><b>Счёт без роли — цвет внимания</b>: пока он есть, «Отложено» не считается и показывает «счета не размечены», а не ноль.</p>
+    <p class="mark"><b>Счёт отсюда не заводится</b>: имя счёта появляется в книжке только импортом выписки, разметка несуществующего — опечатка (ADR-048).</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Переразбор и тёмная тема</h2>
+  <p>Переразбор — две фазы, как импорт: дифф строками, потом запись.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Дифф переразбора</b><span>recategorize apply=false</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Переразобрать книжку</h3>
+            <p class="fin-note">Правила, роли счетов и решения по категориям сами книжку не меняют — иначе одна галочка тихо сдвигала бы итоги двух месяцев. Сначала дифф, потом запись.</p>
+            <p style="margin: 0; font-size: 16px; font-weight: 700; color: var(--fin-strong)">Изменится 7 операций</p>
+            <p class="fin-hint" style="color: var(--fin-text)">Перевод 2 000 ₽ 3 октября, Black → Ozon ·1237 — опознан парой, уйдёт из итогов месяца</p>
+            <p class="fin-hint" style="color: var(--fin-text)">Кофе Хаус → Еда › Кофейни по новому правилу — 4 операции</p>
+            <p class="fin-hint" style="color: var(--fin-text)">ИП Смирнов — 1 расход уйдёт модели: правила его не покрыли</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn">Записать</button><button class="fin-btn fin-btn--soft">Отмена</button></div>
+          </section>
+    </div></div>
+
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Счета, тёмная тема</b><span>dark</span></div>
+    <div class="pad fin" data-theme="dark"><div class="fin-col">
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Счета</h3>
+            <p class="fin-note">Роль решает, что считать «Отложено» и что — переводом себе. Новый счёт появляется только с выпиской.</p>
+            <div class="fin-acc"><span><b>Black</b>Т-Банк</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="true" class="is-active">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+            <div class="fin-acc"><span><b>Накопительный счет</b>Т-Банк · имя как в выписке</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="true" class="is-active">Накопительный</button></div></div>
+            <div class="fin-acc is-unknown"><span><b>Ozon ·1237</b>Ozon Bank · роль не задана — «Отложено» не считается</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+          </section>
+    </div></div>
+
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Телефон</h2>
+  <p>Правила на телефоне свёрнуты по типам; раскрыт один — «Отправитель», его правят чаще.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Settings → Финансы</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head"><h1 class="fin-title">Settings</h1></div>
+            <nav class="fin-tabs fin-tabs--fit" aria-label="Разделы настроек"><button>Оформление</button><button class="is-active" aria-current="page">Финансы</button></nav>
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Счета</h3>
+            <p class="fin-note">Роль решает, что считать «Отложено» и что — переводом себе. Новый счёт появляется только с выпиской.</p>
+            <div class="fin-acc"><span><b>Black</b>Т-Банк</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="true" class="is-active">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+            <div class="fin-acc"><span><b>Накопительный счет</b>Т-Банк · имя как в выписке</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="true" class="is-active">Накопительный</button></div></div>
+            <div class="fin-acc is-unknown"><span><b>Ozon ·1237</b>Ozon Bank · роль не задана</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+          </section>
+          <section class="fin-card">
+            <h3 class="fin-h">Правила разбора</h3>
+            <p class="fin-note" style="font-size: 13px">Сильнее модели, слабее ручной правки.</p>
+            <button class="fin-cat" style="width: 100%; border-left: 0; border-right: 0; border-top: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">Мерчант</span><small class="fin-note">3 ›</small></button>
+            <button class="fin-cat" style="width: 100%; border-left: 0; border-right: 0; border-top: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">MCC и категория банка</span><small class="fin-note">3 ›</small></button>
+            <div class="fin-cat" style="border: 0; padding-bottom: 0"><span>Отправитель</span><small class="fin-note">3</small></div>
+            <p class="fin-note" style="font-size: 13px">Родные — доход, прочие — возврат</p>
+              <div class="fin-rule"><span><b>Евгений В.</b> · папа</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Ольга В.</b> · мама</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Анна К.</b> · друзья</span><i aria-hidden="true">→</i><span class="fin-to fin-to--kind">возврат</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <button class="fin-cat" style="width: 100%; border: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">Это вы</span><small class="fin-note">1 ›</small></button>
+            <button class="fin-btn fin-btn--soft fin-btn--block">＋ Завести правило</button>
+          </section>
+          <section class="fin-card">
+            <h3 class="fin-h">Переразобрать книжку</h3>
+            <p class="fin-note">Правила, роли счетов и решения по категориям сами книжку не меняют — иначе одна галочка тихо сдвигала бы итоги двух месяцев. Сначала дифф, потом запись.</p>
+            <button class="fin-btn fin-btn--soft fin-btn--block">Показать, что изменится</button>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head"><h1 class="fin-title">Settings</h1></div>
+            <nav class="fin-tabs fin-tabs--fit" aria-label="Разделы настроек"><button>Оформление</button><button class="is-active" aria-current="page">Финансы</button></nav>
+          <section class="fin-card fin-card--hero">
+            <h3 class="fin-h fin-h--lg">Счета</h3>
+            <p class="fin-note">Роль решает, что считать «Отложено» и что — переводом себе. Новый счёт появляется только с выпиской.</p>
+            <div class="fin-acc"><span><b>Black</b>Т-Банк</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="true" class="is-active">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+            <div class="fin-acc"><span><b>Накопительный счет</b>Т-Банк · имя как в выписке</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="true" class="is-active">Накопительный</button></div></div>
+            <div class="fin-acc is-unknown"><span><b>Ozon ·1237</b>Ozon Bank · роль не задана</span><div class="fin-seg" role="radiogroup" aria-label="Роль счёта" style="flex: 1 1 100%"><button role="radio" aria-checked="false">Расчётный</button><button role="radio" aria-checked="false">Накопительный</button></div></div>
+          </section>
+          <section class="fin-card">
+            <h3 class="fin-h">Правила разбора</h3>
+            <p class="fin-note" style="font-size: 13px">Сильнее модели, слабее ручной правки.</p>
+            <button class="fin-cat" style="width: 100%; border-left: 0; border-right: 0; border-top: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">Мерчант</span><small class="fin-note">3 ›</small></button>
+            <button class="fin-cat" style="width: 100%; border-left: 0; border-right: 0; border-top: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">MCC и категория банка</span><small class="fin-note">3 ›</small></button>
+            <div class="fin-cat" style="border: 0; padding-bottom: 0"><span>Отправитель</span><small class="fin-note">3</small></div>
+            <p class="fin-note" style="font-size: 13px">Родные — доход, прочие — возврат</p>
+              <div class="fin-rule"><span><b>Евгений В.</b> · папа</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Ольга В.</b> · мама</span><i aria-hidden="true">→</i><span class="fin-to fin-to--2">доход</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+              <div class="fin-rule"><span><b>Анна К.</b> · друзья</span><i aria-hidden="true">→</i><span class="fin-to fin-to--kind">возврат</span><button class="fin-del" aria-label="Убрать правило">✕</button></div>
+            <button class="fin-cat" style="width: 100%; border: 0; background: none; font: inherit; font-weight: 600"><span style="text-align: left">Это вы</span><small class="fin-note">1 ›</small></button>
+            <button class="fin-btn fin-btn--soft fin-btn--block">＋ Завести правило</button>
+          </section>
+          <section class="fin-card">
+            <h3 class="fin-h">Переразобрать книжку</h3>
+            <p class="fin-note">Правила, роли счетов и решения по категориям сами книжку не меняют — иначе одна галочка тихо сдвигала бы итоги двух месяцев. Сначала дифф, потом запись.</p>
+            <button class="fin-btn fin-btn--soft fin-btn--block">Показать, что изменится</button>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab is-active"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>
