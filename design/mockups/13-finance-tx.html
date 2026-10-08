@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 13 — Finance: карточка операции · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 13 — Finance: карточка операции</h1>
+  <p>Правка решением owner и гашение конкретного расхода (<code>SPEC.md</code> §15.4, §15.5): <code>GET /api/finance/transactions/{id}</code>, <code>PATCH</code> с флагом <code>remember</code>, привязка и снятие гашения. Форма наследует модалку и поля захвата (этап 3). Код — Ф7.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> На ПК — модалка поверх ленты, на телефоне — шторка снизу; на телефон карточка попадает из очереди «Требует внимания» в обзоре.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК — модалка</h2>
+  <p>Слева расход с привязанными долями, справа входящий перевод, ждущий ответа.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Расход с долями</b><span>breakdown, offsets</span></div>
+    <div class="fin fin-scrim" data-theme="light">
+          <div class="fin-dialog" role="dialog" aria-modal="true" aria-label="Тренировки Альфа">
+            <div class="fin-head" style="flex-wrap: nowrap; gap: 14px">
+              <span class="fin-av fin-av--5" aria-hidden="true" style="width: 52px; height: 52px; font-size: 20px">Т</span>
+              <div style="flex: 1; min-width: 0"><h3 class="fin-h" style="font-size: 22px">Тренировки Альфа</h3><p class="fin-note">Суббота, 3 октября, 15:13 · Т-Банк · Black</p></div>
+              <button class="fin-x" aria-label="Закрыть">✕</button>
+            </div>
+            <p class="fin-big num" style="font-size: 48px; color: var(--fin-strong)">−1 150 ₽</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="fin-tag">Проведена банком</span><span class="fin-tag">RUB</span><span class="fin-tag">из выписки</span></div>
+            <p class="fin-hint" style="background: var(--fin-c2-bg); color: var(--fin-c2-fg); font-size: 15px">⛓ Стоит вам <b class="num">460 ₽</b> — погашено <b class="num">690 ₽</b> долями</p>
+            <div class="fin-field"><span>Что это</span><div class="fin-seg" role="radiogroup" aria-label="Что это" style="--n: 4"><button role="radio" aria-checked="true" class="is-active">Расход</button><button role="radio" aria-checked="false">Доход</button><button role="radio" aria-checked="false">Возврат</button><button role="radio" aria-checked="false">Перевод себе</button></div><small class="fin-note" style="font-size: 13px">Выставлено по знаку суммы</small></div>
+            <div class="fin-field"><label for="cat-00">Категория</label><select class="fin-input" id="cat-00"><option>Остальное</option><option>Переводы</option><option>Транспорт</option><option>Еда › Фастфуд</option><option>Еда › Столовая</option><option>Еда › Супермаркет</option><option>Еда › Кофейни</option><option>Маркетплейсы</option><option>Без категории — здесь её нет</option></select><small class="fin-note" style="font-size: 13px">По правилу мерчанта «Тренировки Альфа»</small>
+              <label class="fin-check"><input type="checkbox"><span>Применять к будущим операциям «Тренировки Альфа»<small>По умолчанию правка разовая и на другие операции не расползается.</small></span></label></div>
+            <label class="fin-switch"><span><b>Не учитывать в итогах</b><small>Операция останется в ленте, но не войдёт в расход и бюджет</small></span><input type="checkbox" role="switch"></label>
+            <div class="fin-field"><label for="note-00">Заметка</label><textarea class="fin-input" id="note-00" rows="2" placeholder="Для себя: что это было"></textarea></div>
+            <section class="fin-sep" style="display: flex; flex-direction: column; gap: 10px" aria-label="Гашение">
+              <div class="fin-card-head"><h4 class="fin-h" style="font-size: 18px">Гашение</h4><span class="fin-note" style="font-size: 13px">окно: октябрь и сентябрь</span></div>
+              <p class="fin-note">Доли, которые скинули за эту покупку. Они удешевляют октябрь — месяц покупки, а не месяц перевода.</p>
+              <ul class="fin-list" style="display: flex; flex-direction: column; gap: 6px">
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">А</span><span><b>Анна К.</b>3 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">О</span><span><b>Олег П.</b>3 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">С</span><span><b>Сергей Р.</b>4 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap; opacity: .8"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">И</span><span style="color: var(--fin-warn)"><b>Илья Д.</b>отменена банком — привязана, но в счёт не идёт</span><b class="num" style="color: var(--fin-plus); text-decoration: line-through">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+              </ul>
+              <dl style="margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Своя сумма</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700">1 150 ₽</dd></div>
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Погашено</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700; color: var(--fin-plus)">690 ₽</dd></div>
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Стоит</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700">460 ₽</dd></div>
+              </dl>
+              <button class="fin-btn fin-btn--soft" style="align-self: flex-start">＋ Привязать поступление</button>
+            </section>
+            <div class="fin-dialog-foot">
+              <div style="display: flex; flex-wrap: wrap; gap: 12px"><button class="fin-btn fin-btn--lg" style="flex: 1 1 200px">Сохранить</button><button class="fin-btn fin-btn--soft fin-btn--lg" style="flex: 0 1 160px">Отмена</button></div>
+              <p class="fin-note" style="font-size: 13px">Сохранение не переразбирает книжку. Новое правило сработает на других операциях после переразбора — в Settings, раздел «Финансы».</p>
+            </div>
+          </div>
+    </div>
+    <p class="mark"><b>«Стоит вам» — эффективная сумма</b>: своя минус погашенное, не ниже нуля. Привязанная, но отменённая доля видна и подписана: в счёт она не идёт (§15.5).</p>
+    <p class="mark"><b>Окно привязки назван словами</b> — октябрь и сентябрь: снятие ограничено тем же окном.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Перевод в разборе</b><span>needs_review, kind_source = default</span></div>
+    <div class="fin fin-scrim" data-theme="light">
+          <div class="fin-dialog" role="dialog" aria-modal="true" aria-label="Мария С.">
+            <div class="fin-head" style="flex-wrap: nowrap; gap: 14px">
+              <span class="fin-av fin-av--1" aria-hidden="true" style="width: 52px; height: 52px; font-size: 20px">М</span>
+              <div style="flex: 1; min-width: 0"><h3 class="fin-h" style="font-size: 22px">Мария С.</h3><p class="fin-note">Вторник, 6 октября, 18:02 · Т-Банк · Black</p></div>
+              <button class="fin-x" aria-label="Закрыть">✕</button>
+            </div>
+            <p class="fin-big num" style="font-size: 48px; color: var(--fin-plus)">+230 ₽</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="fin-tag">Проведена банком</span><span class="fin-tag">RUB</span><span class="fin-tag">из выписки</span></div>
+            <div class="fin-hint fin-hint--warn" role="status"><b style="display: block; font-size: 16px">Требует внимания: кто это?</b>Отправителя нет среди родных, поэтому по умолчанию перевод — возврат: он погасил бы расход октября. Пока вы не ответили, в итоги он не входит.</div>
+            <div role="radiogroup" aria-label="Ответ" style="display: flex; flex-direction: column; gap: 8px">
+              <p style="margin: 0; font-size: 15px; font-weight: 600; color: var(--fin-strong)">Ответ</p>
+              <label class="fin-opt"><input type="radio" name="ans-0" checked><span><b>Доля за общую покупку</b><small>Привязать к расходу — он подешевеет, а вопрос закроется сам</small></span></label>
+              <label class="fin-opt"><input type="radio" name="ans-0"><span><b>Доход — это кто-то из родных</b><small>Можно запомнить отправителя правилом: его переводы станут доходом</small></span></label>
+              <label class="fin-opt"><input type="radio" name="ans-0"><span><b>Возврат без привязки</b><small>Погасит расход октября целиком, без конкретной покупки</small></span></label>
+              <div class="fin-card" style="padding: 14px 16px; box-shadow: inset 0 0 0 1.5px var(--fin-line)">
+                <p class="fin-note">К какому расходу? Окно — октябрь и сентябрь</p>
+                <div class="fin-head" style="flex-wrap: nowrap"><span><b style="color: var(--fin-strong)">Тренировки Альфа</b><br><small class="fin-note">3 октября · −1 150 ₽, стоит 460 ₽</small></span><button class="fin-btn fin-btn--sm">Привязать</button></div>
+                <div class="fin-head" style="flex-wrap: nowrap"><span><b style="color: var(--fin-strong)">Вкусно — и точка</b><br><small class="fin-note">6 октября · −389 ₽</small></span><button class="fin-btn fin-btn--soft fin-btn--sm">Привязать</button></div>
+              </div>
+            </div>
+            <div class="fin-field"><span>Что это</span><div class="fin-seg" role="radiogroup" aria-label="Что это" style="--n: 4"><button role="radio" aria-checked="false">Расход</button><button role="radio" aria-checked="false">Доход</button><button role="radio" aria-checked="true" class="is-active">Возврат</button><button role="radio" aria-checked="false">Перевод себе</button></div><small class="fin-note" style="font-size: 13px">Выставлено умолчанием для перевода не от родных — поэтому и вопрос</small></div>
+            <div class="fin-field"><label for="cat-10">Категория</label><select class="fin-input" id="cat-10"><option>Переводы</option><option>Транспорт</option><option>Еда › Фастфуд</option><option>Еда › Столовая</option><option>Еда › Супермаркет</option><option>Еда › Кофейни</option><option>Маркетплейсы</option><option>Остальное</option><option>Без категории — здесь её нет</option></select><small class="fin-note" style="font-size: 13px">По категории банка «Переводы»</small>
+              <label class="fin-check"><input type="checkbox"><span>Запомнить отправителя «Мария С.» правилом<small>По умолчанию правка разовая и на другие операции не расползается.</small></span></label></div>
+            <label class="fin-switch"><span><b>Не учитывать в итогах</b><small>Операция останется в ленте, но не войдёт в расход и бюджет</small></span><input type="checkbox" role="switch"></label>
+            <div class="fin-field"><label for="note-10">Заметка</label><textarea class="fin-input" id="note-10" rows="2" placeholder="Для себя: что это было"></textarea></div>
+
+            <div class="fin-dialog-foot">
+              <div style="display: flex; flex-wrap: wrap; gap: 12px"><button class="fin-btn fin-btn--lg" style="flex: 1 1 200px">Сохранить</button><button class="fin-btn fin-btn--soft fin-btn--lg" style="flex: 0 1 160px">Отмена</button></div>
+              <p class="fin-note" style="font-size: 13px">Сохранение не переразбирает книжку. Новое правило сработает на других операциях после переразбора — в Settings, раздел «Финансы».</p>
+            </div>
+          </div>
+    </div>
+    <p class="mark"><b>Три ответа на один вопрос</b> — «кто эти люди»: доля (привязать), доход (родные), возврат без привязки. Привязка сама закрывает вопрос разбора.</p>
+    <p class="mark"><b>«Запомнить правилом» выключено по умолчанию</b>: разовое исключение не расползается на весь поток мерчанта (§15.4).</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · Телефон — шторка</h2>
+  <p>Шторка на всю высоту, сохранение внизу. Вид операции — сетка 2 × 2: четыре сегмента в строку на 390 px не помещаются.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Перевод в разборе</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame" style="background: var(--fin-scrim)">
+        <div class="fin" style="padding-top: 48px; background: none">
+          <div class="fin-dialog fin-dialog--sheet" role="dialog" aria-modal="true" aria-label="Мария С.">
+            <div class="fin-head" style="flex-wrap: nowrap; gap: 14px">
+              <span class="fin-av fin-av--1" aria-hidden="true" style="width: 52px; height: 52px; font-size: 20px">М</span>
+              <div style="flex: 1; min-width: 0"><h3 class="fin-h" style="font-size: 22px">Мария С.</h3><p class="fin-note">Вторник, 6 октября, 18:02 · Т-Банк · Black</p></div>
+              <button class="fin-x" aria-label="Закрыть">✕</button>
+            </div>
+            <p class="fin-big num" style="font-size: 40px; color: var(--fin-plus)">+230 ₽</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="fin-tag">Проведена банком</span><span class="fin-tag">RUB</span><span class="fin-tag">из выписки</span></div>
+            <div class="fin-hint fin-hint--warn" role="status"><b style="display: block; font-size: 16px">Требует внимания: кто это?</b>Отправителя нет среди родных, поэтому по умолчанию перевод — возврат: он погасил бы расход октября. Пока вы не ответили, в итоги он не входит.</div>
+            <div role="radiogroup" aria-label="Ответ" style="display: flex; flex-direction: column; gap: 8px">
+              <p style="margin: 0; font-size: 15px; font-weight: 600; color: var(--fin-strong)">Ответ</p>
+              <label class="fin-opt"><input type="radio" name="ans-1" checked><span><b>Доля за общую покупку</b><small>Привязать к расходу — он подешевеет, а вопрос закроется сам</small></span></label>
+              <label class="fin-opt"><input type="radio" name="ans-1"><span><b>Доход — это кто-то из родных</b><small>Можно запомнить отправителя правилом: его переводы станут доходом</small></span></label>
+              <label class="fin-opt"><input type="radio" name="ans-1"><span><b>Возврат без привязки</b><small>Погасит расход октября целиком, без конкретной покупки</small></span></label>
+              <div class="fin-card" style="padding: 14px 16px; box-shadow: inset 0 0 0 1.5px var(--fin-line)">
+                <p class="fin-note">К какому расходу? Окно — октябрь и сентябрь</p>
+                <div class="fin-head" style="flex-wrap: nowrap"><span><b style="color: var(--fin-strong)">Тренировки Альфа</b><br><small class="fin-note">3 октября · −1 150 ₽, стоит 460 ₽</small></span><button class="fin-btn fin-btn--sm">Привязать</button></div>
+                <div class="fin-head" style="flex-wrap: nowrap"><span><b style="color: var(--fin-strong)">Вкусно — и точка</b><br><small class="fin-note">6 октября · −389 ₽</small></span><button class="fin-btn fin-btn--soft fin-btn--sm">Привязать</button></div>
+              </div>
+            </div>
+            <div class="fin-field"><span>Что это</span><div class="fin-seg" role="radiogroup" aria-label="Что это" style="--n: 2"><button role="radio" aria-checked="false">Расход</button><button role="radio" aria-checked="false">Доход</button><button role="radio" aria-checked="true" class="is-active">Возврат</button><button role="radio" aria-checked="false">Перевод себе</button></div><small class="fin-note" style="font-size: 13px">Выставлено умолчанием для перевода не от родных — поэтому и вопрос</small></div>
+            <div class="fin-field"><label for="cat-11">Категория</label><select class="fin-input" id="cat-11"><option>Переводы</option><option>Транспорт</option><option>Еда › Фастфуд</option><option>Еда › Столовая</option><option>Еда › Супермаркет</option><option>Еда › Кофейни</option><option>Маркетплейсы</option><option>Остальное</option><option>Без категории — здесь её нет</option></select><small class="fin-note" style="font-size: 13px">По категории банка «Переводы»</small>
+              <label class="fin-check"><input type="checkbox"><span>Запомнить отправителя «Мария С.» правилом<small>По умолчанию правка разовая и на другие операции не расползается.</small></span></label></div>
+            <label class="fin-switch"><span><b>Не учитывать в итогах</b><small>Операция останется в ленте, но не войдёт в расход и бюджет</small></span><input type="checkbox" role="switch"></label>
+            <div class="fin-field"><label for="note-11">Заметка</label><textarea class="fin-input" id="note-11" rows="2" placeholder="Для себя: что это было"></textarea></div>
+
+            <div class="fin-dialog-foot">
+              <button class="fin-btn fin-btn--lg fin-btn--block">Сохранить</button>
+              <p class="fin-note" style="font-size: 12.5px; text-align: center">Сохранение не переразбирает книжку — это отдельный шаг в Settings.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Так карточка открывается чаще всего</b> — из очереди в обзоре.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Расход с долями, тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame" style="background: var(--fin-scrim)">
+        <div class="fin" style="padding-top: 48px; background: none">
+          <div class="fin-dialog fin-dialog--sheet" role="dialog" aria-modal="true" aria-label="Тренировки Альфа">
+            <div class="fin-head" style="flex-wrap: nowrap; gap: 14px">
+              <span class="fin-av fin-av--5" aria-hidden="true" style="width: 52px; height: 52px; font-size: 20px">Т</span>
+              <div style="flex: 1; min-width: 0"><h3 class="fin-h" style="font-size: 22px">Тренировки Альфа</h3><p class="fin-note">Суббота, 3 октября, 15:13 · Т-Банк · Black</p></div>
+              <button class="fin-x" aria-label="Закрыть">✕</button>
+            </div>
+            <p class="fin-big num" style="font-size: 40px; color: var(--fin-strong)">−1 150 ₽</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><span class="fin-tag">Проведена банком</span><span class="fin-tag">RUB</span><span class="fin-tag">из выписки</span></div>
+            <p class="fin-hint" style="background: var(--fin-c2-bg); color: var(--fin-c2-fg); font-size: 15px">⛓ Стоит вам <b class="num">460 ₽</b> — погашено <b class="num">690 ₽</b> долями</p>
+            <div class="fin-field"><span>Что это</span><div class="fin-seg" role="radiogroup" aria-label="Что это" style="--n: 2"><button role="radio" aria-checked="true" class="is-active">Расход</button><button role="radio" aria-checked="false">Доход</button><button role="radio" aria-checked="false">Возврат</button><button role="radio" aria-checked="false">Перевод себе</button></div><small class="fin-note" style="font-size: 13px">Выставлено по знаку суммы</small></div>
+            <div class="fin-field"><label for="cat-01">Категория</label><select class="fin-input" id="cat-01"><option>Остальное</option><option>Переводы</option><option>Транспорт</option><option>Еда › Фастфуд</option><option>Еда › Столовая</option><option>Еда › Супермаркет</option><option>Еда › Кофейни</option><option>Маркетплейсы</option><option>Без категории — здесь её нет</option></select><small class="fin-note" style="font-size: 13px">По правилу мерчанта «Тренировки Альфа»</small>
+              <label class="fin-check"><input type="checkbox"><span>Применять к будущим операциям «Тренировки Альфа»<small>По умолчанию правка разовая и на другие операции не расползается.</small></span></label></div>
+            <label class="fin-switch"><span><b>Не учитывать в итогах</b><small>Операция останется в ленте, но не войдёт в расход и бюджет</small></span><input type="checkbox" role="switch"></label>
+            <div class="fin-field"><label for="note-01">Заметка</label><textarea class="fin-input" id="note-01" rows="2" placeholder="Для себя: что это было"></textarea></div>
+            <section class="fin-sep" style="display: flex; flex-direction: column; gap: 10px" aria-label="Гашение">
+              <div class="fin-card-head"><h4 class="fin-h" style="font-size: 18px">Гашение</h4><span class="fin-note" style="font-size: 13px">окно: октябрь и сентябрь</span></div>
+              <p class="fin-note">Доли, которые скинули за эту покупку. Они удешевляют октябрь — месяц покупки, а не месяц перевода.</p>
+              <ul class="fin-list" style="display: flex; flex-direction: column; gap: 6px">
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">А</span><span><b>Анна К.</b>3 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">О</span><span><b>Олег П.</b>3 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">С</span><span><b>Сергей Р.</b>4 октября · гасит 230 ₽</span><b class="num" style="color: var(--fin-plus)">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+                <li class="fin-acc" style="flex-wrap: nowrap; opacity: .8"><span class="fin-av fin-av--1" style="width: 36px; height: 36px; font-size: 14px">И</span><span style="color: var(--fin-warn)"><b>Илья Д.</b>отменена банком — привязана, но в счёт не идёт</span><b class="num" style="color: var(--fin-plus); text-decoration: line-through">+230 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Снять</button></li>
+              </ul>
+              <dl style="margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Своя сумма</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700">1 150 ₽</dd></div>
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Погашено</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700; color: var(--fin-plus)">690 ₽</dd></div>
+                <div class="fin-tile" style="padding: 12px 14px; background: none; box-shadow: inset 0 0 0 1.5px var(--fin-line)"><dt class="fin-note" style="font-size: 13px">Стоит</dt><dd class="num" style="margin: 2px 0 0; font-size: 17px; font-weight: 700">460 ₽</dd></div>
+              </dl>
+              <button class="fin-btn fin-btn--soft" style="align-self: flex-start">＋ Привязать поступление</button>
+            </section>
+            <div class="fin-dialog-foot">
+              <button class="fin-btn fin-btn--lg fin-btn--block">Сохранить</button>
+              <p class="fin-note" style="font-size: 12.5px; text-align: center">Сохранение не переразбирает книжку — это отдельный шаг в Settings.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Гашение на телефоне то же</b>, что на ПК: снять долю можно с телефона.</p>
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>

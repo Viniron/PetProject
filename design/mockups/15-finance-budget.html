@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Этап 15 — Finance: бюджет недели · JARVIS</title>
+<link rel="stylesheet" href="../tokens.css">
+<style>
+/* Страница разбора макета: заголовки, панели, подписи к состояниям.
+   Компоненты вкладки Finance — в tokens.css (блок «Вкладка Finance»). */
+body { background: #e8e8ea; color: #1a1a1c; }
+
+.page-head { padding: 40px 32px 20px; max-width: 1560px; margin: 0 auto; }
+.page-head h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.page-head p  { margin: 0 0 10px; max-width: 82ch; color: #52525b; font-size: 15px; line-height: 1.6; }
+.page-head code { font-family: var(--font-mono); font-size: 13px; }
+.note { margin-top: 14px; }
+
+.section-head { max-width: 1560px; margin: 0 auto; padding: 26px 32px 12px; }
+.section-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.section-head p  { margin: 0; max-width: 82ch; color: #52525b; font-size: 14px; line-height: 1.55; }
+.section-head code { font-family: var(--font-mono); font-size: 12.5px; }
+
+.wrap { max-width: 1560px; margin: 0 auto; padding: 0 32px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1240px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.tail { height: 56px; }
+
+.pane { border: 1px solid #d4d4d8; border-radius: 14px; overflow: hidden; background: #fff; }
+.pane-label { display: flex; justify-content: space-between; align-items: baseline;
+              gap: 12px; padding: 11px 15px; border-bottom: 1px solid #d4d4d8;
+              font-size: 13px; color: #52525b; }
+.pane-label b { color: #18181b; font-size: 13.5px; font-weight: 600; }
+.pane-label span { font-size: 12px; color: #8a8a93; font-family: var(--font-mono); }
+.mark { margin: 0; padding: 10px 15px; border-top: 1px solid #d4d4d8;
+        background: #fafafa; color: #52525b; font-size: 12.5px; line-height: 1.55; }
+.mark b { color: #18181b; font-weight: 600; }
+.mark + .mark { border-top: 1px solid #ececef; }
+.mark code { font-family: var(--font-mono); font-size: 11.5px; }
+
+/* Фрагмент экрана без оболочки — для состояний, где меняется одна карточка. */
+.pad { padding: var(--space-5); }
+
+/* В продукте оболочка занимает экран; в панели разбора это дало бы пустую
+   полосу под каждой панелью. */
+.app { min-height: 0; }
+
+/* Рамка телефона и капсула — те же, что в 01-shell.html и 16-settings-theme.html.
+   Высота рамки — по содержимому: экран показан целиком, как прокрутка. */
+.phone-stage { display: flex; justify-content: center; padding: 22px 0; background: #ededf0; }
+.phone { width: 390px; }
+.phone-frame { position: relative; overflow: hidden; min-height: 844px;
+               border: 1px solid var(--border-strong);
+               border-radius: var(--radius-lg); background: var(--fin-bg); }
+.app--phone { display: block; min-height: 844px; padding: var(--space-4);
+              padding-bottom: 176px; }
+.app--phone .fin-col { gap: var(--space-4); }
+.rail--phone { position: absolute; left: var(--space-4); right: var(--space-4);
+               bottom: var(--space-4); flex-direction: row; justify-content: center;
+               align-self: stretch; border-radius: var(--radius-pill); }
+.rail--phone .tab { width: auto; flex: 1 1 0; max-width: 96px; min-width: 0; }
+.rail--phone .rail-sep { width: 1px; height: auto; background: var(--border-strong);
+                         margin: var(--space-2) var(--space-1); }
+.rail--phone .rail-sep:last-of-type { display: none; }
+.rail--phone .tab-dot { left: calc(50% + 9px); right: auto; }
+.rail--phone:hover .tab { color: var(--text); }
+.rail--phone:hover .tab.is-active { opacity: 1; color: var(--accent-text); }
+.rail--phone .rail-action { position: absolute; right: 0; bottom: calc(100% + var(--space-3));
+                            display: flex; align-items: center; justify-content: center;
+                            width: 56px; height: 56px; padding: 0;
+                            border-radius: var(--radius-pill); }
+.rail--phone .rail-action .tab-icon { font-size: 20px; }
+.rail--phone .rail-action .tab-text { display: none; }
+/* Телефонные размеры текста вкладки Finance. В продукте — shell-mobile.css. */
+.app--phone .fin-title { font-size: 34px; }
+.app--phone .fin-card { padding: 20px; gap: 8px; }
+.app--phone .fin-card--hero { padding: 22px; }
+.app--phone .fin-big { font-size: 44px; }
+.app--phone .fin-mid { font-size: 28px; }
+.app--phone .fin-h { font-size: 18px; }
+.app--phone .fin-op { gap: 12px; padding: 10px 8px; }
+.app--phone .fin-av { width: 40px; height: 40px; font-size: 16px; }
+.app--phone .fin-op-title { font-size: 15px; }
+.app--phone .fin-op-sub, .app--phone .fin-op-q { font-size: 13px; }
+.app--phone .fin-op-amt { font-size: 15px; }
+.app--phone .fin-list { margin: 0 -8px; }
+</style>
+</head>
+<body>
+<div class="page-head">
+  <h1>Этап 15 — Finance: бюджет недели</h1>
+  <p>Отвечает на один вопрос: сколько можно потратить и в какой день (<code>SPEC.md</code> §15.10, ADR-038). Данные — <code>GET /api/finance/budget</code>, ввод дня — <code>PUT budget/days/{day}</code>, распределение итога — <code>POST weeks/{week}/settle</code>. Код — Ф14.</p>
+  <p><b>Утверждено owner 2026-10-08.</b> Лимит всегда подписан днём, к которому относится: после вечернего ввода цифра — на завтра. «Отложено бюджетом» (копилка) и «Переведено на накопительные» названы по-разному: это разные цифры. <b>На телефоне копилки нет</b> — решение owner.</p>
+  <div class="note"><span class="fiction-note">Макет, данные вымышленные. Курсы English и Calculus в капсуле придуманы для показа вёрстки — установлено ноль.</span></div>
+</div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>1 · ПК — утро, сегодня не внесено</h2>
+  <p>Среда прошла без суммы: лимит считается без неё, и это сказано, а не спрятано.</p>
+</div>
+<div class="wrap"><div class="stack">
+  <section class="pane">
+    <div class="pane-label"><b>Четверг утром</b><span>1440 · light</span></div>
+    <div class="app fin" data-theme="light">
+      <nav class="rail">
+        <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+        <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+        <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+        <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+        <div class="rail-sep"></div>
+        <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+      </nav>
+      <div class="content"><div class="fin-col">
+
+        <div class="fin-head">
+          <h1 class="fin-title">Finance</h1>
+          <div class="fin-head-l"><div class="fin-period"><button aria-label="Предыдущая неделя">‹</button><span>5–11 октября</span><button aria-label="Следующая неделя">›</button></div></div>
+        </div>
+        <nav class="fin-tabs" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="12-finance-feed.html">Операции <span class="fin-count">7</span></a><a href="15-finance-budget.html" class="is-active" aria-current="page">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--accent fin-card--hero is-wide">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-big num" style="font-size: 72px">1 247,50 ₽</p>
+            <p class="fin-note" style="font-size: 15px">Бюджет 7 000 + перенос 90 − потрачено 2 100 = 4 990 ₽ на 4 открытых дня, включая сегодня.</p>
+            <p class="fin-hint fin-hint--on-accent">Посчитано без 1 дня без суммы — среды, 7 октября. Шёл нулём, поэтому цифра завышена.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Сколько потратили сегодня, чт 8 октября?</h2>
+            <p class="fin-note">Сумма всех трат за день, с карты и наличными</p>
+            <label class="fin-amount"><input inputmode="decimal" placeholder="0" aria-label="Сумма трат за сегодня"><span aria-hidden="true">₽</span></label>
+            <button class="fin-btn fin-btn--lg fin-btn--block">Внести</button>
+            <p class="fin-note" style="font-size: 13px">Внесённая сумма закрывает день: лимит пересчитается на следующие дни, а цифра станет «на завтра».</p>
+          </section>
+        </div>
+          <section class="fin-card fin-card--hero">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Дни недели</h2><p class="fin-note num" style="font-size: 15px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 2&nbsp;100&nbsp;₽</p></div>
+            <div style="overflow-x: auto"><ol class="fin-days">
+              <li class="fin-day is-statement"><b>Пн, 5 окт</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 окт</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-unknown"><b>Ср, 7 окт</b><span class="num">нет суммы</span><small>день прошёл — внесите</small></li>
+              <li class="fin-day is-today"><b>Чт, 8 окт · сегодня</b><span class="num">1 247,50 ₽</span><small>лимит на сегодня</small></li>
+              <li class="fin-day is-open"><b>Пт, 9 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Сб, 10 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Вс, 11 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+            </ol></div>
+            <p class="fin-note" style="font-size: 13px">День, покрытый выписками всех банков, считается по операциям; ваша сумма за него сохраняется, и расхождение видно на плитке. Выписки сейчас покрывают дни по 6 октября.</p>
+          </section>
+        <div class="fin-row2">
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Копилка</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+              <div class="fin-tile"><p class="fin-note" style="margin: 0">Отложено бюджетом</p><p class="fin-tile-val num">14 600 ₽</p><p class="fin-note">ваши решения по неделям — деньги ещё на карте</p></div>
+              <div class="fin-tile"><p class="fin-note" style="margin: 0">Переведено на накопительные</p><p class="fin-tile-val num">12 000 ₽</p><p class="fin-note">настоящие переводы по выпискам, за всё время</p></div>
+            </div>
+            <p class="fin-hint fin-hint--accent">Решено отложить на <b class="num">2 600 ₽</b> больше, чем переведено. Переведите их на накопительный счёт — тогда цифры сойдутся.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h fin-h--lg">Недели</h2>
+            <div>
+              <div class="fin-rule"><span><b>28 сент – 4 окт</b><br>распределена: +350 ₽ в следующую неделю</span><span class="fin-badge fin-badge--warn">поправка выписки −260 ₽ ушла вперёд</span></div>
+              <div class="fin-rule"><span><b>5–11 окт · эта неделя</b><br>перенос +90 ₽: 350 ₽ итога минус 260 ₽ поправки</span><b class="num">7 000 ₽</b></div>
+              <div class="fin-rule"><span><b>12–18 окт</b><br>внесён заранее</span><b class="num">7 000 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Изменить</button></div>
+              <div class="fin-rule"><span><b>19–25 окт</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+              <div class="fin-rule" style="border: 0"><span><b>26 окт – 1 ноя</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+            </div>
+          </section>
+        </div>
+      </div></div>
+    </div>
+    <p class="mark"><b>Пять видов дня различаются не только цветом</b>: подпись источника под суммой, пунктир у неизвестного дня, рамка у сегодня.</p>
+    <p class="mark"><b>Расхождение выписки и вашей суммы видно на плитке</b> — единственный признак систематического недосчёта (§15.10).</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>2 · ПК — состояния</h2>
+  <p>Меняются лимит, ввод и дни; копилка и недели — как в разделе 1.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Вечер — трата внесена</b><span>for_day = завтра</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--accent fin-card--hero is-wide">
+            <p class="fin-label">Можно потратить завтра, пт 9 октября</p>
+            <p class="fin-big num" style="font-size: 72px">620 ₽</p>
+            <p class="fin-note" style="font-size: 15px">Бюджет 7 000 + перенос 90 − потрачено 5 230 = 1 860 ₽ на 3 открытых дня. Сегодня закрыт вашей суммой, поэтому цифра — на завтра.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Потрачено сегодня, чт 8 октября</h2>
+            <p class="fin-mid num">980 ₽</p>
+            <p class="fin-note">Внесено в 21:40. День закрыт; выписка позже заменит сумму операциями, но вашу цифру сохранит.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn fin-btn--soft">Исправить</button><button class="fin-btn fin-btn--ghost">Снять — день снова неизвестен</button></div>
+          </section>
+        </div>
+          <section class="fin-card fin-card--hero">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Дни недели</h2><p class="fin-note num" style="font-size: 15px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 5&nbsp;230&nbsp;₽</p></div>
+            <div style="overflow-x: auto"><ol class="fin-days">
+              <li class="fin-day is-statement"><b>Пн, 5 окт</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 окт</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-manual"><b>Ср, 7 окт</b><span class="num">2 150 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-today"><b>Чт, 8 окт · сегодня</b><span class="num">980 ₽</span><small>внесли вы — день закрыт</small></li>
+              <li class="fin-day is-open"><b>Пт, 9 окт</b><span class="num">620 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Сб, 10 окт</b><span class="num">620 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Вс, 11 окт</b><span class="num">620 ₽</span><small>лимит дня</small></li>
+            </ol></div>
+            <p class="fin-note" style="font-size: 13px">День, покрытый выписками всех банков, считается по операциям; ваша сумма за него сохраняется, и расхождение видно на плитке. Выписки сейчас покрывают дни по 6 октября.</p>
+          </section>
+    </div></div>
+    <p class="mark"><b>Та же цифра — уже про завтра.</b> Подпись над числом меняется вместе с ним.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Бюджет не задан</b><span>budget = null</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--hero is-wide" style="box-shadow: inset 0 0 0 2px var(--fin-line)">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-mid is-empty" style="font-size: 40px">Бюджет не задан</p>
+            <p class="fin-note">Лимита нет — не ноль и не среднее прошлых недель. Перенос +90 ₽ уже ждёт эту неделю.</p>
+            <div class="fin-field"><label for="wb-0">Бюджет на 5–11 октября</label><input class="fin-input" id="wb-0" inputmode="decimal" placeholder="Например, 7 000"></div>
+            <button class="fin-btn" style="align-self: flex-start">Задать</button>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Сколько потратили сегодня, чт 8 октября?</h2>
+            <p class="fin-note">Сумма всех трат за день, с карты и наличными</p>
+            <label class="fin-amount"><input inputmode="decimal" placeholder="0" aria-label="Сумма трат за сегодня"><span aria-hidden="true">₽</span></label>
+            <button class="fin-btn fin-btn--lg fin-btn--block">Внести</button>
+            <p class="fin-note" style="font-size: 13px">Внесённая сумма закрывает день: лимит пересчитается на следующие дни, а цифра станет «на завтра».</p>
+          </section>
+        </div>
+          <section class="fin-card fin-card--hero">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Дни недели</h2><p class="fin-note num" style="font-size: 15px">Бюджет не задан · перенос +90&nbsp;₽ · потрачено 2&nbsp;100&nbsp;₽</p></div>
+            <div style="overflow-x: auto"><ol class="fin-days">
+              <li class="fin-day is-statement"><b>Пн, 5 окт</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 окт</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-unknown"><b>Ср, 7 окт</b><span class="num">нет суммы</span><small>день прошёл — внесите</small></li>
+              <li class="fin-day is-today"><b>Чт, 8 окт · сегодня</b><span class="num">—</span><small>открыт</small></li>
+              <li class="fin-day is-open"><b>Пт, 9 окт</b><span class="num">—</span><small>открыт</small></li>
+              <li class="fin-day is-open"><b>Сб, 10 окт</b><span class="num">—</span><small>открыт</small></li>
+              <li class="fin-day is-open"><b>Вс, 11 окт</b><span class="num">—</span><small>открыт</small></li>
+            </ol></div>
+            <p class="fin-note" style="font-size: 13px">День, покрытый выписками всех банков, считается по операциям; ваша сумма за него сохраняется, и расхождение видно на плитке. Выписки сейчас покрывают дни по 6 октября.</p>
+          </section>
+    </div></div>
+    <p class="mark"><b>«Бюджет не задан» вместо нуля</b>: среднее прошлых недель было бы правдоподобной выдумкой (§10).</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Воскресенье — итог недели</b><span>ready_to_settle</span></div>
+    <div class="pad fin" data-theme="light"><div class="fin-col">
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--hero is-wide">
+            <p class="fin-label">Неделя 5–11 октября закрыта: известны все 7 дней</p>
+            <p class="fin-big num" style="font-size: 56px; color: var(--fin-minus)">−180 ₽</p>
+            <p class="fin-note">Перерасход: бюджет 7 000 + перенос 90 − потрачено 7 270. Куда его деть — решаете вы; пока не решили, перенос в следующую неделю равен нулю.</p>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <div class="fin-field"><label for="tn-0">Минусом в 12–18 окт</label><input class="fin-input" id="tn-0" value="−180"></div>
+              <div class="fin-field"><label for="ts-0">Покрыть из копилки</label><input class="fin-input" id="ts-0" value="0"></div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn fin-btn--soft fin-btn--sm">Всё в следующую неделю</button><button class="fin-btn fin-btn--soft fin-btn--sm">Всё из копилки</button><button class="fin-btn fin-btn--soft fin-btn--sm">Пополам</button></div>
+            <button class="fin-btn fin-btn--lg" style="align-self: flex-start">Распределить итог</button>
+            <p class="fin-note" style="font-size: 13px">Копилка в минус не уходит: покрыть можно не больше 14 600 ₽.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Воскресенье, 11 октября</h2>
+            <p class="fin-mid num">380 ₽</p>
+            <p class="fin-note">Внесено вечером — последний день недели закрыт, итог готов к распределению.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn fin-btn--soft">Исправить</button><button class="fin-btn fin-btn--ghost">Снять — день снова неизвестен</button></div>
+          </section>
+        </div>
+          <section class="fin-card fin-card--hero">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Дни недели</h2><p class="fin-note num" style="font-size: 15px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 7&nbsp;270&nbsp;₽</p></div>
+            <div style="overflow-x: auto"><ol class="fin-days">
+              <li class="fin-day is-statement"><b>Пн, 5 окт</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 окт</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-manual"><b>Ср, 7 окт</b><span class="num">2 150 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Чт, 8 окт</b><span class="num">980 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Пт, 9 окт</b><span class="num">540 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Сб, 10 окт</b><span class="num">1 120 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-today"><b>Вс, 11 окт · сегодня</b><span class="num">380 ₽</span><small>внесли вы</small></li>
+            </ol></div>
+            <p class="fin-note" style="font-size: 13px">День, покрытый выписками всех банков, считается по операциям; ваша сумма за него сохраняется, и расхождение видно на плитке. Выписки сейчас покрывают дни по 6 октября.</p>
+          </section>
+    </div></div>
+    <p class="mark"><b>Перерасход распределяется так же, как излишек</b>: минусом вперёд или из копилки. Пока выбор не сделан, перенос — ноль.</p>
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Тёмная тема</b><span>dark</span></div>
+    <div class="pad fin" data-theme="dark"><div class="fin-col">
+        <div class="fin-row2 is-stretch">
+          <section class="fin-card fin-card--accent fin-card--hero is-wide">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-big num" style="font-size: 72px">1 247,50 ₽</p>
+            <p class="fin-note" style="font-size: 15px">Бюджет 7 000 + перенос 90 − потрачено 2 100 = 4 990 ₽ на 4 открытых дня, включая сегодня.</p>
+            <p class="fin-hint fin-hint--on-accent">Посчитано без 1 дня без суммы — среды, 7 октября. Шёл нулём, поэтому цифра завышена.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Сколько потратили сегодня, чт 8 октября?</h2>
+            <p class="fin-note">Сумма всех трат за день, с карты и наличными</p>
+            <label class="fin-amount"><input inputmode="decimal" placeholder="0" aria-label="Сумма трат за сегодня"><span aria-hidden="true">₽</span></label>
+            <button class="fin-btn fin-btn--lg fin-btn--block">Внести</button>
+            <p class="fin-note" style="font-size: 13px">Внесённая сумма закрывает день: лимит пересчитается на следующие дни, а цифра станет «на завтра».</p>
+          </section>
+        </div>
+          <section class="fin-card fin-card--hero">
+            <div class="fin-card-head"><h2 class="fin-h fin-h--lg">Дни недели</h2><p class="fin-note num" style="font-size: 15px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 2&nbsp;100&nbsp;₽</p></div>
+            <div style="overflow-x: auto"><ol class="fin-days">
+              <li class="fin-day is-statement"><b>Пн, 5 окт</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 окт</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-unknown"><b>Ср, 7 окт</b><span class="num">нет суммы</span><small>день прошёл — внесите</small></li>
+              <li class="fin-day is-today"><b>Чт, 8 окт · сегодня</b><span class="num">1 247,50 ₽</span><small>лимит на сегодня</small></li>
+              <li class="fin-day is-open"><b>Пт, 9 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Сб, 10 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Вс, 11 окт</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+            </ol></div>
+            <p class="fin-note" style="font-size: 13px">День, покрытый выписками всех банков, считается по операциям; ваша сумма за него сохраняется, и расхождение видно на плитке. Выписки сейчас покрывают дни по 6 октября.</p>
+          </section>
+    </div></div>
+    <p class="mark"><b>Жёлтая карточка лимита остаётся жёлтой</b>: это главное на вкладке в обеих темах.</p>
+  </section>
+</div></div>
+
+<!-- ====================================================================== -->
+<div class="section-head">
+  <h2>3 · Телефон</h2>
+  <p>Самый частый экран на телефоне — вечерний ввод траты. Дни — строками: семь колонок по 46 px сумму не вмещают. Копилки нет — решение owner.</p>
+</div>
+<div class="wrap"><div class="grid2">
+  <section class="pane">
+    <div class="pane-label"><b>Утро</b><span>390 · light</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="light">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <button class="fin-btn fin-btn--soft fin-btn--sm">5–11 окт ▾</button>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="15-finance-budget.html" class="is-active" aria-current="page">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+          <section class="fin-card fin-card--accent fin-card--hero">
+            <p class="fin-label">Можно потратить сегодня, чт 8 октября</p>
+            <p class="fin-big num" style="font-size: 52px">1 247,50 ₽</p>
+            <p class="fin-note" style="font-size: 15px">Осталось 4 990 ₽ на 4 дня, включая сегодня.</p>
+            <p class="fin-hint fin-hint--on-accent">Посчитано без 1 дня без суммы — среды, 7 октября. Шёл нулём, поэтому цифра завышена.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Сколько потратили сегодня?</h2>
+            <p class="fin-note">Сумма всех трат за день, с карты и наличными</p>
+            <label class="fin-amount"><input inputmode="decimal" placeholder="0" aria-label="Сумма трат за сегодня"><span aria-hidden="true">₽</span></label>
+            <button class="fin-btn fin-btn--lg fin-btn--block">Внести</button>
+            <p class="fin-note" style="font-size: 13px">Внесённая сумма закрывает день: лимит пересчитается на следующие дни, а цифра станет «на завтра».</p>
+          </section>
+            <section class="fin-card">
+              <h2 class="fin-h">Дни недели</h2>
+              <p class="fin-note" style="font-size: 13px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 2&nbsp;100&nbsp;₽</p>
+              <ol class="fin-days fin-days--rows">
+              <li class="fin-day is-statement"><b>Пн, 5 октября</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 октября</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-unknown"><b>Ср, 7 октября</b><span class="num">нет суммы</span><small>день прошёл — внесите</small></li>
+              <li class="fin-day is-today"><b>Чт, 8 октября · сегодня</b><span class="num">1 247,50 ₽</span><small>лимит на сегодня</small></li>
+              <li class="fin-day is-open"><b>Пт, 9 октября</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Сб, 10 октября</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              <li class="fin-day is-open"><b>Вс, 11 октября</b><span class="num">1 247,50 ₽</span><small>лимит дня</small></li>
+              </ol>
+            </section>
+          <section class="fin-card">
+            <h2 class="fin-h">Недели вперёд</h2>
+            <div>
+              <div class="fin-rule"><span><b>12–18 окт</b></span><b class="num">7 000 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Изменить</button></div>
+              <div class="fin-rule"><span><b>19–25 окт</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+              <div class="fin-rule" style="border: 0"><span><b>26 окт – 1 ноя</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+            </div>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+
+  </section>
+  <section class="pane">
+    <div class="pane-label"><b>Воскресенье, тёмная тема</b><span>390 · dark</span></div>
+    <div class="phone-stage"><div class="phone" data-theme="dark">
+      <div class="phone-frame">
+        <div class="app app--phone fin">
+          <div class="content"><div class="fin-col">
+            <div class="fin-head">
+              <h1 class="fin-title">Finance</h1>
+              <button class="fin-btn fin-btn--soft fin-btn--sm">5–11 окт ▾</button>
+            </div>
+            <nav class="fin-chips" aria-label="Разделы финансов"><a href="10-finance-overview.html">Обзор</a><a href="15-finance-budget.html" class="is-active" aria-current="page">Бюджет</a><a href="14-finance-categories.html">Категории</a></nav>
+          <section class="fin-card fin-card--hero">
+            <p class="fin-label">Неделя 5–11 октября закрыта: известны все 7 дней</p>
+            <p class="fin-big num" style="font-size: 44px; color: var(--fin-minus)">−180 ₽</p>
+            <p class="fin-note">Перерасход: бюджет 7 000 + перенос 90 − потрачено 7 270. Куда его деть — решаете вы; пока не решили, перенос в следующую неделю равен нулю.</p>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <div class="fin-field"><label for="tn-1">Минусом в 12–18 окт</label><input class="fin-input" id="tn-1" value="−180"></div>
+              <div class="fin-field"><label for="ts-1">Покрыть из копилки</label><input class="fin-input" id="ts-1" value="0"></div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn fin-btn--soft fin-btn--sm">Всё в следующую неделю</button><button class="fin-btn fin-btn--soft fin-btn--sm">Всё из копилки</button><button class="fin-btn fin-btn--soft fin-btn--sm">Пополам</button></div>
+            <button class="fin-btn fin-btn--lg fin-btn--block" style="align-self: flex-start">Распределить итог</button>
+            <p class="fin-note" style="font-size: 13px">Копилка в минус не уходит: покрыть можно не больше 14 600 ₽.</p>
+          </section>
+          <section class="fin-card fin-card--hero">
+            <h2 class="fin-h">Воскресенье, 11 октября</h2>
+            <p class="fin-mid num">380 ₽</p>
+            <p class="fin-note">Внесено вечером — последний день недели закрыт, итог готов к распределению.</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px"><button class="fin-btn fin-btn--soft">Исправить</button><button class="fin-btn fin-btn--ghost">Снять — день снова неизвестен</button></div>
+          </section>
+            <section class="fin-card">
+              <h2 class="fin-h">Дни недели</h2>
+              <p class="fin-note" style="font-size: 13px">Бюджет 7&nbsp;000&nbsp;₽ · перенос +90&nbsp;₽ · потрачено 7&nbsp;270&nbsp;₽</p>
+              <ol class="fin-days fin-days--rows">
+              <li class="fin-day is-statement"><b>Пн, 5 октября</b><span class="num">1 480 ₽</span><small>по выписке</small><em>вносили 1 200 — недосчитали 280</em></li>
+              <li class="fin-day is-statement"><b>Вт, 6 октября</b><span class="num">620 ₽</span><small>по выписке</small><em>вносили 650</em></li>
+              <li class="fin-day is-manual"><b>Ср, 7 октября</b><span class="num">2 150 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Чт, 8 октября</b><span class="num">980 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Пт, 9 октября</b><span class="num">540 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-manual"><b>Сб, 10 октября</b><span class="num">1 120 ₽</span><small>внесли вы</small></li>
+              <li class="fin-day is-today"><b>Вс, 11 октября · сегодня</b><span class="num">380 ₽</span><small>внесли вы</small></li>
+              </ol>
+            </section>
+          <section class="fin-card">
+            <h2 class="fin-h">Недели вперёд</h2>
+            <div>
+              <div class="fin-rule"><span><b>12–18 окт</b></span><b class="num">7 000 ₽</b><button class="fin-btn fin-btn--ghost fin-btn--sm">Изменить</button></div>
+              <div class="fin-rule"><span><b>19–25 окт</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+              <div class="fin-rule" style="border: 0"><span><b>26 окт – 1 ноя</b><br>бюджет не задан</span><button class="fin-btn fin-btn--soft fin-btn--sm">Задать</button></div>
+            </div>
+          </section>
+          </div></div>
+          <nav class="rail rail--phone">
+            <button class="tab"><div class="tab-icon">▦</div><div class="tab-text">Calendar</div></button>
+            <button class="tab"><div class="tab-icon">▤</div><div class="tab-text">English</div><span class="tab-dot"></span></button>
+            <button class="tab"><div class="tab-icon">▥</div><div class="tab-text">Calculus</div></button>
+            <button class="tab is-active"><div class="tab-icon">₽</div><div class="tab-text">Finance</div></button>
+            <div class="rail-sep"></div>
+            <button class="tab"><div class="tab-icon">⚙</div><div class="tab-text">Settings</div></button>
+            <div class="rail-sep"></div>
+            <button class="rail-action fin-fab" aria-label="Внести трату за день"><div class="tab-icon">＋</div><div class="tab-text">Трата</div></button>
+          </nav>
+        </div>
+      </div>
+    </div></div>
+    <p class="mark"><b>Покрыть перерасход из копилки на телефоне можно</b>: это часть распределения (§15.10), сама сумма копилки здесь не показана.</p>
+  </section>
+</div></div>
+
+<div class="tail"></div>
+</body>
+</html>
