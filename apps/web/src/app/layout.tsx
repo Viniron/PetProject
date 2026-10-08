@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { Shell } from "@/shell/Shell";
+import { СКРИПТ_ТЕМЫ } from "@/theme/theme";
 
 import "./globals.css";
 
@@ -17,13 +18,18 @@ export const metadata: Metadata = {
  * `next/font` не подключается намеренно: он качает файлы шрифта в сборку,
  * а сборка образа на плате обязана обходиться без похода наружу.
  *
- * Атрибута `data-theme` здесь нет: без него тема берётся из настройки
- * системы, и это поведение по умолчанию, утверждённое на этапе 0 дизайна.
- * Переключатель тем - экран настроек, его ещё нет.
+ * Тему ставит строка в `<head>` до первой отрисовки (§8.1, ADR-057):
+ * выбор хранится на устройстве, и сервер сборки его не знает. Поэтому
+ * `suppressHydrationWarning` - `data-theme` на `<html>` появляется
+ * в браузере, а не в разметке, и React не должен считать это рассинхроном.
+ * Подавление действует только на атрибуты самого `<html>`, не на дерево.
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: СКРИПТ_ТЕМЫ }} />
+      </head>
       <body>
         <Shell>{children}</Shell>
       </body>
