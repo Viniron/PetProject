@@ -1600,6 +1600,17 @@
               }
             ],
             "description": "Разбор после записи. null в dry-run: разбирать нечего"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryReportOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Резюме о расходах после записи (§15.9). null в dry-run"
           }
         },
         "required": [
@@ -2090,6 +2101,17 @@
             "title": "Incomplete",
             "type": "boolean"
           },
+          "latest_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Последнее резюме книжки - не обязательно этого месяца: оно о периоде с прошлой загрузки. null - резюме ещё не было"
+          },
           "timezone": {
             "description": "Зона owner, в которой посчитаны границы месяца",
             "title": "Timezone",
@@ -2103,7 +2125,8 @@
           "incomplete",
           "in_recalc_window",
           "accounts_marked",
-          "freshness"
+          "freshness",
+          "latest_summary"
         ],
         "title": "OverviewOut",
         "type": "object"
@@ -2442,6 +2465,101 @@
           "settled_at"
         ],
         "title": "SettlementOut",
+        "type": "object"
+      },
+      "SummaryOut": {
+        "description": "Резюме о расходах (§15.9): текст и период, о котором он.\n\nСнимок чисел (`basis`) в контракт не входит: экрану нечего с ним делать,\nа хранится он для того, чтобы прошлый текст можно было объяснить, когда\nгашение задним числом сдвинет сальдо (§15.5).",
+        "properties": {
+          "compared": {
+            "description": "Было с чем сравнивать. false - истории мало, и текст это называет",
+            "title": "Compared",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "period_from": {
+            "description": "Первый день периода в зоне owner",
+            "format": "date",
+            "title": "Period From",
+            "type": "string"
+          },
+          "period_to": {
+            "description": "Последний день периода, включительно",
+            "format": "date",
+            "title": "Period To",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_from",
+          "period_to",
+          "text",
+          "compared",
+          "created_at"
+        ],
+        "title": "SummaryOut",
+        "type": "object"
+      },
+      "SummaryReportOut": {
+        "description": "Резюме в записи импорта: текст или причина, по которой его нет.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель не дала резюме. Следующий импорт охватит и этот период",
+            "title": "Error"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "skipped": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Почему модель не звали - не отказ",
+            "title": "Skipped"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "null - резюме не получено"
+          }
+        },
+        "required": [
+          "summary",
+          "skipped",
+          "error",
+          "lines"
+        ],
+        "title": "SummaryReportOut",
         "type": "object"
       },
       "TransactionCardOut": {

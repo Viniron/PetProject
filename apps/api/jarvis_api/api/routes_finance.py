@@ -69,6 +69,8 @@ from jarvis_api.api.schemas_finance import (
     RulesOut,
     SettleIn,
     SettlementOut,
+    SummaryOut,
+    SummaryReportOut,
     TransactionCardOut,
     TransactionOut,
     TransactionPatchIn,
@@ -76,7 +78,7 @@ from jarvis_api.api.schemas_finance import (
     WeekBudgetIn,
 )
 from jarvis_api.config import Settings
-from jarvis_api.db.models import FinAccount, FinTransaction
+from jarvis_api.db.models import FinAccount, FinSummary, FinTransaction
 from jarvis_api.domain import (
     finance_budget,
     finance_edit,
@@ -97,6 +99,7 @@ from jarvis_api.domain.finance_edit import НЕ_ЗАДАНО, ОшибкаПра
 from jarvis_api.domain.finance_import import ПланИмпорта
 from jarvis_api.domain.finance_offsets import ОшибкаПривязки, привязать, разбивка, снять
 from jarvis_api.domain.finance_rules import ОшибкаПравила
+from jarvis_api.domain.finance_summary import день_окончания
 from jarvis_api.integrations import llm
 from jarvis_api.integrations.statements import StatementError
 from jarvis_api.jobs.common import owner_timezone
@@ -107,6 +110,8 @@ from jarvis_api.jobs.finance_import import разнести_поправки_и�
 from jarvis_api.jobs.finance_proposals import ОтчётПерехода
 from jarvis_api.jobs.finance_proposals import описать as описать_переход
 from jarvis_api.jobs.finance_proposals import перейти as перейти_месяц
+from jarvis_api.jobs.finance_summary import ОтчётРезюме, подвести, последнее
+from jarvis_api.jobs.finance_summary import описать as описать_резюме
 
 маршрутизатор = APIRouter(prefix="/api/finance", tags=["finance"])
 
@@ -213,6 +218,20 @@ def обзор_месяца(
         in_recalc_window=обзор.в_окне_пересчёта,
         accounts_marked=обзор.данные.отложено is not None,
         freshness=FreshnessOut.model_validate(свежесть),
+        latest_summary=_резюме(последнее(сессия), зона),
+    )
+
+
+def _резюме(строка: FinSummary | None, зона: ZoneInfo) -> SummaryOut | None:
+    """Строка `fin_summaries` - в контракт: период днями в зоне owner."""
+    if строка is None:
+        return None
+    return SummaryOut(
+        period_from=строка.period_start.astimezone(зона).date(),
+        period_to=день_окончания(строка.period_end, зона),
+        text=строка.text_ru,
+        compared=bool((строка.basis or {}).get("enough_history")),
+        created_at=строка.created_at,
     )
 
 
@@ -670,6 +689,8 @@ def импорт_выписок(
     зона = _зона(сессия)
     уже_в_заходе: set[str] = set()
     отчёты: list[ImportFileOut] = []
+    # Строки `fin_imports` этого захода: резюме (Ф11) - только по новым.
+    импорты: list[int] = []
 
     for файл in files:
         имя = файл.filename or "без имени"
@@ -680,6 +701,8 @@ def импорт_выписок(
             сессия.rollback()
             отчёты.append(_пустой_отчёт(имя, str(сбой)))
             continue
+        if отчёт.импорт_id is not None:
+            импорты.append(отчёт.импорт_id)
 
         добавятся, изменятся, отменятся = _строки_плана(сессия, отчёт.план)
         отчёты.append(
@@ -710,6 +733,7 @@ def импорт_выписок(
 
     разбор = None
     переход = None
+    резюме = None
     поправлены: list[dt.date] = []
     if apply and any(отчёт.error is None for отчёт in отчёты):
         # Переход месяца - до разбора (Ф10): месяц, впервые пришедший
@@ -728,6 +752,20 @@ def импорт_выписок(
         # и сами траты, и поправка по неразобранным строкам была бы не та.
         поправлены = импорт_поправок(сессия, момент, зона)
         сессия.commit()
+        # Резюме - последним и своей транзакцией (Ф11): ему нужны категории,
+        # а его отказ не должен откатывать записанный разбор.
+        резюме = _отчёт_резюме(
+            подвести(
+                сессия,
+                короткие_настройки(настройки),
+                импорты=импорты,
+                адаптеры=адаптеры,
+                сейчас=момент,
+                зона=зона,
+            ),
+            зона,
+        )
+        сессия.commit()
 
     return ImportOut(
         applied=apply,
@@ -736,6 +774,17 @@ def импорт_выписок(
         recategorized=разбор,
         month_transition=переход,
         corrected_weeks=поправлены,
+        summary=резюме,
+    )
+
+
+def _отчёт_резюме(отчёт: ОтчётРезюме, зона: ZoneInfo) -> SummaryReportOut:
+    """Резюме записи - тем же диффом, что печатает команда импорта."""
+    return SummaryReportOut(
+        summary=_резюме(отчёт.строка, зона),
+        skipped=отчёт.пропуск,
+        error=отчёт.отказ,
+        lines=описать_резюме(отчёт),
     )
 
 

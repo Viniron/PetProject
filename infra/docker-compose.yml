@@ -139,6 +139,9 @@ services:
       # Предложение набора категорий (Ф10): глубина истории и число мерчантов.
       FINANCE_PROPOSAL_HISTORY_MONTHS: ${FINANCE_PROPOSAL_HISTORY_MONTHS:-}
       FINANCE_PROPOSAL_MERCHANTS: ${FINANCE_PROPOSAL_MERCHANTS:-}
+      # Резюме о расходах (Ф11): окно «среднего» и порог истории.
+      FINANCE_SUMMARY_HISTORY_WEEKS: ${FINANCE_SUMMARY_HISTORY_WEEKS:-}
+      FINANCE_SUMMARY_MIN_HISTORY_WEEKS: ${FINANCE_SUMMARY_MIN_HISTORY_WEEKS:-}
     # Запас на остановку. Планировщик останавливается без ожидания текущего
     # прогона, но рабочие потоки интерпретатор джойнит на выходе, а прогон -
     # это десятки записей в чужой календарь. Умолчания в 10 секунд не хватает,
